@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Logo Samples</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f4f4f5; font-family: system-ui, sans-serif; padding: 40px; }
+  h1 { font-size: 14px; color: #71717a; margin-bottom: 32px; letter-spacing: .05em; text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px; }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 32px 28px 24px;
+    display: flex; flex-direction: column; gap: 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .card-dark {
+    background: #18181b;
+  }
+  .row { display: flex; align-items: center; gap: 16px; }
+  .label { font-size: 11px; color: #a1a1aa; margin-top: 4px; }
+  .divider { width: 100%; height: 1px; background: #f1f5f9; }
+  .card-dark .divider { background: #27272a; }
+  .tag { font-size: 11px; color: #71717a; background: #f4f4f5; padding: 2px 8px; border-radius: 99px; }
+  .card-dark .tag { background: #27272a; color: #a1a1aa; }
+</style>
+</head>
+<body>
+<h1>Logo Shape Samples — Rounded Rectangle</h1>
+<div class="grid">
+
+  <!-- SAMPLE A: 솔리드 그라데이션 fill, 심플 -->
+  <div class="card">
+    <div style="font-size:11px;color:#a1a1aa;font-weight:600;letter-spacing:.04em">A — Solid Gradient</div>
+    <div class="row">
+      <!-- sm -->
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="a-sm" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="16" height="16" rx="4.5" fill="url(#a-sm)"/>
+        <text x="2.5" y="12" font-family="system-ui" font-size="10" font-weight="700" fill="white">U</text>
+      </svg>
+      <!-- md -->
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="a-md" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#a-md)"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+      <!-- lg -->
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="a-lg" x1="0" y1="0" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="30" height="30" rx="9" fill="url(#a-lg)"/>
+        <text x="4.5" y="22" font-family="system-ui" font-size="19" font-weight="700" fill="white">U</text>
+      </svg>
+    </div>
+    <!-- with text -->
+    <div>
+      <svg width="110" height="22" viewBox="0 0 110 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="a-t" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#a-t)"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#18181b">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label">sm / md / lg + 텍스트 조합</div>
+    </div>
+    <div class="tag">radius = width×0.3</div>
+  </div>
+
+  <!-- SAMPLE B: 하이라이트 코너 + 유리느낌 -->
+  <div class="card">
+    <div style="font-size:11px;color:#a1a1aa;font-weight:600;letter-spacing:.04em">B — Glass / Highlight Corner</div>
+    <div class="row">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <defs>
+          <linearGradient id="b-sm" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#22d3ee"/>
+            <stop offset="100%" stop-color="#0891b2"/>
+          </linearGradient>
+        </defs>
+        <rect width="16" height="16" rx="4.5" fill="url(#b-sm)"/>
+        <rect x="1" y="1" width="8" height="5" rx="2" fill="white" opacity="0.2"/>
+        <text x="2.5" y="12" font-family="system-ui" font-size="10" font-weight="700" fill="white">U</text>
+      </svg>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <defs>
+          <linearGradient id="b-md" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#22d3ee"/>
+            <stop offset="100%" stop-color="#0891b2"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#b-md)"/>
+        <rect x="1.5" y="1.5" width="11" height="7" rx="3" fill="white" opacity="0.18"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <defs>
+          <linearGradient id="b-lg" x1="0" y1="0" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#22d3ee"/>
+            <stop offset="100%" stop-color="#0891b2"/>
+          </linearGradient>
+        </defs>
+        <rect width="30" height="30" rx="9" fill="url(#b-lg)"/>
+        <rect x="2" y="2" width="15" height="9" rx="4" fill="white" opacity="0.18"/>
+        <text x="4.5" y="22" font-family="system-ui" font-size="19" font-weight="700" fill="white">U</text>
+      </svg>
+    </div>
+    <div>
+      <svg width="110" height="22" viewBox="0 0 110 22" fill="none">
+        <defs>
+          <linearGradient id="b-t" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#22d3ee"/>
+            <stop offset="100%" stop-color="#0891b2"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#b-t)"/>
+        <rect x="1.5" y="1.5" width="11" height="7" rx="3" fill="white" opacity="0.18"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#18181b">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label">상단 하이라이트 렌즈 효과</div>
+    </div>
+    <div class="tag">cyan → sky gradient</div>
+  </div>
+
+  <!-- SAMPLE C: 대각선 스트라이프 (증권 느낌) -->
+  <div class="card">
+    <div style="font-size:11px;color:#a1a1aa;font-weight:600;letter-spacing:.04em">C — Diagonal Split</div>
+    <div class="row">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect width="16" height="16" rx="4.5" fill="#18181b"/>
+        <clipPath id="c-sm-clip"><rect width="16" height="16" rx="4.5"/></clipPath>
+        <polygon points="16,0 16,16 0,16" fill="#3f3f46" clip-path="url(#c-sm-clip)"/>
+        <text x="2.5" y="12" font-family="system-ui" font-size="10" font-weight="700" fill="white">U</text>
+      </svg>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect width="22" height="22" rx="6.5" fill="#18181b"/>
+        <clipPath id="c-md-clip"><rect width="22" height="22" rx="6.5"/></clipPath>
+        <polygon points="22,0 22,22 0,22" fill="#3f3f46" clip-path="url(#c-md-clip)"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <rect width="30" height="30" rx="9" fill="#18181b"/>
+        <clipPath id="c-lg-clip"><rect width="30" height="30" rx="9"/></clipPath>
+        <polygon points="30,0 30,30 0,30" fill="#3f3f46" clip-path="url(#c-lg-clip)"/>
+        <text x="4.5" y="22" font-family="system-ui" font-size="19" font-weight="700" fill="white">U</text>
+      </svg>
+    </div>
+    <div>
+      <svg width="110" height="22" viewBox="0 0 110 22" fill="none">
+        <rect width="22" height="22" rx="6.5" fill="#18181b"/>
+        <clipPath id="c-t-clip"><rect width="22" height="22" rx="6.5"/></clipPath>
+        <polygon points="22,0 22,22 0,22" fill="#3f3f46" clip-path="url(#c-t-clip)"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#18181b">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label">다크 베이스 + 대각 분할</div>
+    </div>
+    <div class="tag">dark zinc split</div>
+  </div>
+
+  <!-- SAMPLE D: 아웃라인 only + 내부 accent dot -->
+  <div class="card">
+    <div style="font-size:11px;color:#a1a1aa;font-weight:600;letter-spacing:.04em">D — Outline + Accent Dot</div>
+    <div class="row">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="0.75" y="0.75" width="14.5" height="14.5" rx="4" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+        <circle cx="11.5" cy="4.5" r="2.5" fill="#f59e0b"/>
+        <text x="2.2" y="12" font-family="system-ui" font-size="10" font-weight="700" fill="#18181b">U</text>
+      </svg>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="1" y="1" width="20" height="20" rx="6" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+        <circle cx="16" cy="6" r="3.5" fill="#f59e0b"/>
+        <text x="3" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="#18181b">U</text>
+      </svg>
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <rect x="1" y="1" width="28" height="28" rx="8.5" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+        <circle cx="22" cy="8" r="4.5" fill="#f59e0b"/>
+        <text x="4" y="22" font-family="system-ui" font-size="19" font-weight="700" fill="#18181b">U</text>
+      </svg>
+    </div>
+    <div>
+      <svg width="110" height="22" viewBox="0 0 110 22" fill="none">
+        <rect x="1" y="1" width="20" height="20" rx="6" fill="none" stroke="#6366f1" stroke-width="1.5"/>
+        <circle cx="16" cy="6" r="3.5" fill="#f59e0b"/>
+        <text x="3" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="#18181b">U</text>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#18181b">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label">스트로크 + 우상단 amber 포인트</div>
+    </div>
+    <div class="tag">outline + dot accent</div>
+  </div>
+
+  <!-- SAMPLE E: 그라데이션 fill + 차트 미니 라인 내장 -->
+  <div class="card">
+    <div style="font-size:11px;color:#a1a1aa;font-weight:600;letter-spacing:.04em">E — Fill + Mini Trend Line</div>
+    <div class="row">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <defs>
+          <linearGradient id="e-sm" x1="0" y1="0" x2="16" y2="16" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#059669"/>
+          </linearGradient>
+        </defs>
+        <rect width="16" height="16" rx="4.5" fill="url(#e-sm)"/>
+        <polyline points="2,12 5,8 8,10 11,5 14,7" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+      </svg>
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <defs>
+          <linearGradient id="e-md" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#059669"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#e-md)"/>
+        <polyline points="3,17 7,11 11,14 15,7 19,10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      </svg>
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+        <defs>
+          <linearGradient id="e-lg" x1="0" y1="0" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#059669"/>
+          </linearGradient>
+        </defs>
+        <rect width="30" height="30" rx="9" fill="url(#e-lg)"/>
+        <polyline points="4,24 9,16 15,19 21,10 26,13" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      </svg>
+    </div>
+    <div>
+      <svg width="120" height="22" viewBox="0 0 120 22" fill="none">
+        <defs>
+          <linearGradient id="e-t" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#059669"/>
+          </linearGradient>
+        </defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#e-t)"/>
+        <polyline points="3,17 7,11 11,14 15,7 19,10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#18181b">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label">미니 차트 라인 내장 (주식 대시보드 느낌)</div>
+    </div>
+    <div class="tag">emerald + trend polyline</div>
+  </div>
+
+  <!-- DARK MODE PREVIEW -->
+  <div class="card card-dark">
+    <div style="font-size:11px;color:#52525b;font-weight:600;letter-spacing:.04em">Dark Mode Preview</div>
+    <div class="row">
+      <!-- A dark -->
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <defs><linearGradient id="da" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#818cf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#da)"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+      <!-- B dark -->
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <defs><linearGradient id="db" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0ea5e9"/></linearGradient></defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#db)"/>
+        <rect x="1.5" y="1.5" width="11" height="7" rx="3" fill="white" opacity="0.18"/>
+        <text x="3.5" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+      <!-- E dark -->
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <defs><linearGradient id="de" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#de)"/>
+        <polyline points="3,17 7,11 11,14 15,7 19,10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      </svg>
+      <!-- D dark -->
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="1" y="1" width="20" height="20" rx="6" fill="none" stroke="#818cf8" stroke-width="1.5"/>
+        <circle cx="16" cy="6" r="3.5" fill="#f59e0b"/>
+        <text x="3" y="16.5" font-family="system-ui" font-size="13.5" font-weight="700" fill="white">U</text>
+      </svg>
+    </div>
+    <div>
+      <!-- E dark + text -->
+      <svg width="120" height="22" viewBox="0 0 120 22" fill="none">
+        <defs><linearGradient id="det" x1="0" y1="0" x2="22" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#10b981"/></linearGradient></defs>
+        <rect width="22" height="22" rx="6.5" fill="url(#det)"/>
+        <polyline points="3,17 7,11 11,14 15,7 19,10" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+        <text x="29" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="white">UT</text>
+        <text x="51" y="16.5" font-family="system-ui" font-size="14" font-weight="700" fill="#f59e0b">.</text>
+        <text x="56" y="16.5" font-family="system-ui" font-size="14" font-weight="300" fill="#71717a">Lab</text>
+      </svg>
+      <div class="label" style="color:#52525b">다크모드 색감 미리보기</div>
+    </div>
+    <div class="tag">A / B / E / D 순</div>
+  </div>
+
+</div>
+</body>
+</html>

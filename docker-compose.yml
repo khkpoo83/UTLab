@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    mem_limit: 1024m
+    volumes:
+      - /data/utlab:/app/data
+      - /home/ec2-user/Dev/Stock/65938259_secretkey.tar:/app/secrets/keys.tar:ro
+    env_file: .env
+    # 포트 외부 노출 없음 — nginx가 Docker 내부망(http://backend:8000)으로 직접 접근
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    mem_limit: 256m
+    ports:
+      - "7432:80"   # 비기본 포트 — EC2 보안그룹으로 접근 IP 제한 권장
+    depends_on:
+      - backend
+    restart: unless-stopped
