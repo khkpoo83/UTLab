@@ -21,21 +21,20 @@ import {
 } from '../components/WeatherWidget'
 import { FormInput } from '../components/FormField'
 import { OverlayStyle, OVERLAY_OPTIONS, loadOverlayStyle, applyOverlayStyle } from '../utils/overlay'
+import {
+  resolveProfileIcon, getProfileIconNode,
+  applySeasonTheme, loadPnlColorConfig, applyPnlColors, PnlColorConfig,
+  applyUiRadius, getUiRadius, UiRadius, getCardOpacity, applyCardOpacity,
+} from '../utils/settings-utils'
+
+// Re-export for backward compat (외부에서 Settings를 직접 import하는 경우 대비)
+export type { PnlColorConfig, UiRadius }
+export {
+  getProfileIconNode, applySeasonTheme, loadPnlColorConfig, applyPnlColors,
+  applyUiRadius, getUiRadius, getCardOpacity, applyCardOpacity,
+}
 
 // ── 프로필 아이콘 픽커 ────────────────────────────────────────────────────────
-
-const VALID_PROFILE_ICONS = new Set([
-  'person','technologist','scientist','teacher','cook',
-  'mechanic','pilot','artist','astronaut','farmer','firefighter','judge',
-])
-
-const LEGACY_ICON_MAP: Record<string, string> = {
-  user: 'person', briefcase: 'farmer', code: 'technologist', graduate: 'teacher',
-  health: 'scientist', building: 'farmer', chef: 'cook', rocket: 'astronaut',
-  lightbulb: 'artist', chart: 'farmer', home: 'person', piggybank: 'farmer',
-  shield: 'judge', star: 'person', compass: 'pilot', globe: 'pilot',
-  book: 'teacher', sparkles: 'artist',
-}
 
 const PROFILE_ICON_LIST: { id: string; label: string }[] = [
   { id: 'person',       label: '기본'     },
@@ -53,7 +52,7 @@ const PROFILE_ICON_LIST: { id: string; label: string }[] = [
 ]
 
 function ProfileIconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const resolved = VALID_PROFILE_ICONS.has(value) ? value : (LEGACY_ICON_MAP[value] ?? 'person')
+  const resolved = resolveProfileIcon(value)
   return (
     <div className="grid grid-cols-6 gap-2">
       {PROFILE_ICON_LIST.map(({ id, label }) => (
@@ -76,18 +75,6 @@ function ProfileIconPicker({ value, onChange }: { value: string; onChange: (id: 
   )
 }
 
-/** 아이콘 ID → ReactNode 반환 (헤더 등 외부 사용) */
-export function getProfileIconNode(id: string, size = 16): React.ReactNode {
-  const resolved = VALID_PROFILE_ICONS.has(id) ? id : (LEGACY_ICON_MAP[id] ?? 'person')
-  return (
-    <img
-      src={`/profile-icons/${resolved}.png`}
-      width={size} height={size}
-      alt=""
-      style={{ objectFit: 'contain', display: 'block', flexShrink: 0 }}
-    />
-  )
-}
 
 // ── 로고 아이콘 피커 ──────────────────────────────────────────────────────────
 
@@ -211,16 +198,6 @@ const SEASONS: { id: Season; label: string; emoji: string; accent: string }[] = 
   { id: 'mono',    label: '흑백',   emoji: '🖤',  accent: '#52525b' },
 ]
 
-export function applySeasonTheme(season: Season) {
-  const el = document.documentElement
-  if (season === 'default') {
-    el.removeAttribute('data-season')
-  } else {
-    el.setAttribute('data-season', season)
-  }
-  localStorage.setItem('season', season)
-}
-
 function SeasonThemePicker({ value, onChange }: { value: Season; onChange: (s: Season) => void }) {
   return (
     <div>
@@ -256,42 +233,6 @@ const PNL_PRESETS = [
   { id: 'warm',      label: '주황/보라', upLight: '#f97316', downLight: '#8b5cf6', upDark: '#fb923c', downDark: '#a78bfa' },
   { id: 'custom',    label: '직접선택', upLight: '', downLight: '', upDark: '', downDark: '' },
 ] as const
-type PnlPreset = typeof PNL_PRESETS[number]['id']
-
-export interface PnlColorConfig {
-  preset: PnlPreset
-  upLight: string
-  downLight: string
-  upDark: string
-  downDark: string
-}
-
-const DEFAULT_PNL_CONFIG: PnlColorConfig = {
-  preset: 'default',
-  upLight: '#F0507A', downLight: '#1A9EFF',
-  upDark: '#FF7A97',  downDark: '#4DBFFF',
-}
-
-export function loadPnlColorConfig(): PnlColorConfig {
-  try {
-    const raw = localStorage.getItem('pnl_color_config')
-    if (raw) return { ...DEFAULT_PNL_CONFIG, ...JSON.parse(raw) }
-  } catch {}
-  return { ...DEFAULT_PNL_CONFIG }
-}
-
-export function applyPnlColors(cfg: PnlColorConfig) {
-  const el = document.documentElement
-  const isDark = el.classList.contains('dark')
-  el.style.setProperty('--c-up',   isDark ? cfg.upDark   : cfg.upLight)
-  el.style.setProperty('--c-down', isDark ? cfg.downDark : cfg.downLight)
-  // dark/light 전환 시에도 올바른 색이 나오도록 data attribute에 저장
-  el.setAttribute('data-pnl-up-light',   cfg.upLight)
-  el.setAttribute('data-pnl-down-light', cfg.downLight)
-  el.setAttribute('data-pnl-up-dark',    cfg.upDark)
-  el.setAttribute('data-pnl-down-dark',  cfg.downDark)
-  localStorage.setItem('pnl_color_config', JSON.stringify(cfg))
-}
 
 function PnlColorPicker({ value, onChange }: { value: PnlColorConfig; onChange: (c: PnlColorConfig) => void }) {
   const isCustom = value.preset === 'custom'
@@ -711,8 +652,6 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
 
 // ── UI 라디우스 ───────────────────────────────────────────────────────────────
 
-export type UiRadius = 'none' | 'sm' | 'md' | 'lg' | 'xl'
-
 const RADIUS_OPTIONS: { id: UiRadius; label: string; value: string; desc: string }[] = [
   { id: 'none', label: '각진',  value: '0rem',    desc: '0px' },
   { id: 'sm',   label: '약간',  value: '0.25rem', desc: '4px' },
@@ -720,25 +659,6 @@ const RADIUS_OPTIONS: { id: UiRadius; label: string; value: string; desc: string
   { id: 'lg',   label: '기본',  value: '0.75rem', desc: '12px' },
   { id: 'xl',   label: '둥글',  value: '1.25rem', desc: '20px' },
 ]
-
-export function getUiRadius(): UiRadius {
-  return (localStorage.getItem('ui_radius') as UiRadius) ?? 'lg'
-}
-
-export function applyUiRadius(r: UiRadius) {
-  const opt = RADIUS_OPTIONS.find(o => o.id === r) ?? RADIUS_OPTIONS[3]
-  document.documentElement.style.setProperty('--ui-radius', opt.value)
-  localStorage.setItem('ui_radius', r)
-}
-
-export function getCardOpacity(): number {
-  return parseFloat(localStorage.getItem('card_opacity') ?? '1')
-}
-
-export function applyCardOpacity(v: number) {
-  document.documentElement.style.setProperty('--card-opacity', String(v))
-  localStorage.setItem('card_opacity', String(v))
-}
 
 function RadiusPicker({ value, onChange }: { value: UiRadius; onChange: (r: UiRadius) => void }) {
   const handleChange = (r: UiRadius) => {

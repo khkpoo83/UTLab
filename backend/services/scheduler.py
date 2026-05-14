@@ -441,6 +441,8 @@ def start_scheduler(
     index_interval_minutes: int = 15,
     news_interval_minutes: int = 60,
 ) -> None:
+    # 재시작 시 모든 interval 작업이 동시에 실행되는 것을 막기 위해 첫 실행 시각을 분산
+    now = datetime.utcnow()
     scheduler.add_job(
         job_fetch_stock_prices,
         IntervalTrigger(minutes=stock_interval_minutes),
@@ -448,6 +450,7 @@ def start_scheduler(
         replace_existing=True,
         misfire_grace_time=60,
         max_instances=1,
+        next_run_time=now + timedelta(minutes=2),
     )
     scheduler.add_job(
         job_fetch_market_indices,
@@ -456,6 +459,7 @@ def start_scheduler(
         replace_existing=True,
         misfire_grace_time=60,
         max_instances=1,
+        next_run_time=now + timedelta(minutes=4),
     )
     # 뉴스 수집: IntervalTrigger로 매 news_interval_minutes마다 실행
     # 실제 수집 여부는 job_fetch_news() 내부에서 news_schedule 기반으로 판단
@@ -466,6 +470,7 @@ def start_scheduler(
         replace_existing=True,
         misfire_grace_time=600,
         max_instances=1,
+        next_run_time=now + timedelta(minutes=10),
     )
     # ── AI 추천 단계별 분리 ── 기본 스케줄로 등록 (설정 로드 후 재조정됨)
     from routers.settings import DEFAULT_SETTINGS
@@ -539,6 +544,7 @@ def start_scheduler(
         replace_existing=True,
         misfire_grace_time=300,
         max_instances=1,
+        next_run_time=now + timedelta(minutes=6),
     )
     # Push 채널 4시간마다 갱신 체크 (채널 만료 2시간 전 갱신)
     scheduler.add_job(
@@ -548,6 +554,7 @@ def start_scheduler(
         replace_existing=True,
         misfire_grace_time=600,
         max_instances=1,
+        next_run_time=now + timedelta(minutes=8),
     )
     scheduler.start()
     logger.info("Scheduler started")

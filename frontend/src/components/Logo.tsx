@@ -180,7 +180,7 @@ const NwIndigo: React.FC<NI> = ({ size = 44 }) => {
       fontFamily: '"SF Pro Display","Pretendard Variable",system-ui,sans-serif',
       overflow: 'hidden',
     }}>
-      <span style={{ fontWeight: 800, fontSize: size * 0.52, color: '#fff', letterSpacing: '-0.07em', lineHeight: 1 }}>UT</span>
+      <span style={{ fontWeight: 800, fontSize: size * 0.44, color: '#fff', letterSpacing: '-0.05em', lineHeight: 1 }}>U<span style={{ color: 'rgba(255,200,80,0.95)' }}>.</span>T</span>
     </div>
   )
 }
@@ -230,7 +230,7 @@ const NwBrutalist: React.FC<NI> = ({ size = 44 }) => {
     }}>
       <div style={{ position: 'absolute', left: size*0.08, top: size*0.08, right: size*0.08, bottom: size*0.08, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <div style={{ fontWeight: 900, fontSize: size*0.34, color: '#0b0a09', letterSpacing: '-0.075em', lineHeight: 0.84, transform: 'scaleX(0.92)', transformOrigin: 'left top' }}>
-          UT.<br />LAB
+          U.T<br />LAB4
         </div>
         <div style={{ display: 'flex', gap: size*0.018, alignItems: 'flex-end' }}>
           <div style={{ width: size*0.04, height: size*0.18, background: '#0b0a09' }} />
@@ -288,7 +288,7 @@ const NwCube: React.FC<NI> = ({ size = 44 }) => {
         <path d="M50 18 L78 32 L50 46 L22 32 Z" fill="#7686ff" />
         <path d="M22 32 L22 66 L50 80 L50 46 Z" fill="#3d44c4" />
         <path d="M78 32 L78 66 L50 80 L50 46 Z" fill="#5764e0" />
-        <text x="60" y="64" fontSize="11" fontFamily='"SF Pro Display",sans-serif' fontWeight="800" fill="#fff" letterSpacing="-0.5" transform="skewY(-13)">UT</text>
+        <text x="52" y="64" fontSize="10" fontFamily='"SF Pro Display",sans-serif' fontWeight="800" fill="#fff" letterSpacing="-0.3" transform="skewY(-13)">U.T</text>
       </svg>
     </div>
   )
@@ -307,7 +307,7 @@ const NwParticle: React.FC<NI> = ({ size = 44 }) => {
           </pattern>
           <mask id={`mask-${id}`}>
             <rect width="100" height="100" fill="black" />
-            <text x="50" y="62" fontSize="44" fontFamily='"SF Pro Display",sans-serif' fontWeight="900" textAnchor="middle" fill="white" letterSpacing="-2.5">U.T</text>
+            <text x="50" y="62" fontSize="38" fontFamily='"SF Pro Display",sans-serif' fontWeight="900" textAnchor="middle" fill="white" letterSpacing="-2">U.T</text>
           </mask>
         </defs>
         <rect width="100" height="100" fill={`url(#pat-${id})`} mask={`url(#mask-${id})`} />
@@ -342,7 +342,7 @@ const NwStack: React.FC<NI> = ({ size = 44 }) => {
         <rect x="22" y="36" width="56" height="48" rx="6" fill="#ccc1a4" />
         <rect x="26" y="30" width="56" height="48" rx="6" fill="#a18d61" />
         <rect x="30" y="20" width="56" height="50" rx="6" fill="#15110a" />
-        <text x="58" y="51" fontSize="22" fontFamily='"SF Pro Display",sans-serif' fontWeight="900" textAnchor="middle" fill="#f3ead3" letterSpacing="-1.2">UT</text>
+        <text x="58" y="51" fontSize="19" fontFamily='"SF Pro Display",sans-serif' fontWeight="900" textAnchor="middle" fill="#f3ead3" letterSpacing="-0.8">U.T</text>
         <circle cx="46" cy="52" r="1.8" fill="#f97316" />
       </svg>
     </div>
@@ -401,9 +401,9 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
       filter: pngOpt.filter === 'none' ? undefined : pngOpt.filter,
       borderRadius: '18%', objectFit: 'cover', flexShrink: 0,
     }
-    if (iconOnly) return <img src={pngSrc(pngOpt.src)} alt="UT.Lab" style={imgStyle} className={className} onError={handleImgError} />
+    if (iconOnly) return <img src={pngSrc(pngOpt.src)} alt="U.T Lab4" style={imgStyle} className={className} onError={handleImgError} />
     return (
-      <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="UT.Lab">
+      <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="U.T Lab4">
         <img src={pngSrc(pngOpt.src)} alt="" style={imgStyle} onError={handleImgError} />
         <LogoWordmark fs={fs} ih={ih} />
       </div>
@@ -416,7 +416,7 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
     const IconComp = newDef?.Component ?? NwIndigo
     if (iconOnly) return <div className={className}><IconComp size={ih} /></div>
     return (
-      <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="UT.Lab">
+      <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="U.T Lab4">
         <IconComp size={ih} />
         <LogoWordmark fs={fs} ih={ih} />
       </div>
@@ -425,30 +425,32 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
 
   // ── 기존 SVG 아이콘 ──────────────────────────────────────────────────────
   const oldStyle = style as LogoIconStyle
-  const utW = { sm: 16, md: 20, lg: 27 }[size]
-  const dotW = { sm: 4,  md: 5,  lg: 7  }[size]
-  const labW = { sm: 22, md: 27, lg: 37 }[size]
+  const uW   = { sm: 9,  md: 11, lg: 15 }[size]   // "U"
+  const dotW = { sm: 4,  md: 5,  lg: 7  }[size]   // "."
+  const tW   = { sm: 9,  md: 11, lg: 15 }[size]   // "T"
+  const lab4W = { sm: 28, md: 34, lg: 46 }[size]  // " Lab4"
   const baseY = ih * 0.77
 
   if (iconOnly) {
     return (
       <svg width={ih} height={ih} viewBox={`0 0 ${ih} ${ih}`} fill="none"
-        xmlns="http://www.w3.org/2000/svg" className={className} aria-label="UT.Lab">
+        xmlns="http://www.w3.org/2000/svg" className={className} aria-label="U.T Lab4">
         <LogoIcon ih={ih} uid={uid} style={oldStyle} />
       </svg>
     )
   }
 
   const textX = ih + gap
-  const totalW = Math.ceil(textX + utW + dotW + labW + 2)
+  const totalW = Math.ceil(textX + uW + dotW + tW + lab4W + 2)
 
   return (
     <svg width={totalW} height={ih} viewBox={`0 0 ${totalW} ${ih}`} fill="none"
-      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="UT.Lab">
+      xmlns="http://www.w3.org/2000/svg" className={className} aria-label="U.T Lab4">
       <LogoIcon ih={ih} uid={uid} style={oldStyle} />
-      <text x={textX} y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="currentColor">UT</text>
-      <text x={textX + utW} y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="#F59E0B">.</text>
-      <text x={textX + utW + dotW} y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="300" fill="currentColor" opacity="0.7">Lab</text>
+      <text x={textX}                         y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="currentColor">U</text>
+      <text x={textX + uW}                    y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="#F59E0B">.</text>
+      <text x={textX + uW + dotW}             y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="currentColor">T</text>
+      <text x={textX + uW + dotW + tW}        y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="300" fill="currentColor" opacity="0.7"> Lab</text>
     </svg>
   )
 }
@@ -457,7 +459,7 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
 function LogoWordmark({ fs }: { fs: number; ih?: number }) {
   return (
     <span style={{ fontSize: fs, fontWeight: 700, letterSpacing: '-0.025em', color: 'inherit', lineHeight: 1, fontFamily: 'Pretendard,system-ui,sans-serif' }}>
-      UT<span style={{ color: '#F59E0B' }}>.</span><span style={{ fontWeight: 300, opacity: 0.72 }}>Lab</span>
+      U<span style={{ color: '#F59E0B' }}>.</span>T<span style={{ fontWeight: 300, opacity: 0.72 }}> Lab</span>
     </span>
   )
 }

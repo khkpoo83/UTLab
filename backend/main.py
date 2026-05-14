@@ -45,7 +45,7 @@ settings = Settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting UT.Lab backend...")
+    logger.info("Starting U.T Lab4 backend...")
 
     await init_db()
     logger.info("Database initialized")
@@ -210,7 +210,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    logger.info("Shutting down UT.Lab backend...")
+    logger.info("Shutting down U.T Lab4 backend...")
     from services.scheduler import stop_scheduler
     stop_scheduler()
     from services.ollama_service import stop_worker  # noqa: F401 (queue wrapper)
@@ -218,7 +218,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="UT.Lab API",
+    title="U.T Lab4 API",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -234,6 +234,7 @@ from routers import profile as profile_router
 from routers import calendar as calendar_router
 from routers import diary as diary_router
 from routers import photos as photos_router
+from routers import blog as blog_router
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
@@ -248,11 +249,12 @@ app.include_router(profile_router.router, prefix="/api")
 app.include_router(calendar_router.router, prefix="/api")
 app.include_router(diary_router.router, prefix="/api")
 app.include_router(photos_router.router)
+app.include_router(blog_router.router)
 
 
 @app.get("/api/health")
 async def health_check() -> dict:
-    return {"status": "ok", "service": "UT.Lab"}
+    return {"status": "ok", "service": "U.T Lab4"}
 
 
 @app.get("/api/indices")

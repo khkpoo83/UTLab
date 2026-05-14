@@ -1,25 +1,41 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { loadBgConfig, applyBackground, saveBgConfig } from './utils/background'
-import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, getCardOpacity, applyCardOpacity } from './pages/Settings'
+import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, getCardOpacity, applyCardOpacity } from './utils/settings-utils'
 import { setLogoIconStyle } from './components/Logo'
 import { loadOverlayStyle, applyOverlayStyle } from './utils/overlay'
 import apiClient from './api/client'
-import Login from './pages/Login'
-import Home from './pages/Home'
-import Portfolio from './pages/Portfolio'
-import News from './pages/News'
-import Recommend from './pages/Recommend'
-import Settings from './pages/Settings'
-import Planner from './pages/Planner'
-import Analytics from './pages/Analytics'
-import Watchlist from './pages/Watchlist'
-import CalendarPage from './pages/Calendar'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { TopBar } from './components/TopBar'
 import { SidebarNav, SidebarToggle } from './components/SidebarNav'
 import { HomeFavContext, NavModeContext } from './contexts'
 import { ALL_ROUTES } from './nav'
+
+const SpatialHub      = React.lazy(() => import('./pages/SpatialHub'))
+const Login           = React.lazy(() => import('./pages/Login'))
+const Home            = React.lazy(() => import('./pages/Home'))
+const Portfolio       = React.lazy(() => import('./pages/Portfolio'))
+const News            = React.lazy(() => import('./pages/News'))
+const Recommend       = React.lazy(() => import('./pages/Recommend'))
+const Settings        = React.lazy(() => import('./pages/Settings'))
+const Planner         = React.lazy(() => import('./pages/Planner'))
+const Analytics       = React.lazy(() => import('./pages/Analytics'))
+const Watchlist       = React.lazy(() => import('./pages/Watchlist'))
+const CalendarPage    = React.lazy(() => import('./pages/Calendar'))
+const Blog            = React.lazy(() => import('./pages/Blog'))
+const BlogWrite       = React.lazy(() => import('./pages/BlogWrite'))
+const BlogDetail      = React.lazy(() => import('./pages/BlogDetail'))
+const PublicBlog      = React.lazy(() => import('./pages/PublicBlog'))
+const PublicBlogDetail = React.lazy(() => import('./pages/PublicBlogDetail'))
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[300px]">
+      <div className="w-6 h-6 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+    </div>
+  )
+}
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('token')
@@ -85,18 +101,26 @@ function ScrollButtons() {
 }
 
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/home"      element={<Home />} />
-    <Route path="/portfolio" element={<Portfolio />} />
-    <Route path="/planner"   element={<Planner />} />
-    <Route path="/news"      element={<News />} />
-    <Route path="/recommend" element={<Recommend />} />
-    <Route path="/analytics" element={<Analytics />} />
-    <Route path="/watchlist" element={<Watchlist />} />
-    <Route path="/calendar"  element={<CalendarPage />} />
-    <Route path="/settings"  element={<Settings />} />
-    <Route path="*"          element={<Navigate to="/home" replace />} />
-  </Routes>
+  <ErrorBoundary>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/home"           element={<Home />} />
+        <Route path="/portfolio"      element={<Portfolio />} />
+        <Route path="/planner"        element={<Planner />} />
+        <Route path="/news"           element={<News />} />
+        <Route path="/recommend"      element={<Recommend />} />
+        <Route path="/analytics"      element={<Analytics />} />
+        <Route path="/watchlist"      element={<Watchlist />} />
+        <Route path="/calendar"       element={<CalendarPage />} />
+        <Route path="/settings"       element={<Settings />} />
+        <Route path="/blog"           element={<Blog />} />
+        <Route path="/blog/new"       element={<BlogWrite />} />
+        <Route path="/blog/:id"       element={<BlogDetail />} />
+        <Route path="/blog/:id/edit"  element={<BlogWrite />} />
+        <Route path="*"               element={<Navigate to="/home" replace />} />
+      </Routes>
+    </Suspense>
+  </ErrorBoundary>
 )
 
 function MainLayout() {
@@ -230,7 +254,7 @@ function MainLayout() {
               {/* 모바일 슬림 상단바 (lg에서는 숨김) */}
               <header className="lg:hidden h-11 sticky top-0 z-50 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800 flex items-center px-3 gap-2">
                 <SidebarToggle onClick={() => setSidebarOpen(v => !v)} />
-                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">UT.Lab</span>
+                <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">U.T Lab4</span>
               </header>
 
               <SidebarNav
@@ -311,17 +335,24 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/*"
-          element={
-            <PrivateRoute>
-              <MainLayout />
-            </PrivateRoute>
-          }
-        />
-      </Routes>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<SpatialHub />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/public/blog" element={<PublicBlog />} />
+            <Route path="/public/blog/:id" element={<PublicBlogDetail />} />
+            <Route
+              path="/*"
+              element={
+                <PrivateRoute>
+                  <MainLayout />
+                </PrivateRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }

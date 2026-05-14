@@ -32,3 +32,6 @@ data/
 # 설계/테스트 파일
 resume/
 utlab.zip
+
+# 명세서 사이트 (내부 문서 — git 제외)
+docs/

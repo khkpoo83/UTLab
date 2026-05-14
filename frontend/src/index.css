@@ -824,3 +824,63 @@ body {
 .drawer-width-transition {
   transition: max-width 0.3s ease-in-out;
 }
+
+/* ── 공간 네비게이션 Breathing Indicator 애니메이션 ── */
+@keyframes breathe-x {
+  0%   { opacity: 0.30; transform: translateX(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+  50%  { opacity: 0.90; transform: translateX(7px);  filter: drop-shadow(0 0 12px rgba(188,214,255,0.9)) drop-shadow(0 0 24px rgba(120,180,255,0.5)); }
+  100% { opacity: 0.30; transform: translateX(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+}
+@keyframes breathe-y {
+  0%   { opacity: 0.30; transform: translateY(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+  50%  { opacity: 0.90; transform: translateY(7px);  filter: drop-shadow(0 0 12px rgba(188,214,255,0.9)) drop-shadow(0 0 24px rgba(120,180,255,0.5)); }
+  100% { opacity: 0.30; transform: translateY(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+}
+@keyframes breathe-x-rev {
+  0%   { opacity: 0.30; transform: translateX(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+  50%  { opacity: 0.90; transform: translateX(-7px); filter: drop-shadow(0 0 12px rgba(188,214,255,0.9)) drop-shadow(0 0 24px rgba(120,180,255,0.5)); }
+  100% { opacity: 0.30; transform: translateX(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+}
+@keyframes breathe-y-rev {
+  0%   { opacity: 0.30; transform: translateY(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+  50%  { opacity: 0.90; transform: translateY(-7px); filter: drop-shadow(0 0 12px rgba(188,214,255,0.9)) drop-shadow(0 0 24px rgba(120,180,255,0.5)); }
+  100% { opacity: 0.30; transform: translateY(0);    filter: drop-shadow(0 0 4px rgba(188,214,255,0.3)); }
+}
+.breathe-right { animation: breathe-x     2.4s ease-in-out infinite; }
+.breathe-down  { animation: breathe-y     2.4s ease-in-out infinite; }
+.breathe-left  { animation: breathe-x-rev 2.4s ease-in-out infinite; }
+.breathe-up    { animation: breathe-y-rev 2.4s ease-in-out infinite; }
+
+/* light variant — dark arrows on white bg */
+@keyframes breathe-x-light {
+  0%   { opacity: 0.28; transform: translateX(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+  50%  { opacity: 0.82; transform: translateX(7px);  filter: drop-shadow(0 0 8px rgba(15,25,75,0.35)) drop-shadow(0 0 18px rgba(15,25,75,0.18)); }
+  100% { opacity: 0.28; transform: translateX(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+}
+@keyframes breathe-y-light {
+  0%   { opacity: 0.28; transform: translateY(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+  50%  { opacity: 0.82; transform: translateY(7px);  filter: drop-shadow(0 0 8px rgba(15,25,75,0.35)) drop-shadow(0 0 18px rgba(15,25,75,0.18)); }
+  100% { opacity: 0.28; transform: translateY(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+}
+@keyframes breathe-x-rev-light {
+  0%   { opacity: 0.28; transform: translateX(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+  50%  { opacity: 0.82; transform: translateX(-7px); filter: drop-shadow(0 0 8px rgba(15,25,75,0.35)) drop-shadow(0 0 18px rgba(15,25,75,0.18)); }
+  100% { opacity: 0.28; transform: translateX(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+}
+@keyframes breathe-y-rev-light {
+  0%   { opacity: 0.28; transform: translateY(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+  50%  { opacity: 0.82; transform: translateY(-7px); filter: drop-shadow(0 0 8px rgba(15,25,75,0.35)) drop-shadow(0 0 18px rgba(15,25,75,0.18)); }
+  100% { opacity: 0.28; transform: translateY(0);    filter: drop-shadow(0 0 3px rgba(15,25,75,0.15)); }
+}
+.breathe-right-light { animation: breathe-x-light     2.4s ease-in-out infinite; }
+.breathe-down-light  { animation: breathe-y-light     2.4s ease-in-out infinite; }
+.breathe-left-light  { animation: breathe-x-rev-light 2.4s ease-in-out infinite; }
+.breathe-up-light    { animation: breathe-y-rev-light 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe-right, .breathe-down, .breathe-left, .breathe-up,
+  .breathe-right-light, .breathe-down-light, .breathe-left-light, .breathe-up-light {
+    animation: none;
+    opacity: 0.35;
+  }
+}

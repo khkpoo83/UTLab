@@ -155,7 +155,17 @@
       "Bash(zip -r frontend_export.zip frontend/src frontend/public frontend/index.html frontend/package.json frontend/tsconfig.json frontend/vite.config.ts frontend/tailwind.config.js frontend/postcss.config.js frontend/nginx.conf)",
       "Bash(git -C /home/ec2-user/Dev/Stock status)",
       "Bash(apt-get install *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "WebFetch(domain:10.10.45.185)",
+      "Read(//etc/nginx/**)",
+      "Read(//etc/nginx/conf.d/**)",
+      "Bash(netstat -tlnp)",
+      "Bash(xargs -I{} sudo rm -rf \"/home/ec2-user/.cache/claude/staging/{}\")",
+      "Bash(sort -t'|' -k2 -rh)",
+      "Bash(sort -t'│' -k2 -rh)",
+      "Bash(xargs sed -i 's|class=\"nav-history\"><span class=\"tab-name\">변경 히스토리</span><span class=\"tab-count\">4</span>|class=\"nav-history\"><span class=\"tab-name\">변경 히스토리</span><span class=\"tab-count\">5</span>|g')",
+      "Bash(xargs sed -i 's|변경 히스토리</span><span class=\"tab-count\">4</span>|변경 히스토리</span><span class=\"tab-count\">5</span>|g')",
+      "Bash(xargs sed -i 's|변경 히스토리</span> <span class=\"tab-count\">4</span>|변경 히스토리</span> <span class=\"tab-count\">5</span>|g')"
     ]
   }
 }

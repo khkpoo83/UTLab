@@ -327,6 +327,7 @@ const Portfolio: React.FC = () => {
     autoRefreshStartRef.current = Date.now()
     setRefreshCountdown(300)
     const interval = setInterval(() => {
+      if (document.hidden) return  // 탭이 숨겨진 경우 스킵
       autoRefreshStartRef.current = Date.now()
       setRefreshCountdown(300)
       loadData()

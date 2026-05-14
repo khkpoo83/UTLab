@@ -75,13 +75,18 @@ const Recommend: React.FC = () => {
     loadData()
   }, [loadData])
 
+  const pollErrorCountRef = useRef(0)
+
   // 백그라운드 재계산 완료 폴링
   const startPolling = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
+    pollErrorCountRef.current = 0
     pollRef.current = setInterval(async () => {
+      if (document.hidden) return  // 탭이 숨겨진 경우 스킵
       try {
         const res = await recommendApi.refreshStatus()
         const { running, done, error } = res.data
+        pollErrorCountRef.current = 0
         if (error) {
           setAiError(error)
           setRefreshing(false)
@@ -96,13 +101,19 @@ const Recommend: React.FC = () => {
           pollRef.current = null
           setTimeout(() => setRefreshMsg(null), 3000)
         } else if (!running) {
-          // 이미 종료됐지만 done/error 없는 경우
           setRefreshing(false)
           clearInterval(pollRef.current!)
           pollRef.current = null
         }
       } catch {
-        // ignore poll errors
+        // 네트워크 오류 5회 연속 시 폴링 중단
+        pollErrorCountRef.current += 1
+        if (pollErrorCountRef.current >= 5) {
+          setRefreshing(false)
+          setAiError('재계산 상태 확인 실패. 페이지를 새로고침하세요.')
+          clearInterval(pollRef.current!)
+          pollRef.current = null
+        }
       }
     }, 8000)
   }, [loadData])

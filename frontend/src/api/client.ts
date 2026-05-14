@@ -800,6 +800,56 @@ export const diaryApi = {
     apiClient.get('/api/diary/events', { params: { date } }).then(r => r.data),
 }
 
+// ── Blog ──────────────────────────────────────────────────────────────────────
+export interface BlogPost {
+  id: number
+  title: string
+  content: string | null
+  cover_image: string | null
+  visibility: 'public' | 'private'
+  tags: string[]
+  ai_generated: boolean
+  word_count: number
+  created_at: string
+  updated_at: string
+  excerpt: string
+}
+
+export interface BlogPostCreate {
+  title: string
+  content?: string
+  cover_image?: string
+  visibility: 'public' | 'private'
+  tags: string[]
+  ai_generated?: boolean
+}
+
+export const blogApi = {
+  list: (params?: { visibility?: string; q?: string; tag?: string; limit?: number; offset?: number }) =>
+    apiClient.get<BlogPost[]>('/api/blog/posts', { params }),
+  get: (id: number) => apiClient.get<BlogPost>(`/api/blog/posts/${id}`),
+  create: (data: BlogPostCreate) => apiClient.post<BlogPost>('/api/blog/posts', data),
+  update: (id: number, data: Partial<BlogPostCreate>) => apiClient.put<BlogPost>(`/api/blog/posts/${id}`, data),
+  delete: (id: number) => apiClient.delete(`/api/blog/posts/${id}`),
+  upload: (file: File) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    const token = localStorage.getItem('token')
+    // apiClient 기본 Content-Type: application/json 을 우회하기 위해 순수 axios 사용
+    // FormData 전송 시 브라우저가 boundary 포함 multipart/form-data 자동 설정
+    return axios.post<{ filename: string; url: string }>(
+      `${BASE_URL}/api/blog/upload`,
+      fd,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : {},
+    )
+  },
+  generate: (data: { title: string; topic?: string; style?: string; length?: string }) =>
+    apiClient.post<{ content: string }>('/api/blog/generate', data),
+  publicList: (params?: { limit?: number; offset?: number }) =>
+    apiClient.get<BlogPost[]>('/api/public/blog', { params }),
+  publicGet: (id: number) => apiClient.get<BlogPost>(`/api/public/blog/${id}`),
+}
+
 export const plannerApi = {
   ocr: (item: PlannerOcrItem, file: File): Promise<{ item: string; data: PlannerOcrResult }> => {
     const form = new FormData()

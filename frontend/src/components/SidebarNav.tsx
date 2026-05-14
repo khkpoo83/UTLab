@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu, LogOut, Moon, Sun } from 'lucide-react'
 import Logo from './Logo'
 import apiClient from '../api/client'
-import { getProfileIconNode } from '../pages/Settings'
+import { getProfileIconNode } from '../utils/settings-utils'
 import { NAV_GROUPS, getActiveGroup } from '../nav'
 import { HomeFavContext } from '../contexts'
 
@@ -138,6 +138,28 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
             const hasChildren = (group.children?.length ?? 0) > 0
 
             if (!hasChildren) {
+              const linkClass = `flex items-center rounded-lg text-sm transition-colors ${
+                collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
+              } text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200`
+
+              if (group.href) {
+                return (
+                  <div key={group.id} className="relative group/item">
+                    <a
+                      href={group.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={collapsed ? group.label : undefined}
+                      className={linkClass}
+                      onClick={onClose}
+                    >
+                      <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
+                      {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
+                    </a>
+                  </div>
+                )
+              }
+
               return (
                 <div key={group.id} className="relative group/item">
                   <NavLink

@@ -5,7 +5,7 @@ import { useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Logo from './Logo'
 import apiClient from '../api/client'
-import { getProfileIconNode } from '../pages/Settings'
+import { getProfileIconNode } from '../utils/settings-utils'
 import { HomeFavContext } from '../contexts'
 import { NAV_GROUPS, getActiveGroup, getFirstRoute } from '../nav'
 
@@ -141,7 +141,7 @@ export function TopBar() {
             return (
               <div key={group.id} className="relative flex-shrink-0 group/tab">
                 <button
-                  onClick={() => navigate(dest)}
+                  onClick={() => group.href ? window.open(group.href, '_blank', 'noopener') : navigate(dest)}
                   className={`flex items-center gap-1.5 px-2.5 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
                     isActive
                       ? 'border-accent text-accent font-medium'
@@ -151,7 +151,7 @@ export function TopBar() {
                   <group.Icon size={13} />
                   <span className="hidden sm:inline">{group.label}</span>
                 </button>
-                <FavStar active={homeTab === dest} onClick={() => saveHomeTab(dest)} />
+                {!group.href && <FavStar active={homeTab === dest} onClick={() => saveHomeTab(dest)} />}
               </div>
             )
           })}

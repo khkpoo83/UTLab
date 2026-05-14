@@ -513,6 +513,21 @@ async def init_db() -> None:
             )""",
             "CREATE INDEX IF NOT EXISTS ix_investment_diary_date ON investment_diary (diary_date)",
             "ALTER TABLE portfolio_snapshot ADD COLUMN realized_pnl FLOAT NOT NULL DEFAULT 0",
+            # blog_posts 테이블
+            """CREATE TABLE IF NOT EXISTS blog_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(500) NOT NULL DEFAULT '제목 없음',
+                content TEXT,
+                cover_image VARCHAR(500),
+                visibility VARCHAR(20) NOT NULL DEFAULT 'private',
+                tags VARCHAR(1000),
+                ai_generated BOOLEAN DEFAULT 0,
+                word_count INTEGER DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )""",
+            "CREATE INDEX IF NOT EXISTS ix_blog_posts_created_at ON blog_posts (created_at)",
+            "CREATE INDEX IF NOT EXISTS ix_blog_posts_visibility ON blog_posts (visibility)",
         ]
         for sql in migrations:
             try:
@@ -553,6 +568,20 @@ async def init_db() -> None:
             except Exception as me:
                 import logging as _log
                 _log.getLogger(__name__).warning(f"portfolio_snapshot migration failed: {me}")
+
+
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(500), nullable=False, default="제목 없음")
+    content = Column(Text, nullable=True)         # TipTap HTML
+    cover_image = Column(String(500), nullable=True)  # filename only
+    visibility = Column(String(20), nullable=False, default="private")  # "public"|"private"
+    tags = Column(String(1000), nullable=True)    # JSON 배열 문자열
+    ai_generated = Column(Boolean, default=False)
+    word_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 async def get_db():

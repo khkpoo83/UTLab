@@ -24,6 +24,8 @@ services:
     mem_limit: 256m
     ports:
       - "7432:80"   # 비기본 포트 — EC2 보안그룹으로 접근 IP 제한 권장
+    volumes:
+      - /home/ec2-user/Dev/Stock/docs:/usr/share/nginx/docs:ro
     depends_on:
       - backend
     restart: unless-stopped

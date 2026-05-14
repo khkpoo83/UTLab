@@ -359,7 +359,7 @@ export default function PhotoWidget({
       className="h-full"
       right={cardRight}
     >
-      <div className="relative overflow-hidden rounded-b-xl h-full" style={{ minHeight: (minH ?? 100) - 44 }}>
+      <div className="relative overflow-hidden rounded-b-xl" style={{ height: `${(minH ?? 100) - 44}px` }}>
 
         {loading && (
           <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
@@ -384,14 +384,23 @@ export default function PhotoWidget({
                 <p className="text-xs text-zinc-400">다음 이미지로 이동 중...</p>
               </div>
             ) : (
-              <img
-                key={current.id}
-                src={current.imageUrl}
-                alt={current.title}
-                className="w-full h-full object-cover"
-                onError={() => setImgError(true)}
-                loading="lazy"
-              />
+              <div className="relative w-full h-full bg-black">
+                {/* 블러 배경: 비율 불일치 시 레터박스 영역 채움 */}
+                <img
+                  src={current.imageUrl}
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl brightness-50 pointer-events-none"
+                />
+                {/* 실제 이미지: 잘림 없이 전체 표시 */}
+                <img
+                  key={current.id}
+                  src={current.imageUrl}
+                  alt={current.title}
+                  className="relative w-full h-full object-contain"
+                  onError={() => setImgError(true)}
+                  loading="lazy"
+                />
+              </div>
             )}
             {!imgError && (
               <>
