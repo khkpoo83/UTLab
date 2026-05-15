@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil } from 'lucide-react'
-import { blogApi, BlogPost } from '../api/client'
+import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil, Check } from 'lucide-react'
+import { blogApi, settingsApi, BlogPost } from '../api/client'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -14,6 +14,12 @@ export default function Blog() {
   const [visibility, setVisibility] = useState<'all' | 'public' | 'private'>('all')
   const [query, setQuery] = useState('')
   const [activeTag, setActiveTag] = useState('')
+
+  const [blogTitle, setBlogTitle] = useState('Notes from the U.T Lab4')
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [savingTitle, setSavingTitle] = useState(false)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   const allTags = Array.from(new Set(posts.flatMap(p => p.tags))).filter(Boolean)
 
@@ -35,13 +41,81 @@ export default function Blog() {
 
   useEffect(() => { loadPosts() }, [visibility, activeTag])
 
+  useEffect(() => {
+    settingsApi.publicGet()
+      .then(({ data }) => { if (data.blog_title) setBlogTitle(data.blog_title) })
+      .catch(() => {})
+  }, [])
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     loadPosts()
   }
 
+  function startEditTitle() {
+    setTitleDraft(blogTitle)
+    setEditingTitle(true)
+    setTimeout(() => titleInputRef.current?.select(), 0)
+  }
+
+  async function saveTitle() {
+    const next = titleDraft.trim()
+    if (!next || next === blogTitle) { setEditingTitle(false); return }
+    setSavingTitle(true)
+    try {
+      await settingsApi.update({ blog_title: next })
+      setBlogTitle(next)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setSavingTitle(false)
+      setEditingTitle(false)
+    }
+  }
+
+  function handleTitleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') saveTitle()
+    else if (e.key === 'Escape') setEditingTitle(false)
+  }
+
   return (
     <div className="p-4 space-y-4 max-w-3xl mx-auto">
+      {/* 블로그 타이틀 편집 */}
+      <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-zinc-400 mb-1 tracking-widest uppercase">블로그 대표 제목</p>
+          {editingTitle ? (
+            <input
+              ref={titleInputRef}
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onKeyDown={handleTitleKeyDown}
+              className="w-full text-sm font-medium bg-transparent outline-none border-b border-accent text-zinc-800 dark:text-zinc-200 pb-0.5"
+              placeholder="블로그 제목 입력..."
+              autoFocus
+            />
+          ) : (
+            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{blogTitle}</p>
+          )}
+        </div>
+        {editingTitle ? (
+          <button
+            onClick={saveTitle}
+            disabled={savingTitle}
+            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-accent text-white disabled:opacity-50 transition-opacity flex-shrink-0"
+          >
+            <Check size={11} /> {savingTitle ? '저장 중' : '저장'}
+          </button>
+        ) : (
+          <button
+            onClick={startEditTitle}
+            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+          >
+            <Pencil size={13} />
+          </button>
+        )}
+      </div>
+
       {/* 헤더 */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-200">블로그 관리</h1>

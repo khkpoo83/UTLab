@@ -165,7 +165,9 @@
       "Bash(sort -t'│' -k2 -rh)",
       "Bash(xargs sed -i 's|class=\"nav-history\"><span class=\"tab-name\">변경 히스토리</span><span class=\"tab-count\">4</span>|class=\"nav-history\"><span class=\"tab-name\">변경 히스토리</span><span class=\"tab-count\">5</span>|g')",
       "Bash(xargs sed -i 's|변경 히스토리</span><span class=\"tab-count\">4</span>|변경 히스토리</span><span class=\"tab-count\">5</span>|g')",
-      "Bash(xargs sed -i 's|변경 히스토리</span> <span class=\"tab-count\">4</span>|변경 히스토리</span> <span class=\"tab-count\">5</span>|g')"
+      "Bash(xargs sed -i 's|변경 히스토리</span> <span class=\"tab-count\">4</span>|변경 히스토리</span> <span class=\"tab-count\">5</span>|g')",
+      "Read(//data/utlab/**)",
+      "Read(//data/utlab/blog_images/**)"
     ]
   }
 }

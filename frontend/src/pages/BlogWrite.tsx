@@ -1,20 +1,34 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Globe, Lock, Tag, X, Sparkles, Save, ArrowLeft, Image as ImageIcon, Loader2 } from 'lucide-react'
+import {
+  Globe, Lock, Tag, X, Sparkles, Save, ArrowLeft, Image as ImageIcon,
+  Loader2, Eye, EyeOff, ChevronDown, ChevronUp as ChevronUpIcon, Wand2,
+} from 'lucide-react'
 import BlogEditor from '../components/blog/BlogEditor'
 import { blogApi } from '../api/client'
 
 const STYLES = [
-  { value: 'casual', label: '친근하게' },
-  { value: 'formal', label: '격식체' },
+  { value: 'casual',    label: '친근하게' },
+  { value: 'formal',    label: '격식체' },
   { value: 'technical', label: '기술적' },
-  { value: 'creative', label: '창의적' },
+  { value: 'creative',  label: '창의적' },
 ]
-
 const LENGTHS = [
-  { value: 'short', label: '짧게 (500자~)' },
+  { value: 'short',  label: '짧게 (500자~)' },
   { value: 'medium', label: '보통 (1000자~)' },
-  { value: 'long', label: '길게 (2000자~)' },
+  { value: 'long',   label: '길게 (2000자~)' },
+]
+const AUDIENCES = [
+  { value: 'general',   label: '일반 독자' },
+  { value: 'developer', label: '개발자' },
+  { value: 'investor',  label: '투자자' },
+  { value: 'student',   label: '학생/입문자' },
+]
+const STRUCTURES = [
+  { value: 'free',      label: '자유형' },
+  { value: 'listicle',  label: '목록형' },
+  { value: 'howto',     label: '하우투' },
+  { value: 'analysis',  label: '분석형' },
 ]
 
 export default function BlogWrite() {
@@ -23,19 +37,36 @@ export default function BlogWrite() {
   const isEdit = !!id
   const coverInputRef = useRef<HTMLInputElement>(null)
 
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [coverImage, setCoverImage] = useState<string | null>(null)
-  const [visibility, setVisibility] = useState<'public' | 'private'>('private')
-  const [tagInput, setTagInput] = useState('')
-  const [tags, setTags] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
+  const [title,       setTitle]       = useState('')
+  const [content,     setContent]     = useState('')
+  const [coverImage,  setCoverImage]  = useState<string | null>(null)
+  const [visibility,  setVisibility]  = useState<'public' | 'private'>('private')
+  const [tagInput,    setTagInput]    = useState('')
+  const [tags,        setTags]        = useState<string[]>([])
+  const [saving,      setSaving]      = useState(false)
   const [confirmDialog, setConfirmDialog] = useState(false)
-  const [aiTopic, setAiTopic] = useState('')
-  const [aiStyle, setAiStyle] = useState('casual')
-  const [aiLength, setAiLength] = useState('medium')
-  const [generating, setGenerating] = useState(false)
-  const [aiPanel, setAiPanel] = useState(false)
+  const [coverError,  setCoverError]  = useState<string | null>(null)
+
+  // 미리보기
+  const [previewMode, setPreviewMode] = useState(false)
+
+  // AI 생성
+  const [aiPanel,           setAiPanel]           = useState(false)
+  const [aiAdvanced,        setAiAdvanced]        = useState(false)
+  const [aiTopic,           setAiTopic]           = useState('')
+  const [aiStyle,           setAiStyle]           = useState('casual')
+  const [aiLength,          setAiLength]          = useState('medium')
+  const [aiLanguage,        setAiLanguage]        = useState('ko')
+  const [aiKeywords,        setAiKeywords]        = useState('')
+  const [aiAudience,        setAiAudience]        = useState('general')
+  const [aiStructure,       setAiStructure]       = useState('free')
+  const [aiIncludeExamples, setAiIncludeExamples] = useState(false)
+  const [aiAppendMode,      setAiAppendMode]      = useState(false)
+  const [generating,        setGenerating]        = useState(false)
+  const [genProgress,       setGenProgress]       = useState('')
+  const [generatingCover,   setGeneratingCover]   = useState(false)
+  const [coverGenPrompt,    setCoverGenPrompt]     = useState('')
+  const [coverGenError,     setCoverGenError]      = useState('')
 
   useEffect(() => {
     if (!isEdit) return
@@ -51,10 +82,15 @@ export default function BlogWrite() {
   }, [id])
 
   async function handleCoverUpload(file: File) {
+    setCoverError(null)
     try {
       const { data } = await blogApi.upload(file)
       setCoverImage(data.url)
-    } catch (e) { console.error(e) }
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setCoverError(msg ?? '이미지 업로드 실패')
+      setTimeout(() => setCoverError(null), 4000)
+    }
   }
 
   function addTag() {
@@ -88,17 +124,60 @@ export default function BlogWrite() {
   async function handleGenerate() {
     if (!title && !aiTopic) return
     setGenerating(true)
+    setGenProgress('Gemini가 글을 작성하고 있어요...')
     try {
-      const { data } = await blogApi.generate({ title, topic: aiTopic, style: aiStyle, length: aiLength })
-      setContent(data.content)
-    } catch (e) { console.error(e) }
-    finally { setGenerating(false) }
+      const { data } = await blogApi.generate({
+        title,
+        topic: aiTopic,
+        style: aiStyle,
+        length: aiLength,
+        language: aiLanguage,
+        keywords: aiKeywords,
+        audience: aiAudience,
+        structure: aiStructure,
+        include_examples: aiIncludeExamples,
+        append_mode: aiAppendMode,
+        current_content: aiAppendMode ? content : '',
+      })
+      if (aiAppendMode && content) {
+        setContent(content + '\n' + data.content)
+      } else {
+        setContent(data.content)
+      }
+      setGenProgress('완료!')
+      setTimeout(() => setGenProgress(''), 2000)
+    } catch (e) {
+      setGenProgress('생성 실패. 다시 시도해주세요.')
+      setTimeout(() => setGenProgress(''), 3000)
+      console.error(e)
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  async function handleGenerateCover() {
+    if (!title) return
+    setGeneratingCover(true)
+    setCoverGenError('')
+    setCoverGenPrompt('')
+    try {
+      const excerpt = content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300)
+      const { data } = await blogApi.generateCover({ title, tags, excerpt })
+      setCoverImage(data.url)
+      setCoverGenPrompt(data.prompt)
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setCoverGenError(msg ?? '썸네일 생성 실패 (Imagen API 활성화 필요)')
+      setTimeout(() => setCoverGenError(''), 6000)
+    } finally {
+      setGeneratingCover(false)
+    }
   }
 
   return (
     <div className="h-full flex flex-col">
       {/* ── 상단 헤더 ── */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex-shrink-0">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 text-sm flex-shrink-0">
           <ArrowLeft size={16} /> 뒤로
         </button>
@@ -109,9 +188,26 @@ export default function BlogWrite() {
           className="flex-1 text-lg font-bold bg-transparent outline-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-600 min-w-0"
         />
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* 미리보기 토글 */}
+          <button
+            onClick={() => setPreviewMode(p => !p)}
+            title={previewMode ? '편집 모드로 돌아가기' : '미리보기'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              previewMode
+                ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+            }`}
+          >
+            {previewMode ? <EyeOff size={14} /> : <Eye size={14} />}
+            {previewMode ? '편집' : '미리보기'}
+          </button>
           <button
             onClick={() => setAiPanel(p => !p)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${aiPanel ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              aiPanel
+                ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+            }`}
           >
             <Sparkles size={14} /> AI
           </button>
@@ -126,21 +222,74 @@ export default function BlogWrite() {
       </div>
 
       {/* ── 본문 영역 ── */}
-      <div className="flex-1 overflow-hidden flex">
-        {/* 에디터 */}
-        <div className="flex-1 overflow-y-auto p-4">
-          <BlogEditor content={content} onChange={setContent} />
+      <div className="flex-1 overflow-hidden flex min-h-0">
+
+        {/* 에디터 또는 미리보기 */}
+        <div className="flex-1 overflow-y-auto">
+          {previewMode ? (
+            <div className="max-w-3xl mx-auto px-6 py-8">
+              {/* 미리보기 헤더 */}
+              {coverImage && (
+                <div className="rounded-2xl overflow-hidden mb-6 h-48">
+                  <img src={coverImage} alt="cover" className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {tags.map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 bg-accent/10 text-accent rounded-full">{t}</span>
+                ))}
+                <span className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                  visibility === 'public'
+                    ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'
+                }`}>
+                  {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
+                  {visibility === 'public' ? '공개' : '비공개'}
+                </span>
+              </div>
+              <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-6 leading-tight">
+                {title || '(제목 없음)'}
+              </h1>
+              {content ? (
+                <div
+                  className="prose prose-zinc dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: content }}
+                />
+              ) : (
+                <p className="text-zinc-400 text-sm italic">내용이 없습니다.</p>
+              )}
+            </div>
+          ) : (
+            <div className="p-4 h-full">
+              <BlogEditor content={content} onChange={setContent} />
+            </div>
+          )}
         </div>
 
         {/* 우측 사이드바 */}
         <div className="w-64 border-l border-zinc-200 dark:border-zinc-700 overflow-y-auto p-4 space-y-5 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0">
+
           {/* 커버 이미지 */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">커버 이미지</p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">커버 이미지</p>
+              <button
+                onClick={handleGenerateCover}
+                disabled={generatingCover || !title}
+                title={!title ? '제목을 먼저 입력하세요' : 'AI로 썸네일 자동 생성 (Imagen 3)'}
+                className="flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-900/50 disabled:opacity-40 transition-colors"
+              >
+                {generatingCover
+                  ? <Loader2 size={10} className="animate-spin" />
+                  : <Wand2 size={10} />
+                }
+                {generatingCover ? '생성 중...' : 'AI 생성'}
+              </button>
+            </div>
             {coverImage ? (
               <div className="relative rounded-lg overflow-hidden">
                 <img src={coverImage} alt="cover" className="w-full h-28 object-cover" />
-                <button onClick={() => setCoverImage(null)} className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white hover:bg-black/70">
+                <button onClick={() => { setCoverImage(null); setCoverGenPrompt('') }} className="absolute top-1 right-1 p-1 bg-black/50 rounded-full text-white hover:bg-black/70">
                   <X size={12} />
                 </button>
               </div>
@@ -155,6 +304,13 @@ export default function BlogWrite() {
             )}
             <input ref={coverInputRef} type="file" accept="image/*" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleCoverUpload(f); e.target.value = '' }} />
+            {coverError && <p className="mt-1 text-[11px] text-red-500">{coverError}</p>}
+            {coverGenError && <p className="mt-1 text-[11px] text-red-500">{coverGenError}</p>}
+            {coverGenPrompt && !coverGenError && (
+              <p className="mt-1 text-[10px] text-zinc-400 leading-snug line-clamp-2" title={coverGenPrompt}>
+                ✦ {coverGenPrompt}
+              </p>
+            )}
           </div>
 
           {/* 공개 설정 */}
@@ -163,12 +319,24 @@ export default function BlogWrite() {
             <div className="flex gap-2">
               <button
                 onClick={() => setVisibility('private')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${visibility === 'private' ? 'border-accent bg-accent/10 text-accent' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'}`}
-              ><Lock size={12} /> 비공개</button>
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${
+                  visibility === 'private'
+                    ? 'border-accent bg-accent/10 text-accent'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                }`}
+              >
+                <Lock size={12} /> 비공개
+              </button>
               <button
                 onClick={() => setVisibility('public')}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${visibility === 'public' ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'}`}
-              ><Globe size={12} /> 공개</button>
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${
+                  visibility === 'public'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600'
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                }`}
+              >
+                <Globe size={12} /> 공개
+              </button>
             </div>
           </div>
 
@@ -203,6 +371,8 @@ export default function BlogWrite() {
               <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 flex items-center gap-1">
                 <Sparkles size={12} /> AI 자동 생성
               </p>
+
+              {/* 주제 보충 */}
               <div>
                 <p className="text-[11px] text-zinc-500 mb-1">주제 보충 설명 (선택)</p>
                 <textarea
@@ -213,38 +383,153 @@ export default function BlogWrite() {
                   className="w-full text-xs px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none resize-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
                 />
               </div>
+
+              {/* 문체 */}
               <div>
                 <p className="text-[11px] text-zinc-500 mb-1">문체</p>
                 <div className="grid grid-cols-2 gap-1">
                   {STYLES.map(s => (
                     <button key={s.value} onClick={() => setAiStyle(s.value)}
-                      className={`py-1 text-[11px] rounded-md border transition-colors ${aiStyle === s.value ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'}`}>
+                      className={`py-1 text-[11px] rounded-md border transition-colors ${
+                        aiStyle === s.value
+                          ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                      }`}>
                       {s.label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* 분량 */}
               <div>
                 <p className="text-[11px] text-zinc-500 mb-1">분량</p>
                 <div className="flex flex-col gap-1">
                   {LENGTHS.map(l => (
                     <button key={l.value} onClick={() => setAiLength(l.value)}
-                      className={`py-1 text-[11px] rounded-md border transition-colors ${aiLength === l.value ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'}`}>
+                      className={`py-1 text-[11px] rounded-md border transition-colors ${
+                        aiLength === l.value
+                          ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                      }`}>
                       {l.label}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* 고급 옵션 토글 */}
+              <button
+                onClick={() => setAiAdvanced(p => !p)}
+                className="w-full flex items-center justify-between text-[11px] text-purple-500 hover:text-purple-600 transition-colors py-0.5"
+              >
+                <span>고급 옵션</span>
+                {aiAdvanced ? <ChevronUpIcon size={12} /> : <ChevronDown size={12} />}
+              </button>
+
+              {aiAdvanced && (
+                <div className="space-y-3 pt-1 border-t border-purple-200 dark:border-purple-800/60">
+                  {/* 언어 */}
+                  <div>
+                    <p className="text-[11px] text-zinc-500 mb-1">언어</p>
+                    <div className="flex gap-1">
+                      {[{ value: 'ko', label: '한국어' }, { value: 'en', label: 'English' }].map(l => (
+                        <button key={l.value} onClick={() => setAiLanguage(l.value)}
+                          className={`flex-1 py-1 text-[11px] rounded-md border transition-colors ${
+                            aiLanguage === l.value
+                              ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                          }`}>
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 타겟 독자 */}
+                  <div>
+                    <p className="text-[11px] text-zinc-500 mb-1">타겟 독자</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {AUDIENCES.map(a => (
+                        <button key={a.value} onClick={() => setAiAudience(a.value)}
+                          className={`py-1 text-[11px] rounded-md border transition-colors ${
+                            aiAudience === a.value
+                              ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                          }`}>
+                          {a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 구조 */}
+                  <div>
+                    <p className="text-[11px] text-zinc-500 mb-1">글 구조</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {STRUCTURES.map(s => (
+                        <button key={s.value} onClick={() => setAiStructure(s.value)}
+                          className={`py-1 text-[11px] rounded-md border transition-colors ${
+                            aiStructure === s.value
+                              ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
+                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                          }`}>
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 키워드 */}
+                  <div>
+                    <p className="text-[11px] text-zinc-500 mb-1">키워드 (쉼표 구분)</p>
+                    <input
+                      value={aiKeywords}
+                      onChange={e => setAiKeywords(e.target.value)}
+                      placeholder="예: React, 성능최적화, hooks"
+                      className="w-full text-xs px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
+                    />
+                  </div>
+
+                  {/* 체크옵션들 */}
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={aiIncludeExamples}
+                        onChange={e => setAiIncludeExamples(e.target.checked)}
+                        className="w-3 h-3 accent-purple-500"
+                      />
+                      <span className="text-[11px] text-zinc-600 dark:text-zinc-400">예시·사례 포함</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={aiAppendMode}
+                        onChange={e => setAiAppendMode(e.target.checked)}
+                        className="w-3 h-3 accent-purple-500"
+                      />
+                      <span className="text-[11px] text-zinc-600 dark:text-zinc-400">현재 내용에 이어서 추가</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={handleGenerate}
                 disabled={generating || (!title && !aiTopic)}
                 className="w-full flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-50 transition-colors"
               >
                 {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                {generating ? '생성 중...' : '본문 생성'}
+                {generating ? '생성 중...' : (aiAppendMode ? '내용 추가 생성' : '본문 생성')}
               </button>
-              {generating && (
-                <p className="text-[11px] text-purple-500 text-center">Gemini가 글을 작성하고 있어요...</p>
+
+              {genProgress && (
+                <p className={`text-[11px] text-center ${
+                  genProgress.includes('실패') ? 'text-red-400' : 'text-purple-500'
+                }`}>
+                  {genProgress}
+                </p>
               )}
             </div>
           )}

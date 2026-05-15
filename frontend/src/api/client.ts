@@ -398,6 +398,7 @@ export const settingsApi = {
   get: () => retryGet<Record<string, any>>('/api/settings'),
   update: (settings: Record<string, any>) => apiClient.put<Record<string, any>>('/api/settings', { settings }),
   aiUsage: () => retryGet<AiUsageStats>('/api/settings/ai-usage'),
+  publicGet: () => apiClient.get<Record<string, any>>('/api/settings/public'),
 }
 
 // Watchlist types
@@ -843,8 +844,13 @@ export const blogApi = {
       token ? { headers: { Authorization: `Bearer ${token}` } } : {},
     )
   },
-  generate: (data: { title: string; topic?: string; style?: string; length?: string }) =>
-    apiClient.post<{ content: string }>('/api/blog/generate', data),
+  generate: (data: {
+    title: string; topic?: string; style?: string; length?: string
+    language?: string; keywords?: string; audience?: string; structure?: string
+    include_examples?: boolean; append_mode?: boolean; current_content?: string
+  }) => apiClient.post<{ content: string }>('/api/blog/generate', data),
+  generateCover: (data: { title: string; tags?: string[]; excerpt?: string }) =>
+    apiClient.post<{ url: string; filename: string; prompt: string }>('/api/blog/generate-cover', data),
   publicList: (params?: { limit?: number; offset?: number }) =>
     apiClient.get<BlogPost[]>('/api/public/blog', { params }),
   publicGet: (id: number) => apiClient.get<BlogPost>(`/api/public/blog/${id}`),

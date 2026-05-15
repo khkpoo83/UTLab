@@ -132,7 +132,7 @@ const HubCenter: React.FC<Props> = ({ onGoRight, onGoBottom, isLight, setIsLight
       <BreathingIndicator
         direction="down"
         onClick={onGoBottom}
-        label="블로그"
+        label="Blog"
         variant={isLight ? 'light' : 'dark'}
       />
     </div>

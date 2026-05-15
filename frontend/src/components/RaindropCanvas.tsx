@@ -1,64 +1,83 @@
 import React, { useEffect, useRef } from 'react'
-import { THEMES } from './ParticleCanvas'
 
-// Oblique near-ground water ripple — wave height field approach.
+// Oblique close-view of a water surface.
 //
-// Each cell in an 84×48 grid on the water surface gets a height value:
-//   h = superposition of all active ring contributions (waveH)
+// Dense sample grid (GNX × GNZ) covers the visible water plane.
+// Each cell asks the wave field for h(x,z,t) by summing contributions
+// from N active ripples (real interference). The sample is then displaced
+// vertically on screen by -h * perspective_factor, and rendered as a dot
+// whose brightness is driven by h (crest bright, trough dark,
+// |h|<threshold skipped → visible "파쇄" gaps where waves cancel).
 //
-// waveH(d, env): d = distance BEHIND the ring wavefront (px).
-//   d=0 → crest (+env); d=WAVE_PX/2 → trough (−env·decay); negative → no wave.
-//
-// Natural interference: where crest + trough ≈ 0, |h| < THRESHOLD → cell skipped
-//   → visible dark gaps = "파쇄" (destructive cancellation).
-//
-// 3D height: py = gsy − h * wz * H * H3D_SCALE
-//   Near-viewer (large wz) → large vertical swing; horizon → barely moves.
+// HORIZON_Y_FRAC = 0.04 → only 4% sky, water fills the canvas.
+// Non-linear perspective so near-surface waves are big and detailed.
 
-const HORIZON    = 0.13   // horizon: 13% from top  (very close = oblique view)
-const ASPECT     = 0.13   // ry / rx  (very flat ellipses)
-const GNX        = 84     // grid columns  (world x: 0 → 1)
-const GNZ        = 48     // grid rows     (world depth: 0.05 → 0.92)
-const WAVE_PX    = 46     // wavelength in screen pixels
-const DECAY_PX   = 62     // amplitude e-fold decay distance (px)
-const THRESHOLD  = 0.07   // skip cells with |h| < this → dark cancellation gaps
-const H3D_SCALE  = 0.092  // 3-D height scale (fraction of H per unit h)
-
-const N_RINGS    = 3
-const RING_DELAY = 0.22
-const RING_LIFE  = 5.5
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-function screenY(wz: number, H: number) {
-  return H * HORIZON + wz * H * (1 - HORIZON)
-}
-function screenX(wx: number, wz: number, W: number) {
-  return W / 2 + (wx - 0.5) * W * wz * 1.92
-}
-function project(cx: number, depth: number, W: number, H: number) {
-  return { sx: screenX(cx, depth, W), sy: screenY(depth, H) }
+const THEMES_R = {
+  default: { bg: '#0a1530', bgEdge: '#050a1c', particle: [188, 214, 255] as [number,number,number], highlight: [230, 240, 255] as [number,number,number] },
+  light:   { bg: '#f4f6fb', bgEdge: '#e8ecf4', particle: [22,  32,  78]  as [number,number,number], highlight: [10,  18,  50]  as [number,number,number] },
 }
 
-// Wave height: d = px behind the ring's expanding wavefront.
-// Ring has passed through points with d > 0; outside the ring d < 0 → no wave.
-function waveH(d: number, env: number): number {
-  if (d < 0 || d > DECAY_PX * 3.2) return 0
-  return env * Math.cos(2 * Math.PI * d / WAVE_PX) * Math.exp(-d / DECAY_PX)
+// ───────────────────────── Geometry ─────────────────────────
+const HORIZON_Y_FRAC = 0.04
+const FOV_NEAR = 2.30
+const FOV_FAR  = 0.20
+const PERSP_EXP = 1.65
+
+const GNX = 220
+const GNZ = 130
+
+// ───────────────────────── Wave model ───────────────────────
+const WAVE_C     = 0.34
+const WAVE_LAM   = 0.082
+const DECAY_LEN  = 0.20
+const WAVE_AMP   = 0.058
+const CANCEL_EPS = 0.0042
+const DISP_SCALE = 0.27
+
+const TARGET_ACTIVE = 9
+const RIPPLE_LIFE   = 7.0
+const SPAWN_MIN     = 0.18
+const SPAWN_MAX     = 0.55
+
+// ───────────────────────── Helpers ──────────────────────────
+function zFromRow(rowFrac: number) {
+  return Math.pow(1 - rowFrac, PERSP_EXP)
+}
+function screenYofRow(rowFrac: number, H_: number, horizonY: number) {
+  return horizonY + rowFrac * (H_ - horizonY)
+}
+function fovWidthFactor(wz: number) {
+  return FOV_FAR + (1 - wz) * (FOV_NEAR - FOV_FAR)
+}
+function screenXofWorldX(wx: number, wz: number, W_: number) {
+  return W_ * 0.5 + wx * 0.5 * W_ * fovWidthFactor(wz)
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-interface Ring {
-  cx: number; depth: number
-  born: number; life: number; maxR: number
-  worldR: number; progress: number
-  sx: number; sy: number; rx: number; ry: number; envelope: number
+function ringContribution(d: number, ringR: number, env: number) {
+  if (d > ringR) return 0
+  const behind = ringR - d
+  if (behind > DECAY_LEN * 4) return 0
+  const radialAtten = 1 / Math.sqrt(0.4 + d * 6)
+  return env * WAVE_AMP * radialAtten *
+    Math.cos((2 * Math.PI * behind) / WAVE_LAM) *
+    Math.exp(-behind / DECAY_LEN)
+}
+
+// ───────────────────────── Types ────────────────────────────
+interface Ripple {
+  cx: number; cz: number
+  born: number; life: number
 }
 interface Drop {
-  cx: number; depth: number
+  cx: number; cz: number
   born: number; dur: number; spawned: boolean
+  _sx?: number; _sy?: number; _phase?: number
+}
+interface ActiveRipple {
+  cx: number; cz: number; R: number; env: number
 }
 
-// ── Component ──────────────────────────────────────────────────────────────────
+// ───────────────────────── Component ────────────────────────
 const RaindropCanvas: React.FC<{ isLight: boolean }> = ({ isLight }) => {
   const ctnRef = useRef<HTMLDivElement>(null)
   const cvRef  = useRef<HTMLCanvasElement>(null)
@@ -68,227 +87,234 @@ const RaindropCanvas: React.FC<{ isLight: boolean }> = ({ isLight }) => {
     if (!ctn || !cv) return
     const ctx = cv.getContext('2d', { alpha: false })!
 
-    const theme = isLight ? THEMES.light : THEMES.default
+    const theme = isLight ? THEMES_R.light : THEMES_R.default
     const [PR, PG, PB] = theme.particle
     const [HR, HG, HB] = theme.highlight
 
-    let bgFill: CanvasGradient | null = null
-    const rebuildBg = () => {
+    let bgFill: CanvasGradient | string = theme.bg
+    function rebuildBg() {
       const g = ctx.createRadialGradient(
-        cv.width * 0.50, cv.height * 0.50, 0,
-        cv.width * 0.50, cv.height * 0.50, Math.hypot(cv.width, cv.height) * 0.60,
+        cv!.width * 0.50, cv!.height * 0.62, 0,
+        cv!.width * 0.50, cv!.height * 0.55, Math.hypot(cv!.width, cv!.height) * 0.62,
       )
-      g.addColorStop(0, theme.bg); g.addColorStop(1, theme.bgEdge)
+      g.addColorStop(0, theme.bg)
+      g.addColorStop(1, theme.bgEdge)
       bgFill = g
     }
-    const resize = () => { cv.width = ctn.clientWidth; cv.height = ctn.clientHeight; rebuildBg() }
+    function resize() {
+      cv!.width  = ctn!.clientWidth
+      cv!.height = ctn!.clientHeight
+      rebuildBg()
+    }
     resize()
     const ro = new ResizeObserver(resize)
     ro.observe(ctn)
 
-    // Dot renderer — mirrors ParticleCanvas exactly
-    function drawDot(px: number, py: number, size: number, bright: number, env: number, isHigh: boolean) {
-      const b  = Math.min(255, Math.max(12, bright)) * Math.max(0, env)
-      const kk = b / 255
-      const cr = Math.min(255, PR * kk) | 0
-      const cg = Math.min(255, PG * kk) | 0
-      const cb = Math.min(255, PB * kk) | 0
-      if (size < 1.6) {
-        ctx.fillStyle = `rgb(${cr},${cg},${cb})`
-        ctx.fillRect(px | 0, py | 0, 1, 1)
-      } else if (size < 2.4) {
-        ctx.fillStyle = `rgb(${cr},${cg},${cb})`
-        ctx.fillRect((px - 1) | 0, (py - 1) | 0, 2, 2)
-      } else {
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},0.96)`
-        ctx.beginPath(); ctx.arc(px, py, size, 0, Math.PI * 2); ctx.fill()
-        if (isHigh) {
-          const hlr = Math.min(255, HR * kk) | 0
-          const hlg = Math.min(255, HG * kk) | 0
-          const hlb = Math.min(255, HB * kk) | 0
-          ctx.fillStyle = `rgba(${hlr},${hlg},${hlb},0.10)`
-          ctx.beginPath(); ctx.arc(px, py, size * 2.4, 0, Math.PI * 2); ctx.fill()
-        }
-      }
-    }
-
-    // Simulation state
+    // ─── Simulation state ────────────────────────────────────
+    const ripples: Ripple[] = []
     const drops: Drop[] = []
-    const rings: Ring[] = []
-    let nextDropAt = 0.06
-    let raf = 0, t = 0, prevTs = -1
 
-    // Pre-seed rings so the surface is alive on frame 1
-    for (let i = 0; i < 5; i++) {
-      const cx    = 0.08 + Math.random() * 0.84
-      const depth = 0.22 + Math.random() * 0.68
-      const maxR  = 0.28 + depth * 0.36 + Math.random() * 0.18
-      rings.push({
-        cx, depth, born: -(0.4 + Math.random() * 3.5), life: RING_LIFE,
-        maxR, worldR: 0, progress: 0, sx: 0, sy: 0, rx: 0, ry: 0, envelope: 0,
+    let nextDropAt = 0.05
+    let t = 0, prevTs = -1, raf = 0
+
+    // Pre-seed ripples so the first frame already looks alive
+    for (let i = 0; i < 8; i++) {
+      ripples.push({
+        cx: (Math.random() * 2 - 1) * 0.85,
+        cz: 0.05 + Math.random() * 0.90,
+        born: -(Math.random() * RIPPLE_LIFE * 0.85),
+        life: RIPPLE_LIFE * (0.7 + Math.random() * 0.55),
       })
     }
 
+    function envelopeOf(rg: Ripple, time: number) {
+      const age = time - rg.born
+      if (age < 0) return 0
+      const k = age / rg.life
+      if (k >= 1) return 0
+      const fadeIn  = Math.min(1, age / 0.18)
+      const fadeOut = 1 - k * k
+      return fadeIn * fadeOut
+    }
+
     function draw(ts: number) {
-      if (!cv) return
       if (prevTs < 0) prevTs = ts
       const dt = Math.min(0.05, (ts - prevTs) / 1000)
       prevTs = ts
       t += dt
 
-      const W = cv.width, H = cv.height
+      const W_ = cv!.width, H_ = cv!.height
+      const horizonY = H_ * HORIZON_Y_FRAC
 
-      ctx.fillStyle = bgFill ?? theme.bg
-      ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = bgFill
+      ctx.fillRect(0, 0, W_, H_)
 
-      // ── Spawn raindrop ─────────────────────────────────────────────────────
+      // ── Maintain pool ────────────────────────────────────
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        if (t - ripples[i].born >= ripples[i].life) ripples.splice(i, 1)
+      }
       if (t >= nextDropAt) {
         drops.push({
-          cx:      0.05 + Math.random() * 0.90,
-          depth:   0.18 + Math.random() * 0.78,
+          cx:      (Math.random() * 2 - 1) * 0.95,
+          cz:      0.04 + Math.random() * 0.92,
           born:    t,
-          dur:     0.36 + Math.random() * 0.24,
+          dur:     0.32 + Math.random() * 0.22,
           spawned: false,
         })
-        nextDropAt = t + 0.14 + Math.random() * 0.36
+        const def = Math.max(0, TARGET_ACTIVE - ripples.length)
+        nextDropAt = t + SPAWN_MIN + Math.random() * (SPAWN_MAX - def * 0.04)
       }
 
-      // ── Update ring cache ──────────────────────────────────────────────────
-      for (let i = rings.length - 1; i >= 0; i--) {
-        const rg  = rings[i]
-        const age = t - rg.born
-        if (age >= rg.life) { rings.splice(i, 1); continue }
-        if (age < 0) { rg.envelope = 0; continue }
-
-        rg.progress = age / rg.life
-        rg.worldR   = rg.maxR * Math.sqrt(rg.progress)
-        rg.sx = screenX(rg.cx, rg.depth, W)
-        rg.sy = screenY(rg.depth, H)
-        rg.rx = rg.worldR * rg.depth * W * 0.50
-        rg.ry = rg.rx * ASPECT
-
-        const fadeIn  = Math.min(1, age / 0.15)
-        const fadeOut = 1 - rg.progress * rg.progress
-        rg.envelope   = fadeIn * fadeOut * Math.pow(rg.depth, 0.45)
-      }
-
-      // ── Wave height field ──────────────────────────────────────────────────
-      const activeRings = rings.filter(r => r.envelope > 0.02 && r.rx >= 1)
-
-      if (activeRings.length > 0) {
-        for (let gz = 0; gz < GNZ; gz++) {
-          const wz  = 0.05 + (gz / (GNZ - 1)) * 0.87
-          const gsy = screenY(wz, H)
-
-          for (let gx = 0; gx < GNX; gx++) {
-            const wx  = gx / (GNX - 1)
-            const gsx = screenX(wx, wz, W)
-            if (gsx < -2 || gsx > W + 2) continue
-
-            // Superpose ring wave contributions (natural interference)
-            let h = 0
-            for (const rg of activeRings) {
-              const ddx = (gsx - rg.sx) / rg.rx
-              const ddy = (gsy - rg.sy) / rg.ry
-              const nd  = Math.sqrt(ddx * ddx + ddy * ddy)
-              // d > 0: inside ring (wavefront has passed) — wave exists
-              // d < 0: outside ring — waveH returns 0
-              h += waveH((1.0 - nd) * rg.rx, rg.envelope)
-            }
-
-            // Destructive zone: |h| below threshold → skip → dark gap ("파쇄")
-            if (Math.abs(h) < THRESHOLD) continue
-
-            // 3-D: displace screen-y by wave height (perspective-scaled by depth)
-            const py = gsy - h * wz * H * H3D_SCALE
-            if (py < 0 || py >= H) continue
-
-            // Crest bright, trough dim; near-viewer brighter (perspective shading)
-            const hc = Math.max(-1.4, Math.min(1.4, h))
-            const rawBright = hc > 0
-              ? 55  + hc * 185        // crest: 55 → ~314 (→255)
-              : 8   + (1 + hc) * 48   // trough: 8 → 56
-            const kk = Math.min(255, rawBright * (0.22 + wz * 0.78)) / 255
-
-            const cr = Math.min(255, PR * kk) | 0
-            const cg = Math.min(255, PG * kk) | 0
-            const cb = Math.min(255, PB * kk) | 0
-
-            if (hc > 0.60 && wz > 0.30) {
-              // Bright crest → arc particle (same as ParticleCanvas highlights)
-              const sz = 1.4 + hc * 0.95
-              ctx.fillStyle = `rgba(${cr},${cg},${cb},0.95)`
-              ctx.beginPath(); ctx.arc(gsx, py, sz, 0, Math.PI * 2); ctx.fill()
-              if (hc > 1.05) {
-                const hlr = Math.min(255, HR * kk) | 0
-                const hlg = Math.min(255, HG * kk) | 0
-                const hlb = Math.min(255, HB * kk) | 0
-                ctx.fillStyle = `rgba(${hlr},${hlg},${hlb},0.10)`
-                ctx.beginPath(); ctx.arc(gsx, py, sz * 2.4, 0, Math.PI * 2); ctx.fill()
-              }
-            } else if (wz > 0.48) {
-              ctx.fillStyle = `rgb(${cr},${cg},${cb})`
-              ctx.fillRect((gsx - 1) | 0, (py - 1) | 0, 2, 2)
-            } else {
-              ctx.fillStyle = `rgb(${cr},${cg},${cb})`
-              ctx.fillRect(gsx | 0, py | 0, 1, 1)
-            }
-          }
-        }
-      }
-
-      // ── Falling drops + impact ─────────────────────────────────────────────
+      // ── Process drops ────────────────────────────────────
       for (let i = drops.length - 1; i >= 0; i--) {
         const drop  = drops[i]
         const age   = t - drop.born
         const phase = age / drop.dur
+        if (phase > 1.25) { drops.splice(i, 1); continue }
 
-        if (phase > 1.22) { drops.splice(i, 1); continue }
+        const sx = screenXofWorldX(drop.cx, drop.cz, W_)
+        const yFrac = 1 - Math.pow(drop.cz, 1 / PERSP_EXP)
+        const sy    = screenYofRow(yFrac, H_, horizonY)
 
-        const { sx, sy } = project(drop.cx, drop.depth, W, H)
-
-        // Spawn rings when drop hits the surface (~75% of fall)
         if (!drop.spawned && phase >= 0.75) {
           drop.spawned = true
-          for (let ri = 0; ri < N_RINGS; ri++) {
-            const maxR = 0.26 + drop.depth * 0.38 + Math.random() * 0.14
-            rings.push({
-              cx: drop.cx, depth: drop.depth,
-              born: t + ri * RING_DELAY,
-              life: RING_LIFE * (0.65 + ri * 0.28),
-              maxR,
-              worldR: 0, progress: 0, sx: 0, sy: 0, rx: 0, ry: 0, envelope: 0,
+          const n = 1 + (Math.random() < 0.6 ? 1 : 0) + (Math.random() < 0.3 ? 1 : 0)
+          for (let r = 0; r < n; r++) {
+            ripples.push({
+              cx: drop.cx, cz: drop.cz,
+              born: t + r * 0.13,
+              life: RIPPLE_LIFE * (0.7 + Math.random() * 0.55),
             })
           }
         }
 
-        // Falling particle (cubic ease-in = gravity feel)
+        drop._sx = sx; drop._sy = sy; drop._phase = phase
+      }
+
+      // ── Wave height field ─────────────────────────────────
+      const active: ActiveRipple[] = []
+      for (const rg of ripples) {
+        const env = envelopeOf(rg, t)
+        if (env < 0.02) continue
+        active.push({ cx: rg.cx, cz: rg.cz, R: WAVE_C * (t - rg.born), env })
+      }
+
+      for (let iz = 1; iz < GNZ; iz++) {
+        const rowFrac = iz / (GNZ - 1)
+        const wz  = zFromRow(rowFrac)
+        const sy0 = screenYofRow(rowFrac, H_, horizonY)
+        const foreground = 1 - wz
+        const dispPx = DISP_SCALE * H_ * (0.18 + foreground * 0.82)
+
+        for (let ix = 0; ix < GNX; ix++) {
+          const wx = (ix / (GNX - 1)) * 2 - 1
+          const sx = screenXofWorldX(wx, wz, W_)
+          if (sx < -2 || sx > W_ + 2) continue
+
+          let h = 0
+          for (let k = 0; k < active.length; k++) {
+            const rg = active[k]
+            const dx = wx - rg.cx
+            const dz = wz - rg.cz
+            const d  = Math.sqrt(dx * dx + dz * dz * 1.7)
+            h += ringContribution(d, rg.R, rg.env)
+          }
+
+          const ah = Math.abs(h)
+          if (ah < CANCEL_EPS) continue
+
+          const py = sy0 - h * dispPx * 20
+          if (py < horizonY - 4 || py >= H_) continue
+
+          const norm = Math.max(-1.6, Math.min(1.6, h / WAVE_AMP))
+          let rawB: number
+          if (norm > 0) {
+            rawB = 45 + Math.pow(norm, 0.55) * 215
+          } else {
+            rawB = 6  + (1.6 + norm) * 22
+          }
+          const kk = Math.min(255, rawB * (0.34 + foreground * 0.78)) / 255
+
+          const cr = Math.min(255, PR * kk) | 0
+          const cg = Math.min(255, PG * kk) | 0
+          const cb = Math.min(255, PB * kk) | 0
+
+          if (norm > 0.72 && foreground > 0.18) {
+            const sz = 1.25 + norm * 0.95
+            ctx.fillStyle = `rgba(${cr},${cg},${cb},0.96)`
+            ctx.beginPath(); ctx.arc(sx, py, sz, 0, Math.PI * 2); ctx.fill()
+            if (norm > 1.15) {
+              const hlr = Math.min(255, HR * kk) | 0
+              const hlg = Math.min(255, HG * kk) | 0
+              const hlb = Math.min(255, HB * kk) | 0
+              ctx.fillStyle = `rgba(${hlr},${hlg},${hlb},0.12)`
+              ctx.beginPath(); ctx.arc(sx, py, sz * 2.4, 0, Math.PI * 2); ctx.fill()
+            }
+          } else if (foreground > 0.30 && ah > CANCEL_EPS * 2) {
+            ctx.fillStyle = `rgb(${cr},${cg},${cb})`
+            ctx.fillRect((sx - 1) | 0, (py - 1) | 0, 2, 2)
+          } else {
+            ctx.fillStyle = `rgb(${cr},${cg},${cb})`
+            ctx.fillRect(sx | 0, py | 0, 1, 1)
+          }
+        }
+      }
+
+      // ── Falling drop streaks + impact splash ──────────────
+      for (const drop of drops) {
+        const phase = drop._phase
+        if (phase == null) continue
+        const sx = drop._sx!, sy = drop._sy!
+        const wz = drop.cz
+        const foreground = 1 - wz
+
         if (phase < 0.75) {
           const fall  = phase / 0.75
           const fallE = fall * fall * fall
-          const dropH = drop.depth * H * 0.18
+          const dropH = (0.10 + foreground * 0.20) * H_
           const dropY = sy - dropH * (1 - fallE)
-          const env   = Math.min(1, fall * 5) * (1 - Math.max(0, fall - 0.85) / 0.15)
-          drawDot(sx, dropY, drop.depth > 0.5 ? 1.6 : 1.0, 210, env, false)
-          for (let ti = 1; ti <= 3; ti++) {
-            const tf = Math.max(0, fall - ti * 0.055)
-            drawDot(sx, sy - dropH * (1 - tf * tf * tf), 0.9, 155, env * (1 - ti / 4) * 0.34, false)
-          }
-        }
 
-        // Impact burst
-        if (phase >= 0.75) {
-          const fp  = (phase - 0.75) / 0.47
-          const env = 1 - fp
-          const nB  = 12 + (drop.depth * 12 | 0)
-          const br  = drop.depth * W * 0.040 * (0.32 + fp * 1.1)
-          for (let k = 0; k < nB; k++) {
-            const ang = (k / nB) * Math.PI * 2
-            drawDot(
-              sx + Math.cos(ang) * br,
-              sy + Math.sin(ang) * br * ASPECT,
-              0.9 + (k % 3) * 0.36, 180, env * 0.72, false,
-            )
+          const env = Math.min(1, fall * 5) * (1 - Math.max(0, fall - 0.92) / 0.08)
+          const baseB = 210
+          const k = baseB * env / 255
+          const cr = Math.min(255, PR * k) | 0
+          const cg = Math.min(255, PG * k) | 0
+          const cb = Math.min(255, PB * k) | 0
+          ctx.fillStyle = `rgb(${cr},${cg},${cb})`
+          ctx.fillRect((sx - 1) | 0, (dropY - 1) | 0, 2, 2)
+          for (let ti = 1; ti <= 4; ti++) {
+            const tf = Math.max(0, fall - ti * 0.05)
+            const ty  = sy - dropH * (1 - tf * tf * tf)
+            const tk  = (baseB * env * (1 - ti / 5) * 0.5) / 255
+            const tr  = Math.min(255, PR * tk) | 0
+            const tg_ = Math.min(255, PG * tk) | 0
+            const tb  = Math.min(255, PB * tk) | 0
+            ctx.fillStyle = `rgb(${tr},${tg_},${tb})`
+            ctx.fillRect(sx | 0, ty | 0, 1, 1)
+          }
+          if (fall > 0.65) {
+            const close = (fall - 0.65) / 0.10
+            ctx.fillStyle = `rgba(${PR},${PG},${PB},${0.10 * close})`
+            ctx.beginPath(); ctx.arc(sx, dropY, (1.1 + foreground * 0.9) * 2.4, 0, Math.PI * 2); ctx.fill()
+          }
+        } else {
+          const fp = (phase - 0.75) / 0.50
+          if (fp <= 1) {
+            const env = 1 - fp
+            const nB  = (14 + (foreground * 12)) | 0
+            const burst = (0.025 + fp * 0.060) * W_ * (0.5 + foreground * 0.5)
+            const aspect = 0.32
+            for (let kk = 0; kk < nB; kk++) {
+              const ang = (kk / nB) * Math.PI * 2
+              const px  = sx + Math.cos(ang) * burst
+              const py  = sy + Math.sin(ang) * burst * aspect
+              const k = 200 * env * 0.75 / 255
+              const cr = Math.min(255, PR * k) | 0
+              const cg = Math.min(255, PG * k) | 0
+              const cb = Math.min(255, PB * k) | 0
+              ctx.fillStyle = `rgb(${cr},${cg},${cb})`
+              ctx.fillRect(px | 0, py | 0, 1, 1)
+            }
           }
         }
       }
@@ -301,7 +327,7 @@ const RaindropCanvas: React.FC<{ isLight: boolean }> = ({ isLight }) => {
   }, [isLight])
 
   return (
-    <div ref={ctnRef} style={{ position: 'absolute', inset: 0, background: isLight ? THEMES.light.bg : THEMES.default.bg }}>
+    <div ref={ctnRef} style={{ position: 'absolute', inset: 0, background: isLight ? THEMES_R.light.bg : THEMES_R.default.bg }}>
       <canvas ref={cvRef} style={{ display: 'block', width: '100%', height: '100%' }} />
     </div>
   )

@@ -49,6 +49,8 @@ DEFAULT_SETTINGS = {
     "ui_portfolio_cols": None,      # 포트폴리오 테이블 컬럼 설정 (JSON)
     "ui_calendar_hidden_ids": None, # 숨긴 구글 캘린더 ID 목록 (JSON array)
     "ui_photo_keyword": None,       # 홈 사진 위젯 검색 키워드 (기본: Alphonse Mucha)
+    # ── 블로그 공개 설정 ──
+    "blog_title": "Notes from the U.T Lab4",
 }
 
 
@@ -62,6 +64,15 @@ async def get_all_settings(db: AsyncSession) -> dict:
         except Exception:
             cfg[row.key] = row.value
     return cfg
+
+
+PUBLIC_KEYS = {"blog_title"}
+
+@router.get("/public")
+async def public_settings(db: DB) -> dict:
+    """인증 없이 접근 가능한 공개 설정값 (blog_title 등)"""
+    all_cfg = await get_all_settings(db)
+    return {k: all_cfg[k] for k in PUBLIC_KEYS if k in all_cfg}
 
 
 @router.get("")
