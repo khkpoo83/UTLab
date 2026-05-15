@@ -10,6 +10,7 @@
 # 로그 / 임시
 *.log
 *.tmp
+*.swp
 resume.tmp
 planner_autotest_stdout.log
 
@@ -30,8 +31,28 @@ DONE_*.md
 data/
 
 # 설계/테스트 파일
+resume
 resume/
 utlab.zip
 
 # 명세서 사이트 (내부 문서 — git 제외)
 docs/
+
+# 디자인 캔버스 / 스크래치 파일 (루트)
+component-catalog.*
+design-canvas.jsx
+icons-canvas.jsx
+icons.jsx
+UT.Lab Icons.html
+SPEC_*.md
+app.jsx
+raindrop-canvas.jsx
+ParticleCanvas.tsx
+index.html
+git.sample
+
+# Claude 로컬 설정
+.claude/settings.local.json
+
+# 임시 업로드/작업 파일
+tmp/
