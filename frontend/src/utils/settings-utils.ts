@@ -73,8 +73,13 @@ export function loadPnlColorConfig(): PnlColorConfig {
 export function applyPnlColors(cfg: PnlColorConfig) {
   const el = document.documentElement
   const isDark = el.classList.contains('dark')
-  el.style.setProperty('--c-up',   isDark ? cfg.upDark   : cfg.upLight)
-  el.style.setProperty('--c-down', isDark ? cfg.downDark : cfg.downLight)
+  const upColor   = isDark ? cfg.upDark   : cfg.upLight
+  const downColor = isDark ? cfg.downDark : cfg.downLight
+  el.style.setProperty('--c-up',   upColor)
+  el.style.setProperty('--c-down', downColor)
+  // renewal 토큰도 동기화 (Portfolio, IndexPanel 등 --up/--down 사용)
+  el.style.setProperty('--up',   upColor)
+  el.style.setProperty('--down', downColor)
   el.setAttribute('data-pnl-up-light',   cfg.upLight)
   el.setAttribute('data-pnl-down-light', cfg.downLight)
   el.setAttribute('data-pnl-up-dark',    cfg.upDark)
@@ -90,12 +95,18 @@ const RADIUS_VALUES: Record<UiRadius, string> = {
   none: '0rem', sm: '0.25rem', md: '0.5rem', lg: '0.75rem', xl: '1.25rem',
 }
 
+// --r-md is used by Card.tsx inline style and .ut-card classes
+const CARD_RADIUS_VALUES: Record<UiRadius, string> = {
+  none: '0px', sm: '4px', md: '8px', lg: '14px', xl: '20px',
+}
+
 export function getUiRadius(): UiRadius {
   return (localStorage.getItem('ui_radius') as UiRadius) ?? 'lg'
 }
 
 export function applyUiRadius(r: UiRadius) {
   document.documentElement.style.setProperty('--ui-radius', RADIUS_VALUES[r] ?? RADIUS_VALUES.lg)
+  document.documentElement.style.setProperty('--r-md', CARD_RADIUS_VALUES[r] ?? CARD_RADIUS_VALUES.lg)
   localStorage.setItem('ui_radius', r)
 }
 
@@ -108,4 +119,15 @@ export function getCardOpacity(): number {
 export function applyCardOpacity(v: number) {
   document.documentElement.style.setProperty('--card-opacity', String(v))
   localStorage.setItem('card_opacity', String(v))
+}
+
+// ── 포인트(dot) 색상 ──────────────────────────────────────────────────────────
+
+export function applyDotColor(hex: string) {
+  document.documentElement.style.setProperty('--dot', hex)
+  localStorage.setItem('dot_color', hex)
+}
+
+export function getDotColor(): string {
+  return localStorage.getItem('dot_color') ?? '#F59E0B'
 }

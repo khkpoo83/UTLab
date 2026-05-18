@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import {
-  Settings2, Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper, AlertCircle,
+  Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper, AlertCircle,
   User, Lock, Check, X, Calendar, RefreshCw, Unlink, ExternalLink, Wifi, WifiOff,
   PanelLeft, PanelTop, RectangleHorizontal, CloudSun,
 } from 'lucide-react'
@@ -20,17 +20,19 @@ import {
   WeatherIconStyle, WEATHER_ICON_STYLES, getWeatherIconStyle, saveWeatherIconStyle, WeatherBadge,
 } from '../components/WeatherWidget'
 import { FormInput } from '../components/FormField'
+import PageTitle from '../components/PageTitle'
 import { OverlayStyle, OVERLAY_OPTIONS, loadOverlayStyle, applyOverlayStyle } from '../utils/overlay'
 import {
   resolveProfileIcon, getProfileIconNode,
-  applySeasonTheme, loadPnlColorConfig, applyPnlColors, PnlColorConfig,
+  loadPnlColorConfig, applyPnlColors, PnlColorConfig,
   applyUiRadius, getUiRadius, UiRadius, getCardOpacity, applyCardOpacity,
+  applyDotColor, getDotColor,
 } from '../utils/settings-utils'
 
 // Re-export for backward compat (외부에서 Settings를 직접 import하는 경우 대비)
 export type { PnlColorConfig, UiRadius }
 export {
-  getProfileIconNode, applySeasonTheme, loadPnlColorConfig, applyPnlColors,
+  getProfileIconNode, loadPnlColorConfig, applyPnlColors,
   applyUiRadius, getUiRadius, getCardOpacity, applyCardOpacity,
 }
 
@@ -180,45 +182,6 @@ function LogoIconPicker({
         <div className="grid grid-cols-4 gap-2">
           {w1403Opts.map(opt => <PngCell key={opt.filterId} opt={opt} />)}
         </div>
-      </div>
-    </div>
-  )
-}
-
-// ── 시즌 테마 피커 ────────────────────────────────────────────────────────────
-
-type Season = 'default' | 'spring' | 'summer' | 'autumn' | 'winter' | 'mono'
-
-const SEASONS: { id: Season; label: string; emoji: string; accent: string }[] = [
-  { id: 'default', label: '기본',   emoji: '☁️',  accent: '#1A9EFF' },
-  { id: 'spring',  label: '봄',     emoji: '🌸',  accent: '#D4608A' },
-  { id: 'summer',  label: '여름',   emoji: '🌊',  accent: '#0891B2' },
-  { id: 'autumn',  label: '가을',   emoji: '🍂',  accent: '#C2671A' },
-  { id: 'winter',  label: '겨울',   emoji: '❄️',  accent: '#7C6FCF' },
-  { id: 'mono',    label: '흑백',   emoji: '🖤',  accent: '#52525b' },
-]
-
-function SeasonThemePicker({ value, onChange }: { value: Season; onChange: (s: Season) => void }) {
-  return (
-    <div>
-      <p className="text-2xs text-zinc-400 mb-3">앱 전체 강조 색상 테마를 선택합니다. 저장 후 적용됩니다.</p>
-      <div className="grid grid-cols-6 gap-2">
-        {SEASONS.map(s => (
-          <button
-            key={s.id}
-            onClick={() => onChange(s.id)}
-            className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-              value === s.id
-                ? 'border-2 bg-zinc-50 dark:bg-zinc-800'
-                : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-            }`}
-            style={value === s.id ? { borderColor: s.accent } : {}}
-          >
-            <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: s.accent }} />
-            <span className="text-lg leading-none">{s.emoji}</span>
-            <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400">{s.label}</span>
-          </button>
-        ))}
       </div>
     </div>
   )
@@ -834,6 +797,55 @@ function WeatherIconStylePicker() {
   )
 }
 
+// ── FaviconPicker ─────────────────────────────────────────────────────────────
+
+const FAVICON_OPTIONS = [
+  { label: 'SVG', path: '/favicon.svg', type: 'image/svg+xml' },
+  { label: 'PNG', path: '/favicon.png', type: 'image/png' },
+  { label: 'ICO', path: '/favicon.ico', type: 'image/x-icon' },
+]
+
+function FaviconPicker() {
+  const [active, setActive] = useState<string>(
+    () => localStorage.getItem('favicon') || '/favicon.svg'
+  )
+
+  const apply = (path: string, type: string) => {
+    setActive(path)
+    localStorage.setItem('favicon', path)
+    let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.type = type
+    link.href = path
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-2xs text-zinc-400">브라우저 탭에 표시되는 아이콘을 선택합니다. 즉시 적용됩니다.</p>
+      <div className="flex items-center gap-3">
+        {FAVICON_OPTIONS.map(o => (
+          <button
+            key={o.path}
+            onClick={() => apply(o.path, o.type)}
+            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
+              active === o.path
+                ? 'border-accent bg-accent/5'
+                : 'border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600'
+            }`}
+          >
+            <img src={o.path} className="w-8 h-8 object-contain" alt={o.label} />
+            <span className="text-2xs text-zinc-500 font-medium">{o.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 const Settings: React.FC = () => {
@@ -847,14 +859,19 @@ const Settings: React.FC = () => {
   const aiPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // 시각 설정 — 저장 전까지 pending 상태, 적용되지 않음
-  const [pendingSeason, setPendingSeason] = useState<Season>(() => (localStorage.getItem('season') as Season) ?? 'default')
   const [pendingLogoIcon, setPendingLogoIcon] = useState<LogoAnyStyle>(getLogoIconStyle)
   const [pendingPngLogo, setPendingPngLogo] = useState<PngLogoOption | null>(getPngLogoOption)
-  const [pendingBg, setPendingBg] = useState<BgConfig>(loadBgConfig)
+  const [bgEditMode, setBgEditMode] = useState<'light' | 'dark'>(() =>
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  )
+  const [pendingBgLight, setPendingBgLight] = useState<BgConfig>(() => loadBgConfig('light'))
+  const [pendingBgDark, setPendingBgDark] = useState<BgConfig>(() => loadBgConfig('dark'))
+  const pendingBg = bgEditMode === 'dark' ? pendingBgDark : pendingBgLight
   const [pendingPnlColor, setPendingPnlColor] = useState<PnlColorConfig>(loadPnlColorConfig)
   const [pendingRadius, setPendingRadius] = useState<UiRadius>(getUiRadius)
   const [pendingOverlay, setPendingOverlay] = useState<OverlayStyle>(loadOverlayStyle)
   const [pendingCardOpacity, setPendingCardOpacity] = useState<number>(getCardOpacity)
+  const [pendingDotColor, setPendingDotColor] = useState<string>(getDotColor)
 
   // 프로필 상태
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -880,6 +897,7 @@ const Settings: React.FC = () => {
       if (data.ui_radius) setPendingRadius(data.ui_radius as UiRadius)
       if (data.ui_overlay_style) setPendingOverlay(data.ui_overlay_style as OverlayStyle)
       if (data.ui_card_opacity != null) setPendingCardOpacity(data.ui_card_opacity as number)
+      if (data.ui_dot_color) { setPendingDotColor(data.ui_dot_color as string); applyDotColor(data.ui_dot_color as string) }
       setLoading(false)
     }).catch(() => setLoading(false))
 
@@ -1011,14 +1029,18 @@ const Settings: React.FC = () => {
     setSaved(false)
   }
 
-  const updateSeason = (s: Season) => { setPendingSeason(s); setDirty(true); setSaved(false) }
   const updateLogoIcon = (s: LogoAnyStyle) => { setPendingLogoIcon(s); setDirty(true); setSaved(false) }
   const updatePngLogo = (opt: PngLogoOption | null) => { setPendingPngLogo(opt); setDirty(true); setSaved(false) }
-  const updateBg = (cfg: BgConfig) => { setPendingBg(cfg); setDirty(true); setSaved(false) }
+  const updateBg = (cfg: BgConfig) => {
+    if (bgEditMode === 'dark') setPendingBgDark(cfg)
+    else setPendingBgLight(cfg)
+    setDirty(true); setSaved(false)
+  }
   const updatePnlColor = (cfg: PnlColorConfig) => { setPendingPnlColor(cfg); setDirty(true); setSaved(false) }
   const updateRadius = (r: UiRadius) => { setPendingRadius(r); setDirty(true); setSaved(false) }
   const updateOverlay = (s: OverlayStyle) => { applyOverlayStyle(s); setPendingOverlay(s); setDirty(true); setSaved(false) }
   const updateCardOpacity = (v: number) => { applyCardOpacity(v); setPendingCardOpacity(v); setDirty(true); setSaved(false) }
+  const updateDotColor = (hex: string) => { applyDotColor(hex); setPendingDotColor(hex); setDirty(true); setSaved(false) }
 
   const handleSave = async () => {
     setSaving(true)
@@ -1026,25 +1048,27 @@ const Settings: React.FC = () => {
       // 시스템 설정 + UI 설정 한 번에 저장 (DB에 동기화)
       const { data } = await settingsApi.update({
         ...settings,
-        ui_season: pendingSeason,
         ui_logo_icon: pendingLogoIcon,
         ui_pnl_color_config: pendingPnlColor,
         ui_bg_config: pendingBg,
         ui_radius: pendingRadius,
         ui_overlay_style: pendingOverlay,
         ui_card_opacity: pendingCardOpacity,
+        ui_dot_color: pendingDotColor,
       })
       setSettings(data)
       // 시각 설정 일괄 적용 (localStorage + DOM)
-      applySeasonTheme(pendingSeason)
       setLogoIconStyle(pendingLogoIcon)
       setPngLogoOption(pendingPngLogo)
-      applyBackground(pendingBg)
-      saveBgConfig(pendingBg)
+      saveBgConfig(pendingBgLight, 'light')
+      saveBgConfig(pendingBgDark, 'dark')
+      const isDark = document.documentElement.classList.contains('dark')
+      applyBackground(isDark ? pendingBgDark : pendingBgLight)
       applyPnlColors(pendingPnlColor)
       applyUiRadius(pendingRadius)
       applyOverlayStyle(pendingOverlay)
       applyCardOpacity(pendingCardOpacity)
+      applyDotColor(pendingDotColor)
       setDirty(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -1062,13 +1086,7 @@ const Settings: React.FC = () => {
   return (
     <div className="w-full space-y-6">
 
-      {/* 페이지 타이틀 */}
-      <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-sm">
-          <Settings2 size={18} className="text-zinc-500 dark:text-zinc-400" />
-        </div>
-        <h1 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">설정</h1>
-      </div>
+      <PageTitle sub="preferences" title="Settings" />
 
       {/* ── 내 프로필 ────────────────────────────────────────────── */}
       <Card collapsible id="settings-profile" icon={<User size={16} />} title="내 프로필" defaultOpen>
@@ -1454,9 +1472,40 @@ const Settings: React.FC = () => {
         <NavModePicker />
       </Card>
 
-      {/* 모서리 둥글기 */}
-      <Card collapsible id="settings-radius" icon={<RectangleHorizontal size={16} />} title="모서리 둥글기">
-        <RadiusPicker value={pendingRadius} onChange={updateRadius} />
+      {/* 카드 스타일 */}
+      <Card collapsible id="settings-card-style" icon={<RectangleHorizontal size={16} />} title="카드 스타일">
+        <div className="space-y-6">
+          {/* 모서리 둥글기 */}
+          <div>
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-3">모서리 둥글기</p>
+            <RadiusPicker value={pendingRadius} onChange={updateRadius} />
+          </div>
+          {/* 카드 투명도 */}
+          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5 space-y-3">
+            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">카드 투명도</p>
+            <p className="text-2xs text-zinc-400">카드 배경 투명도 조절 — 배경 무늬/색상과 조합할 때 활용하세요. 즉시 적용됩니다.</p>
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-zinc-500 w-16 flex-shrink-0">투명도</label>
+              <input
+                type="range" min={0.1} max={1} step={0.05}
+                value={pendingCardOpacity}
+                onChange={e => updateCardOpacity(parseFloat(e.target.value))}
+                className="flex-1"
+              />
+              <span className="text-xs text-zinc-400 w-10 text-right">{Math.round(pendingCardOpacity * 100)}%</span>
+            </div>
+            {/* 미리보기 */}
+            <div
+              className="rounded-xl border p-3 text-xs text-zinc-600 dark:text-zinc-400"
+              style={{
+                backgroundColor: `rgb(255 255 255 / ${pendingCardOpacity})`,
+                borderColor: `rgb(228 228 231 / ${Math.max(pendingCardOpacity, 0.3)})`,
+              }}
+            >
+              카드 배경 미리보기 (라이트 기준)
+            </div>
+          </div>
+        </div>
       </Card>
 
       {/* 오버레이 스타일 */}
@@ -1464,54 +1513,73 @@ const Settings: React.FC = () => {
         <OverlayStylePicker value={pendingOverlay} onChange={updateOverlay} />
       </Card>
 
-      {/* 카드 투명도 */}
-      <Card collapsible id="settings-card-opacity" icon={<Wallpaper size={16} />} title="카드 투명도" defaultOpen={false}>
-        <div className="space-y-3">
-          <p className="text-2xs text-zinc-400">카드 배경 투명도 조절 — 배경 무늬/색상과 조합할 때 활용하세요. 즉시 적용됩니다.</p>
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-zinc-500 w-16 flex-shrink-0">투명도</label>
-            <input
-              type="range" min={0.1} max={1} step={0.05}
-              value={pendingCardOpacity}
-              onChange={e => updateCardOpacity(parseFloat(e.target.value))}
-              className="flex-1"
-            />
-            <span className="text-xs text-zinc-400 w-10 text-right">{Math.round(pendingCardOpacity * 100)}%</span>
-          </div>
-          {/* 미리보기 */}
-          <div
-            className="rounded-xl border p-3 text-xs text-zinc-600 dark:text-zinc-400"
-            style={{
-              backgroundColor: `rgb(255 255 255 / ${pendingCardOpacity})`,
-              borderColor: `rgb(228 228 231 / ${Math.max(pendingCardOpacity, 0.3)})`,
-            }}
-          >
-            카드 배경 미리보기 (라이트 기준)
-          </div>
-        </div>
-      </Card>
-
       {/* 날씨 아이콘 스타일 */}
       <Card collapsible id="settings-weather-icon" icon={<CloudSun size={16} />} title="날씨 아이콘 스타일" defaultOpen={false}>
         <WeatherIconStylePicker />
       </Card>
 
-      {/* 색상 테마 */}
-      <Card collapsible id="settings-theme" icon={<Palette size={16} />} title="색상 테마">
-        <div className="space-y-6">
-          <div>
-            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-3">강조 색상</p>
-            <SeasonThemePicker value={pendingSeason} onChange={updateSeason} />
+      {/* 등락 색상 */}
+      <Card collapsible id="settings-pnl-color" icon={<Palette size={16} />} title="등락 색상">
+        <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
+      </Card>
+
+      {/* 포인트 색상 */}
+      <Card collapsible id="settings-dot-color" icon={<Palette size={16} />} title="포인트 색상">
+        <div className="space-y-4">
+          <p className="text-2xs text-zinc-400">강조 포인트(·) 색상을 변경합니다. 저장 후 적용됩니다.</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: '앰버',     hex: '#F59E0B' },
+              { label: '오렌지',   hex: '#F97316' },
+              { label: '옐로우',   hex: '#EAB308' },
+              { label: '라임',     hex: '#84CC16' },
+              { label: '에메랄드', hex: '#10B981' },
+              { label: '스카이',   hex: '#0EA5E9' },
+              { label: '바이올렛', hex: '#8B5CF6' },
+              { label: '로즈',     hex: '#F43F5E' },
+            ].map(({ label, hex }) => {
+              const active = pendingDotColor === hex
+              return (
+                <button
+                  key={hex}
+                  onClick={() => updateDotColor(hex)}
+                  title={label}
+                  className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 ${
+                    active
+                      ? 'bg-zinc-50 dark:bg-zinc-800'
+                      : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                  }`}
+                  style={active ? { borderColor: hex } : {}}
+                >
+                  <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: hex }} />
+                  <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
+                </button>
+              )
+            })}
           </div>
-          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
-            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-3">등락 색상</p>
-            <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
+          {/* 미리보기 */}
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
+            <span className="text-xs text-zinc-500">미리보기</span>
+            <span className="ut-eyebrow" style={{ color: 'var(--ink-4)' }}>
+              SETTINGS<span style={{ color: pendingDotColor, fontSize: '1.4em' }}>.</span>
+            </span>
           </div>
         </div>
       </Card>
 
       {/* 배경 무늬 */}
       <Card collapsible id="settings-background" icon={<Wallpaper size={16} />} title="배경 무늬">
+        <div className="flex gap-1 px-4 pt-3">
+          {(['light', 'dark'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setBgEditMode(m)}
+              className={`chip text-xs ${bgEditMode === m ? 'chip-active' : ''}`}
+            >
+              {m === 'light' ? '라이트 모드' : '다크 모드'}
+            </button>
+          ))}
+        </div>
         <BackgroundPicker value={pendingBg} onChange={updateBg} />
       </Card>
 
@@ -1523,6 +1591,11 @@ const Settings: React.FC = () => {
           onSvg={updateLogoIcon}
           onPng={updatePngLogo}
         />
+      </Card>
+
+      {/* 파비콘 */}
+      <Card collapsible id="settings-favicon" icon={<Shapes size={16} />} title="파비콘 (탭 아이콘)" defaultOpen={false}>
+        <FaviconPicker />
       </Card>
 
       <div className="flex items-center gap-3 pb-8">

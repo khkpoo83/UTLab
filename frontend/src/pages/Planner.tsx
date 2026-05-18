@@ -13,6 +13,7 @@ import StepField from '../components/StepField'
 import RangeSlider from '../components/RangeSlider'
 import type { PlannerOcrItem, PlannerChatRequest } from '../api/client'
 import ToggleChip from '../components/ToggleChip'
+import PageTitle from '../components/PageTitle'
 import {
   AreaChart,
   BarChart,
@@ -1138,15 +1139,14 @@ export default function Planner() {
     <div className="pb-10">
       {/* 헤더 */}
       <div className="pt-2 pb-4">
-        <h1 className="text-xl text-zinc-800 dark:text-zinc-100">은퇴 플래너</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-          {userProfile?.display_name ? `${userProfile.display_name} · ` : ''}
-          개인화된 은퇴 시뮬레이터 ·{' '}
-          {userProfile?.birth_date
-            ? `${userProfile.birth_date.slice(0,7)}생 · 만 ${userProfile.age}세`
-            : `1983년 4월생 · 만 ${CURRENT_AGE}세`}
-          {' '}({CURRENT_YEAR}.{String(CURRENT_MONTH).padStart(2,'0')})
-        </p>
+        <PageTitle
+          sub="retirement"
+          title="Planner"
+          subtitle={userProfile?.birth_date
+            ? `${userProfile.birth_date.slice(0,7)} · 만 ${userProfile.age}세`
+            : `만 ${CURRENT_AGE}세 · ${CURRENT_YEAR}.${String(CURRENT_MONTH).padStart(2,'0')}`
+          }
+        />
       </div>
 
       {/* 상단 은퇴나이 슬라이더 (전체폭) */}

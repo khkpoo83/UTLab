@@ -17,6 +17,15 @@ const THEMES_R = {
   light:   { bg: '#f4f6fb', bgEdge: '#e8ecf4', particle: [22,  32,  78]  as [number,number,number], highlight: [10,  18,  50]  as [number,number,number] },
 }
 
+interface RaindropCanvasProps {
+  isLight?: boolean
+  bg?: string
+  bgEdge?: string
+  particle?: [number, number, number]
+  highlight?: [number, number, number]
+  density?: number
+}
+
 // ───────────────────────── Geometry ─────────────────────────
 const HORIZON_Y_FRAC = 0.04
 const FOV_NEAR = 2.30
@@ -78,27 +87,40 @@ interface ActiveRipple {
 }
 
 // ───────────────────────── Component ────────────────────────
-const RaindropCanvas: React.FC<{ isLight: boolean }> = ({ isLight }) => {
+const RaindropCanvas: React.FC<RaindropCanvasProps> = ({
+  isLight,
+  bg: bgProp,
+  bgEdge: bgEdgeProp,
+  particle: particleProp,
+  highlight: highlightProp,
+  density: _density,
+}) => {
   const ctnRef = useRef<HTMLDivElement>(null)
   const cvRef  = useRef<HTMLCanvasElement>(null)
+
+  // Resolve palette: explicit props > isLight > default
+  const theme = isLight ? THEMES_R.light : THEMES_R.default
+  const resolvedBg        = bgProp        ?? theme.bg
+  const resolvedBgEdge    = bgEdgeProp    ?? theme.bgEdge
+  const resolvedParticle  = particleProp  ?? theme.particle
+  const resolvedHighlight = highlightProp ?? theme.highlight
 
   useEffect(() => {
     const ctn = ctnRef.current, cv = cvRef.current
     if (!ctn || !cv) return
     const ctx = cv.getContext('2d', { alpha: false })!
 
-    const theme = isLight ? THEMES_R.light : THEMES_R.default
-    const [PR, PG, PB] = theme.particle
-    const [HR, HG, HB] = theme.highlight
+    const [PR, PG, PB] = resolvedParticle
+    const [HR, HG, HB] = resolvedHighlight
 
-    let bgFill: CanvasGradient | string = theme.bg
+    let bgFill: CanvasGradient | string = resolvedBg
     function rebuildBg() {
       const g = ctx.createRadialGradient(
         cv!.width * 0.50, cv!.height * 0.62, 0,
         cv!.width * 0.50, cv!.height * 0.55, Math.hypot(cv!.width, cv!.height) * 0.62,
       )
-      g.addColorStop(0, theme.bg)
-      g.addColorStop(1, theme.bgEdge)
+      g.addColorStop(0, resolvedBg)
+      g.addColorStop(1, resolvedBgEdge)
       bgFill = g
     }
     function resize() {
@@ -324,10 +346,13 @@ const RaindropCanvas: React.FC<{ isLight: boolean }> = ({ isLight }) => {
 
     raf = requestAnimationFrame(draw)
     return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [isLight])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedBg, resolvedBgEdge,
+      resolvedParticle[0], resolvedParticle[1], resolvedParticle[2],
+      resolvedHighlight[0], resolvedHighlight[1], resolvedHighlight[2]])
 
   return (
-    <div ref={ctnRef} style={{ position: 'absolute', inset: 0, background: isLight ? THEMES_R.light.bg : THEMES_R.default.bg }}>
+    <div ref={ctnRef} style={{ position: 'absolute', inset: 0, background: resolvedBg }}>
       <canvas ref={cvRef} style={{ display: 'block', width: '100%', height: '100%' }} />
     </div>
   )

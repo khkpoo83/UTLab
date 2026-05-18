@@ -1,8 +1,12 @@
 import { useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu, LogOut, Moon, Sun } from 'lucide-react'
+import {
+  ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu,
+  LogOut, Moon, Sun, Monitor, Settings, FileText, Globe,
+} from 'lucide-react'
 import Logo from './Logo'
-import apiClient from '../api/client'
+import apiClient, { authApi } from '../api/client'
+import { loadBgConfig, applyBackground } from '../utils/background'
 import { getProfileIconNode } from '../utils/settings-utils'
 import { NAV_GROUPS, getActiveGroup } from '../nav'
 import { HomeFavContext } from '../contexts'
@@ -13,6 +17,8 @@ interface SidebarNavProps {
   collapsed: boolean
   onToggleCollapse: () => void
 }
+
+type ThemeMode = 'light' | 'dark' | 'system'
 
 function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
@@ -32,6 +38,18 @@ function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) 
   )
 }
 
+function syncPnlColors(isDark: boolean) {
+  const el = document.documentElement
+  const uL = el.getAttribute('data-pnl-up-light'), dL = el.getAttribute('data-pnl-down-light')
+  const uD = el.getAttribute('data-pnl-up-dark'),  dD = el.getAttribute('data-pnl-down-dark')
+  if (uL && dL && uD && dD) {
+    el.style.setProperty('--c-up',   isDark ? uD : uL)
+    el.style.setProperty('--c-down', isDark ? dD : dL)
+    el.style.setProperty('--up',     isDark ? uD : uL)
+    el.style.setProperty('--down',   isDark ? dD : dL)
+  }
+}
+
 export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }: SidebarNavProps) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -44,10 +62,13 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
     return init
   })
 
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark')
-  )
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('theme') as ThemeMode | null
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
+    return 'system'
+  })
   const [profileIcon, setProfileIcon] = useState(() => localStorage.getItem('profileIcon') || 'user')
+  const [username, setUsername] = useState('')
 
   useEffect(() => {
     if (activeGroup) setExpanded(prev => new Set([...prev, activeGroup.id]))
@@ -59,27 +80,53 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
     return () => window.removeEventListener('profileIconChange', sync)
   }, [])
 
+  useEffect(() => {
+    authApi.me().then(({ data }) => setUsername(data.username)).catch(() => {})
+  }, [])
+
+  // 시스템 모드일 때 OS 변경 감지
+  useEffect(() => {
+    if (themeMode !== 'system') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => {
+      document.documentElement.classList.toggle('dark', e.matches)
+      syncPnlColors(e.matches)
+    }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [themeMode])
+
   const toggle = (id: string) =>
     setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const toggleDark = () => {
-    const next = !darkMode
-    document.documentElement.classList.toggle('dark', next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-    setDarkMode(next)
-    const el = document.documentElement
-    const uL = el.getAttribute('data-pnl-up-light'), dL = el.getAttribute('data-pnl-down-light')
-    const uD = el.getAttribute('data-pnl-up-dark'),  dD = el.getAttribute('data-pnl-down-dark')
-    if (uL && dL && uD && dD) {
-      el.style.setProperty('--c-up',   next ? uD : uL)
-      el.style.setProperty('--c-down', next ? dD : dL)
+  const cycleTheme = () => {
+    const next: ThemeMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light'
+    localStorage.setItem('theme', next)
+    setThemeModeState(next)
+    let isDark: boolean
+    if (next === 'dark') { isDark = true }
+    else if (next === 'light') { isDark = false }
+    else { isDark = window.matchMedia('(prefers-color-scheme: dark)').matches }
+    document.documentElement.classList.toggle('dark', isDark)
+    syncPnlColors(isDark)
+    applyBackground(loadBgConfig(isDark ? 'dark' : 'light'))
+    if (next !== 'system') {
+      apiClient.put('/api/settings', { settings: { ui_dark_mode: isDark } }).catch(() => {})
     }
-    apiClient.put('/api/settings', { settings: { ui_dark_mode: next } }).catch(() => {})
   }
 
   const handleLogout = () => { localStorage.removeItem('token'); navigate('/login') }
 
+  const ThemeIcon = themeMode === 'dark' ? Moon : themeMode === 'light' ? Sun : Monitor
+  const themeTitle = themeMode === 'dark' ? '다크 모드' : themeMode === 'light' ? '라이트 모드' : '시스템 모드'
+
   const w = collapsed ? 'w-14' : 'w-56'
+
+  const iconBtnCls = `flex items-center justify-center w-9 h-9 rounded-lg transition-colors
+    text-zinc-500 dark:text-zinc-400
+    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200`
+
+  const mainNavGroups = NAV_GROUPS.filter(g => !g.hideInSidebar)
 
   return (
     <>
@@ -90,7 +137,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
       <aside className={`
         fixed top-0 left-0 h-screen
         bg-white dark:bg-zinc-950
-        border-r border-zinc-100 dark:border-zinc-800
+        border-r border-zinc-100 dark:border-white/[.05]
         z-40 flex flex-col
         overflow-hidden
         transition-[width] duration-200 ease-in-out
@@ -98,41 +145,22 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
       `}>
-        {/* 헤더: 로고 + 접기 버튼 */}
-        <div className="flex-shrink-0 flex items-center h-11 px-2.5 border-b border-zinc-100 dark:border-zinc-800 gap-2">
-          {collapsed ? (
-            /* 접힌 상태: 아이콘만 중앙 크게 */
-            <div className="w-full flex items-center justify-center">
-              <div
-                className="cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
-                onClick={() => { navigate(homeTab); onClose() }}
-              >
-                <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
-              </div>
-            </div>
-          ) : (
-            /* 펼친 상태: 로고 좌측 + 접기 버튼 우측 */
-            <>
-              <div
-                className="flex-1 cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
-                onClick={() => { navigate(homeTab); onClose() }}
-              >
-                <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
-              </div>
-              <button
-                onClick={onToggleCollapse}
-                className="hidden lg:flex w-6 h-6 items-center justify-center rounded-md text-zinc-400 hover:text-accent hover:bg-accent/10 transition-colors flex-shrink-0"
-                title="접기"
-              >
-                <ChevronsLeft size={14} />
-              </button>
-            </>
-          )}
+        {/* 헤더: 로고 */}
+        <div className="flex-shrink-0 flex items-center h-11 px-2.5 border-b border-zinc-100 dark:border-white/[.05]">
+          <div
+            className={`cursor-pointer hover:opacity-75 transition-opacity active:scale-95 ${collapsed ? 'flex-1 flex justify-center' : 'flex-1'}`}
+            onClick={() => { navigate(homeTab); onClose() }}
+          >
+            {collapsed
+              ? <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
+              : <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
+            }
+          </div>
         </div>
 
         {/* 네비게이션 */}
         <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
-          {NAV_GROUPS.map(group => {
+          {mainNavGroups.map(group => {
             const isGroupActive = activeGroup?.id === group.id
             const isExpanded = expanded.has(group.id)
             const hasChildren = (group.children?.length ?? 0) > 0
@@ -212,7 +240,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                 </button>
 
                 {!collapsed && isExpanded && (
-                  <div className="ml-4 border-l border-zinc-200 dark:border-zinc-700 mt-0.5 space-y-0.5 animate-accordion">
+                  <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
                     {group.children!.map(item => (
                       <div key={item.to} className="relative group/item">
                         <NavLink
@@ -260,59 +288,125 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
               </div>
             )
           })}
-          {/* collapsed 상태 펼치기 버튼 — 네비게이션 하단 */}
-          {collapsed && (
-            <button
-              onClick={onToggleCollapse}
-              className="hidden lg:flex w-full items-center justify-center py-2 mt-1 text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
-              title="펼치기"
-            >
-              <ChevronsRight size={15} />
-            </button>
-          )}
+
         </nav>
 
-        {/* 하단 유저 컨트롤 */}
-        <div className={`flex-shrink-0 border-t border-zinc-100 dark:border-zinc-800 p-2 ${
-          collapsed ? 'flex flex-col items-center gap-1' : 'space-y-1'
-        }`}>
-          {/* 다크모드 토글 */}
-          <button
-            onClick={toggleDark}
-            title={darkMode ? '라이트 모드' : '다크 모드'}
-            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm w-full transition-colors text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300 ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-            {!collapsed && <span>{darkMode ? '라이트 모드' : '다크 모드'}</span>}
-          </button>
-
-          {/* 설정/프로필 */}
-          <button
-            onClick={() => { navigate('/settings'); onClose() }}
-            title="설정"
-            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm w-full transition-colors text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300 ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-              {getProfileIconNode(profileIcon, 15)}
-            </span>
-            {!collapsed && <span>프로필 / 설정</span>}
-          </button>
-
-          {/* 로그아웃 */}
-          <button
-            onClick={handleLogout}
-            title="로그아웃"
-            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm w-full transition-colors text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-red-500 ${
-              collapsed ? 'justify-center' : ''
-            }`}
-          >
-            <LogOut size={15} className="flex-shrink-0" />
-            {!collapsed && <span>로그아웃</span>}
-          </button>
+        {/* 하단 유저 바 */}
+        <div className="flex-shrink-0 border-t border-zinc-100 dark:border-white/[.05]">
+          {collapsed ? (
+            /* ── 접힌 상태: 프로필 카드 + 아이콘 + 펼치기 버튼 ── */
+            <div className="flex flex-col items-center gap-0.5 py-2 px-1">
+              <div className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800/80 rounded-lg text-zinc-600 dark:text-zinc-300">
+                {getProfileIconNode(profileIcon, 20)}
+              </div>
+              <div className="w-5 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
+              <button onClick={cycleTheme} title={themeTitle} className={iconBtnCls}>
+                <ThemeIcon size={20} />
+              </button>
+              <button
+                onClick={() => { navigate('/settings'); onClose() }}
+                title="설정"
+                className={iconBtnCls}
+              >
+                <Settings size={20} />
+              </button>
+              <a
+                href="/docs/"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="명세서"
+                className={iconBtnCls}
+              >
+                <FileText size={20} />
+              </a>
+              <button
+                onClick={handleLogout}
+                title="로그아웃"
+                className={`${iconBtnCls} hover:text-red-500 dark:hover:text-red-400`}
+              >
+                <LogOut size={20} />
+              </button>
+              <div className="w-5 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
+              <button
+                onClick={() => { navigate('/'); onClose() }}
+                title="메인으로 가기"
+                className={iconBtnCls}
+              >
+                <Globe size={16} />
+              </button>
+              <button
+                onClick={onToggleCollapse}
+                title="펼치기"
+                className={`${iconBtnCls} hidden lg:flex`}
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+          ) : (
+            /* ── 펼친 상태: 프로필 카드 + 아이콘 + 접기 버튼 ── */
+            <div className="px-3 py-2.5">
+              {/* 프로필 카드 */}
+              <div className="card-surface rounded-lg px-3 py-2 mb-2.5 flex items-center gap-2.5">
+                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-zinc-500 dark:text-zinc-400">
+                  {getProfileIconNode(profileIcon, 18)}
+                </span>
+                <span className="flex-1 text-sm font-medium truncate" style={{ color: 'var(--ink-1)' }}>
+                  {username || 'admin'}
+                </span>
+              </div>
+              {/* 아이콘 행 */}
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={cycleTheme}
+                  title={themeTitle}
+                  className={iconBtnCls}
+                >
+                  <ThemeIcon size={20} />
+                </button>
+                <button
+                  onClick={() => { navigate('/settings'); onClose() }}
+                  title="설정"
+                  className={iconBtnCls}
+                >
+                  <Settings size={20} />
+                </button>
+                <a
+                  href="/docs/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="명세서"
+                  className={iconBtnCls}
+                >
+                  <FileText size={20} />
+                </a>
+                <button
+                  onClick={handleLogout}
+                  title="로그아웃"
+                  className={`${iconBtnCls} hover:text-red-500 dark:hover:text-red-400`}
+                >
+                  <LogOut size={20} />
+                </button>
+              </div>
+              {/* 구분선 + 하단 버튼들 */}
+              <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-1.5" />
+              <button
+                onClick={() => { navigate('/'); onClose() }}
+                className="flex w-full items-center gap-2 px-1.5 py-1.5 text-xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                title="메인으로 가기"
+              >
+                <Globe size={14} />
+                <span>메인으로 가기</span>
+              </button>
+              <button
+                onClick={onToggleCollapse}
+                className="hidden lg:flex w-full items-center gap-2 px-1.5 py-1.5 text-xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                title="접기"
+              >
+                <ChevronsLeft size={14} />
+                <span>접기</span>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>
@@ -324,7 +418,7 @@ export function SidebarToggle({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-accent hover:border-accent transition-colors lg:hidden"
+      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[.04] flex items-center justify-center text-zinc-500 hover:text-accent hover:border-accent transition-colors lg:hidden"
       title="메뉴 열기"
     >
       <Menu size={15} />

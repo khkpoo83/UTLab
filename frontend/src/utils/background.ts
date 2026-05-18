@@ -25,9 +25,10 @@ export const BG_DEFAULTS: BgConfig = {
   bgFixed: true,
 }
 
-export function loadBgConfig(): BgConfig {
+export function loadBgConfig(mode?: 'light' | 'dark'): BgConfig {
   try {
-    const s = localStorage.getItem('bgConfig')
+    const key = mode === 'dark' ? 'bgConfig_dark' : 'bgConfig'
+    const s = localStorage.getItem(key)
     if (!s) return { ...BG_DEFAULTS }
     return { ...BG_DEFAULTS, ...JSON.parse(s) }
   } catch {
@@ -35,8 +36,17 @@ export function loadBgConfig(): BgConfig {
   }
 }
 
-export function saveBgConfig(cfg: BgConfig) {
-  localStorage.setItem('bgConfig', JSON.stringify(cfg))
+export function saveBgConfig(cfg: BgConfig, mode?: 'light' | 'dark') {
+  const key = mode === 'dark' ? 'bgConfig_dark' : 'bgConfig'
+  localStorage.setItem(key, JSON.stringify(cfg))
+}
+
+export function getCurrentMode(): 'light' | 'dark' {
+  return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+}
+
+export function applyCurrentModeBg() {
+  applyBackground(loadBgConfig(getCurrentMode()))
 }
 
 function hexToRgba(hex: string, opacity: number): string {

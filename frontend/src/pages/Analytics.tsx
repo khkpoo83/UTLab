@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { portfolioApi, PortfolioItem, PortfolioAnalysisGroup, PortfolioAnalysisItem } from '../api/client'
 import { Card } from '../components/Card'
 import SectorBar, { SectorWeight } from '../components/SectorBar'
-import PageHeader from '../components/PageHeader'
+import PageTitle from '../components/PageTitle'
 import Notice from '../components/Notice'
 import Button from '../components/Button'
 import PortfolioReturnsCard from '../components/PortfolioReturnsCard'
@@ -13,7 +13,6 @@ import {
   useSensor, useSensors, DragEndEvent, DragOverlay,
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
-import { Bot, PieChart } from 'lucide-react'
 
 const ANALYTICS_CARD_IDS = ['analytics-returns', 'analytics-sector', 'analytics-ai']
 const ANALYTICS_CARD_TITLES: Record<string, string> = {
@@ -133,7 +132,7 @@ const Analytics: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="포트폴리오 분석" subtitle="수익금 분석 및 섹터 구성" />
+      <PageTitle sub="portfolio" title="Analytics" />
 
       {error && <Notice variant="red" className="text-xs">{error}</Notice>}
 
@@ -157,7 +156,6 @@ const Analytics: React.FC = () => {
                   <Card
                     collapsible
                     dragHandle={dragHandle}
-                    icon={<PieChart size={15} />}
                     title="섹터 집중도"
                     right={!loading && hasSectorWarning ? <span className="tag tag-amber">집중 위험</span> : undefined}
                   >
@@ -174,7 +172,6 @@ const Analytics: React.FC = () => {
                     collapsible
                     dragHandle={dragHandle}
                     defaultOpen={false}
-                    icon={<Bot size={15} />}
                     title="AI 종목 분석"
                     subtitle={analysisGroups.length > 0 && !analysisRefreshing ? analysisGroups[0]?.session_date : analysisRefreshing ? '' : undefined}
                     right={

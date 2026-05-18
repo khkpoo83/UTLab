@@ -31,7 +31,7 @@ body {
 }
 
 .dark body {
-  background-color: #0c0d16 !important;
+  background-color: #0c0d16;
 }
 
 #content-main {
@@ -62,73 +62,70 @@ body {
 
 /* Table styles */
 .data-table {
-  @apply w-full border-collapse;
-  font-size: 14.5px;
-}
-
-.data-table th {
-  @apply font-semibold text-zinc-700 dark:text-zinc-300 text-left py-2.5 px-3 border-b border-zinc-200 dark:border-zinc-700 select-none;
-  background-color: var(--c-surface-subtle);
+  width: 100%;
+  border-collapse: collapse;
   font-size: 13px;
 }
 
+.data-table th {
+  padding: 9px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-4);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: left;
+  background: var(--paper);
+  white-space: nowrap;
+  user-select: none;
+}
+
 .data-table th.sortable {
-  @apply cursor-pointer transition-colors;
-  color: var(--c-text-sub);
+  cursor: pointer;
+  transition: color 0.1s;
 }
 .data-table th.sortable:hover {
-  color: var(--c-accent);
+  color: var(--ink-1);
 }
 
 .data-table td {
-  @apply py-2.5 px-3 border-b border-zinc-100 dark:border-zinc-800/80 text-zinc-800 dark:text-zinc-200;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink-1);
+  font-size: 13px;
 }
 
 .data-table td.secondary {
-  @apply text-xs text-zinc-500 dark:text-zinc-400 pt-0 pb-2.5;
+  font-size: 11px;
+  color: var(--ink-4);
+  padding-top: 0;
+  padding-bottom: 10px;
 }
 
 .data-table tbody tr {
-  @apply cursor-pointer transition-all duration-100;
+  cursor: pointer;
+  transition: background 0.08s;
 }
 
-/* even/odd 모두 강한 hover 덮어쓰기 */
 .data-table tbody tr:hover,
 .data-table tbody tr:nth-child(even):hover {
-  background-color: rgb(var(--c-accent-rgb) / 0.12) !important;
-}
-.dark .data-table tbody tr:hover,
-.dark .data-table tbody tr:nth-child(even):hover {
-  background-color: rgb(var(--c-accent-rgb) / 0.18) !important;
-}
-
-.data-table tbody tr:hover td {
-  @apply text-zinc-900 dark:text-zinc-50;
+  background-color: var(--cream) !important;
 }
 
 .data-table tbody tr:active,
 .data-table tbody tr:nth-child(even):active {
-  background-color: rgb(var(--c-accent-rgb) / 0.22) !important;
-}
-.dark .data-table tbody tr:active,
-.dark .data-table tbody tr:nth-child(even):active {
-  background-color: rgb(var(--c-accent-rgb) / 0.30) !important;
+  background-color: var(--mist) !important;
 }
 
 .data-table tbody tr.selected,
 .data-table tbody tr:nth-child(even).selected {
-  background-color: rgb(var(--c-accent-rgb) / 0.15) !important;
-  outline: 2px solid var(--c-accent);
+  background-color: var(--mist) !important;
+  outline: 2px solid var(--ink-0);
   outline-offset: -2px;
 }
-.dark .data-table tbody tr.selected,
-.dark .data-table tbody tr:nth-child(even).selected {
-  background-color: rgb(var(--c-accent-rgb) / 0.22) !important;
-  outline-color: var(--c-accent);
-}
 
-.data-table tbody tr:nth-child(even) {
-  background-color: var(--c-surface-subtle);
+.dark .data-table td {
+  border-bottom-color: rgba(255,255,255,0.04);
 }
 
 /* 카드 hover 효과 */
@@ -232,6 +229,7 @@ body {
   --tooltip-text:        #e4e4e7;
   --tooltip-label:       #a1a1aa;
   --chart-cursor-fill:   rgba(255,255,255,0.06);
+
 }
 
 /* ── 봄 (Spring) — 벚꽃 핑크 / 연분홍·살구 팔레트 ── */
@@ -695,49 +693,15 @@ body {
   background: rgba(9, 9, 14, 0.32);
 }
 
-/* ── 글래스 패널: 카드 밖 텍스트 가독성 ──────────────────────────────────── */
-/*
- * card-surface(카드) 안: 원래 zinc 색상 유지
- * card-surface 밖 (글래스 위 직접): 모드에 따라 대비 확보
- *   라이트: 밝은 글래스 → 어두운 색 + 흰 쉐도우
- *   다크:   어두운 글래스 → 흰색 + 어두운 쉐도우
- */
-
-/*
- * glass-panel 색상 부스트 — card-surface 내부는 제외 (card-surface 안은 원래 Tailwind 색상 유지)
- * :not(.card-surface, .card-surface *) 로 card-surface 자체 및 그 자손을 선택에서 제외
- */
-
-/* 라이트모드: gray → 진한 어두운색 + 흰 쉐도우 */
-.glass-panel :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600):not(.card-surface, .card-surface *, .card, .card *) {
-  color: rgba(25, 25, 30, 0.80) !important;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.70);
-}
-.glass-panel :is(.text-zinc-700, .text-zinc-800, .text-zinc-900):not(.card-surface, .card-surface *, .card, .card *) {
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.55);
-}
-
-/* 다크모드: gray → 흰색 + 어두운 쉐도우 */
-.dark .glass-panel :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600):not(.card-surface, .card-surface *, .card, .card *) {
-  color: rgba(255, 255, 255, 0.88) !important;
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.60),
-    0 0  12px rgba(0, 0, 0, 0.30);
-}
-.dark .glass-panel :is(.text-zinc-700, .text-zinc-800, .text-zinc-900):not(.card-surface, .card-surface *, .card, .card *) {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.50);
-}
-
-/* ── card-surface 안 input/textarea/select: 명시적 색상으로 가시성 보장 ── */
-/* color:revert가 브라우저에 따라 input 값 색상을 흰색으로 만드는 이슈 수정 */
-.glass-panel .card-surface input,
-.glass-panel .card-surface textarea,
-.glass-panel .card-surface select {
+/* ── card-surface 안 input/textarea/select: 가시성 보장 ── */
+.card-surface input,
+.card-surface textarea,
+.card-surface select {
   color: rgb(39 39 42) !important; /* zinc-800 */
 }
-.dark .glass-panel .card-surface input,
-.dark .glass-panel .card-surface textarea,
-.dark .glass-panel .card-surface select {
+.dark .card-surface input,
+.dark .card-surface textarea,
+.dark .card-surface select {
   color: rgb(228 228 231) !important; /* zinc-200 */
 }
 
@@ -765,9 +729,9 @@ body {
   --c-surface-subtle: rgb(250 250 250 / var(--card-opacity));
 }
 .dark {
-  /* 남색 톤이 섞인 다크 서페이스 (순수 zinc 대비 B채널 +8~14) */
-  --c-surface:        rgb(19 20 30 / var(--card-opacity));
-  --c-surface-subtle: rgb(28 29 44 / var(--card-opacity));
+  /* renewal 다크 페이퍼 #131312 = rgb(19 19 18) */
+  --c-surface:        rgb(19 19 18 / var(--card-opacity));
+  --c-surface-subtle: rgb(29 28 26 / var(--card-opacity));
 }
 .surface        { background-color: var(--c-surface); }
 .surface-subtle { background-color: var(--c-surface-subtle); }
@@ -778,13 +742,13 @@ body {
 }
 .dark .card-surface {
   background-color: var(--c-surface);
-  border-color: rgb(48 50 72 / max(var(--card-opacity), 0.3));
+  border-color: rgb(42 41 37 / max(var(--card-opacity), 0.3)); /* #2A2925 renewal */
 }
 .card-header-surface {
   background-color: rgb(255 255 255 / var(--card-opacity)) !important;
 }
 .dark .card-header-surface {
-  background-color: rgb(19 20 30 / var(--card-opacity)) !important;
+  background-color: rgb(19 19 18 / var(--card-opacity)) !important;
 }
 
 /* ── 패널(모달·슬라이드) 투명도 시스템 ── 카드보다 +0.05 더 불투명 ── */
@@ -794,8 +758,8 @@ body {
   --c-panel-subtle: rgb(250 250 250 / var(--panel-opacity));
 }
 .dark {
-  --c-panel:        rgb(19 20 30 / var(--panel-opacity));
-  --c-panel-subtle: rgb(28 29 44 / var(--panel-opacity));
+  --c-panel:        rgb(19 19 18 / var(--panel-opacity));
+  --c-panel-subtle: rgb(29 28 26 / var(--panel-opacity));
 }
 .panel-surface {
   background-color: var(--c-panel);
@@ -809,15 +773,15 @@ body {
   background-color: rgb(255 255 255 / min(calc(var(--card-opacity) + 0.1), 1)) !important;
 }
 .dark .panel-header-surface {
-  background-color: rgb(19 20 30 / min(calc(var(--card-opacity) + 0.1), 1)) !important;
+  background-color: rgb(19 19 18 / min(calc(var(--card-opacity) + 0.1), 1)) !important;
 }
 .panel-inner-surface {
   background-color: rgb(250 250 250 / var(--card-opacity));
   border-color: rgb(228 228 231 / max(var(--card-opacity), 0.3));
 }
 .dark .panel-inner-surface {
-  background-color: rgb(28 29 44 / var(--card-opacity));
-  border-color: rgb(50 52 72 / max(var(--card-opacity), 0.3));
+  background-color: rgb(29 28 26 / var(--card-opacity));
+  border-color: rgb(42 41 37 / max(var(--card-opacity), 0.3));
 }
 
 /* ── 슬라이드 드로어 너비 전환 ── */
@@ -884,3 +848,166 @@ body {
     opacity: 0.35;
   }
 }
+
+/* ================================================================
+   U.T Lab4 Renewal Design System — v3
+   (기존 --c-* 시스템과 공존. 신규 페이지/컴포넌트에서만 사용)
+   ================================================================ */
+
+@font-face {
+  font-family: 'Pretendard Variable';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('/fonts/PretendardVariable.woff2') format('woff2-variations'),
+       url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/packages/pretendard/dist/web/variable/woff2/PretendardVariable.woff2') format('woff2-variations');
+}
+
+:root {
+  /* Ink scale — zinc 기반 (라이트모드) */
+  --ink-0: #27272A;
+  --ink-1: #3F3F46;
+  --ink-2: #52525B;
+  --ink-3: #71717A;
+  --ink-4: #A1A1AA;
+  --ink-5: #D4D4D8;
+
+  /* Surface */
+  --paper:  #FFFFFF;
+  --cream:  #FAFAF7;
+  --mist:   #F4F3EF;
+  --line:   rgba(0,0,0,0.05);
+  --line-2: rgba(0,0,0,0.03);
+
+  /* 브랜드 — amber dot 시그니처 */
+  --dot: #F59E0B;
+
+  /* P&L — renewal 기준 (기존 --c-up/down과 별개) */
+  --up:   #D74A4A;
+  --down: #2A6FDB;
+
+  /* 폰트 */
+  --font-sans:  'Pretendard Variable', 'Pretendard', system-ui, sans-serif;
+  --font-serif: 'Noto Serif KR', 'Source Serif Pro', Georgia, ui-serif, serif;
+
+  /* 라디우스 */
+  --r-xs:   6px;
+  --r-sm:   10px;
+  --r-md:   14px;
+  --r-lg:   20px;
+  --r-xl:   28px;
+  --r-full: 9999px;
+
+  /* 그림자 */
+  --shadow-xs: 0 1px 2px rgba(10,10,11,0.03);
+  --shadow-sm: 0 2px 6px rgba(10,10,11,0.04), 0 1px 2px rgba(10,10,11,0.03);
+  --shadow-md: 0 8px 28px rgba(10,10,11,0.06), 0 2px 4px rgba(10,10,11,0.04);
+  --shadow-lg: 0 24px 60px rgba(10,10,11,0.10), 0 4px 12px rgba(10,10,11,0.05);
+}
+
+/* ── 다크모드 오버라이드 — html.dark (specificity 0,1,1) > :root (0,1,0) 보장 ── */
+html.dark {
+  --ink-0: #E4E4E7;
+  --ink-1: #D4D4D8;
+  --ink-2: #A1A1AA;
+  --ink-3: #71717A;
+  --ink-4: #52525B;
+  --ink-5: #3F3F46;
+  --paper:  #09090B;
+  --cream:  #18181B;
+  --mist:   #27272A;
+  --line:   rgba(255,255,255,0.05);
+  --line-2: rgba(255,255,255,0.03);
+  --up:     #FF7A97;
+  --down:   #4DBFFF;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.18);
+  --shadow-sm: 0 2px 6px rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.18);
+  --shadow-md: 0 8px 28px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.20);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,0.40), 0 4px 12px rgba(0,0,0,0.24);
+}
+
+/* ── 타이포그래피 ─────────────────────────────────────────────── */
+.ut-display   { font-size: clamp(48px, 7vw, 96px);   font-weight: 700; line-height: 0.96; letter-spacing: -0.04em; }
+.ut-display-2 { font-size: clamp(36px, 5vw, 64px);   font-weight: 700; line-height: 1.02; letter-spacing: -0.035em; }
+.ut-h1        { font-size: clamp(28px, 3.5vw, 44px); font-weight: 700; line-height: 1.1;  letter-spacing: -0.03em; }
+.ut-h2        { font-size: clamp(22px, 2.4vw, 30px); font-weight: 700; line-height: 1.2;  letter-spacing: -0.022em; }
+.ut-h3        { font-size: 19px; font-weight: 600; line-height: 1.3; letter-spacing: -0.014em; }
+.ut-eyebrow   { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-4); }
+.ut-body      { font-size: 15.5px; line-height: 1.55; color: var(--ink-2); }
+.ut-body-sm   { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.ut-caption   { font-size: 12px;  line-height: 1.4;  color: var(--ink-3); }
+.ut-mono      { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum'; }
+.ut-serif     { font-family: var(--font-serif); }
+.ut-serif-italic { font-family: var(--font-serif); font-style: italic; font-weight: 700; }
+.ut-up        { color: var(--up); }
+.ut-down      { color: var(--down); }
+
+/* ── 화면 리셋 ───────────────────────────────────────────────── */
+.ut-screen {
+  font-family: var(--font-sans);
+  color: var(--ink-2);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 카드 ────────────────────────────────────────────────────── */
+.ut-card       { background: var(--c-surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs); }
+.ut-card-flat  { background: var(--c-surface); border: 1px solid var(--line); border-radius: var(--r-md); }
+.ut-card-cream { background: var(--c-surface-subtle); border: 1px solid var(--line); border-radius: var(--r-md); }
+
+/* ── 버튼 ────────────────────────────────────────────────────── */
+.ut-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 44px; padding: 0 20px;
+  border-radius: var(--r-full);
+  font-size: 15px; font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.18s ease, background 0.18s ease;
+  border: none; line-height: 1; text-decoration: none;
+  white-space: nowrap;
+}
+.ut-btn:active { transform: scale(0.97); }
+.ut-btn-primary   { background: var(--ink-0); color: var(--paper); }
+.ut-btn-primary:hover { background: var(--ink-1); }
+.ut-btn-secondary { background: var(--paper); color: var(--ink-1); border: 1px solid var(--line); }
+.ut-btn-secondary:hover { border-color: var(--ink-3); }
+.ut-btn-ghost     { background: transparent; color: var(--ink-2); }
+.ut-btn-ghost:hover { color: var(--ink-0); }
+.ut-btn-sm        { height: 34px; padding: 0 14px; font-size: 13px; }
+
+/* ── 칩 / 태그 ───────────────────────────────────────────────── */
+.ut-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 28px; padding: 0 12px;
+  border-radius: var(--r-full);
+  background: var(--mist); font-size: 12.5px; font-weight: 500;
+  color: var(--ink-2); border: 1px solid transparent; cursor: pointer;
+}
+.ut-chip-active  { background: var(--ink-0); color: var(--paper); }
+.ut-chip-outline { background: var(--paper); border-color: var(--line); }
+
+.ut-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: var(--r-sm);
+  background: var(--mist); font-size: 11.5px; font-weight: 500; color: var(--ink-3);
+}
+
+/* ── 애니메이션 ───────────────────────────────────────────────── */
+@keyframes ut-dot-pulse {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+.ut-dot-pulse { animation: ut-dot-pulse 2.4s ease-in-out infinite; }
+
+@keyframes ut-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ut-marquee-track {
+  display: inline-flex; white-space: nowrap;
+  animation: ut-marquee 45s linear infinite;
+}
+.ut-marquee-track.slow { animation-duration: 80s; }
+.ut-marquee-track.rev  { animation-direction: reverse; }
+

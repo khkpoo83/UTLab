@@ -163,20 +163,13 @@ function saveState(id: string, s: PersistedState) {
 function PctBar({ value, max = 100 }: { value: number; max?: number }) {
   const pct = Math.min(Math.abs(value) / max * 100, 100)
   return (
-    <div
-      className="relative rounded overflow-hidden"
-      style={{ height: 20, minWidth: 64, background: 'rgb(var(--c-accent-rgb) / 0.10)' }}
-    >
-      <div
-        className="absolute left-0 top-0 h-full rounded"
-        style={{ width: `${pct}%`, background: 'rgb(var(--c-accent-rgb) / 0.55)' }}
-      />
-      <span
-        className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums z-10 select-none"
-        style={{ color: 'rgb(var(--c-text-base))' }}
-      >
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, minWidth: 0, overflow: 'hidden' }}>
+      <span className="ut-mono" style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink-0)' }}>
         {value.toFixed(1)}%
       </span>
+      <div style={{ width: '100%', height: 4, background: 'var(--cream)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--ink-1)', borderRadius: 2 }} />
+      </div>
     </div>
   )
 }
@@ -190,19 +183,21 @@ function CellContent<T>({ col, row }: { col: ColDef<T>; row: T }) {
   switch (col.type) {
     case 'pnl': {
       const n = raw as number | null | undefined
-      if (n == null) return <span className="text-zinc-400">-</span>
+      if (n == null) return <span style={{ color: 'var(--ink-4)' }}>-</span>
       return (
-        <span className={`tabular-nums font-semibold ${n >= 0 ? 'text-up' : 'text-down'}`}>
-          {n >= 0 ? '+' : ''}{n.toLocaleString('ko-KR')}
+        <span className="ut-mono" style={{ fontWeight: 600, color: n >= 0 ? 'var(--up)' : 'var(--down)', fontSize: 13 }}>
+          <span style={{ fontSize: 9, marginRight: 2 }}>{n >= 0 ? '▲' : '▼'}</span>
+          {Math.abs(n).toLocaleString('ko-KR')}
         </span>
       )
     }
     case 'pnl-pct': {
       const n = raw as number | null | undefined
-      if (n == null) return <span className="text-zinc-400">-</span>
+      if (n == null) return <span style={{ color: 'var(--ink-4)' }}>-</span>
       return (
-        <span className={`tabular-nums font-semibold ${n >= 0 ? 'text-up' : 'text-down'}`}>
-          {n >= 0 ? '+' : ''}{n.toFixed(2)}%
+        <span className="ut-mono" style={{ fontWeight: 600, color: n >= 0 ? 'var(--up)' : 'var(--down)', fontSize: 13 }}>
+          <span style={{ fontSize: 9, marginRight: 2 }}>{n >= 0 ? '▲' : '▼'}</span>
+          {Math.abs(n).toFixed(2)}%
         </span>
       )
     }
@@ -621,7 +616,7 @@ export function DataTable<T = Record<string, unknown>>({
               </button>
             </>
           ) : (
-            <span className="text-2xs text-zinc-400 dark:text-zinc-500">Shift+클릭으로 다중 정렬</span>
+            <span className="ut-eyebrow" style={{ fontSize: 9, color: 'var(--ink-5)' }}>Shift+클릭 → 다중 정렬</span>
           )}
         </div>
 

@@ -1,9 +1,12 @@
 import React from 'react'
+import { LogoMark, Wordmark as UTWordmark } from './ut/UTLogo'
 
 export type LogoIconStyle = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j'
 export type LogoNewStyle  =
+  'nw-monolith' |
   'nw-indigo' | 'nw-coral' | 'nw-cradle' | 'nw-brutalist' | 'nw-flask' |
-  'nw-folio'  | 'nw-cube'  | 'nw-particle' | 'nw-aperture' | 'nw-stack'
+  'nw-folio'  | 'nw-cube'  | 'nw-particle' | 'nw-aperture' | 'nw-stack' |
+  'nw-utmark'
 export type LogoAnyStyle  = LogoIconStyle | LogoNewStyle
 
 export const LOGO_ICON_STYLES: { id: LogoIconStyle; label: string; desc: string }[] = [
@@ -23,6 +26,7 @@ const VALID_OLD = new Set<string>(['a','b','c','d','e','f','g','h','i','j'])
 const VALID_NEW = new Set<string>([
   'nw-indigo','nw-coral','nw-cradle','nw-brutalist','nw-flask',
   'nw-folio','nw-cube','nw-particle','nw-aperture','nw-stack',
+  'nw-utmark',
 ])
 
 export function getLogoIconStyle(): LogoAnyStyle {
@@ -168,6 +172,33 @@ function LogoIcon({ ih, uid, style }: IconCfg) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 interface NI { size?: number }
+
+// UTLogo의 LogoMark를 그대로 사용 (renewal aperture 스타일)
+const NwUTMark: React.FC<NI> = ({ size = 44 }) => <LogoMark size={size} />
+
+const NwMonolith: React.FC<NI> = ({ size = 44 }) => {
+  const r = size * 0.235
+  const dot = size * 0.085
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: r,
+      background: '#0A0A0B', flexShrink: 0,
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+      fontFamily: 'Pretendard Variable, system-ui, sans-serif',
+    }}>
+      <div style={{
+        display: 'inline-flex', alignItems: 'baseline', gap: size * 0.035,
+        fontWeight: 800, fontSize: size * 0.50, color: '#FAFAF7',
+        letterSpacing: '-0.06em', lineHeight: 1,
+      }}>
+        <span>U</span>
+        <span style={{ width: dot, height: dot, borderRadius: '50%', background: '#F59E0B', alignSelf: 'baseline', marginBottom: size * 0.04, flexShrink: 0 }} />
+        <span>T</span>
+      </div>
+    </div>
+  )
+}
 
 const NwIndigo: React.FC<NI> = ({ size = 44 }) => {
   const r = size * 0.225
@@ -351,6 +382,8 @@ const NwStack: React.FC<NI> = ({ size = 44 }) => {
 
 /* 신규 스타일 메타데이터 */
 export const NEW_LOGO_STYLES: { id: LogoNewStyle; label: string; desc: string; Component: React.FC<NI> }[] = [
+  { id: 'nw-utmark',    label: 'U.T Mark',  desc: '크림 사각 + 앰버 도트', Component: NwUTMark   },
+  { id: 'nw-monolith',  label: 'Monolith',  desc: 'U·dot·T 앰버',     Component: NwMonolith  },
   { id: 'nw-indigo',    label: 'Indigo',    desc: '인디고 그라디언트',  Component: NwIndigo    },
   { id: 'nw-coral',     label: 'Coral',     desc: 'U·T 코랄 도트',     Component: NwCoral     },
   { id: 'nw-cradle',    label: 'Cradle',    desc: 'U가 T를 감싸는 형', Component: NwCradle    },
@@ -415,6 +448,15 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
   if (newDef || NEW_LOGO_IDS.has(style)) {
     const IconComp = newDef?.Component ?? NwIndigo
     if (iconOnly) return <div className={className}><IconComp size={ih} /></div>
+    // nw-utmark는 UTLogo Wordmark 사용 (renewal 타이포그래피)
+    if (style === 'nw-utmark') {
+      return (
+        <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="U.T Lab4">
+          <IconComp size={ih} />
+          <UTWordmark size={fs} />
+        </div>
+      )
+    }
     return (
       <div className={`inline-flex items-center ${className}`} style={{ gap }} aria-label="U.T Lab4">
         <IconComp size={ih} />

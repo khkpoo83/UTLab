@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import PageTitle from '../components/PageTitle'
 import { watchlistApi, portfolioApi, WatchlistItem } from '../api/client'
 import Skeleton from '../components/Skeleton'
 import { formatPrice } from '../utils/format'
@@ -206,19 +207,18 @@ const Watchlist: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-            관심 종목{!loading && items.length > 0 && ` (${items.length}개)`}
-          </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">관심 종목을 등록하고 목표가를 관리하세요</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <PageTitle
+          sub="watchlist"
+          title={`Watchlist${!loading && items.length > 0 ? ` (${items.length})` : ''}`}
+        />
+        <div style={{ paddingTop: 6, flexShrink: 0 }}>
+          <Button
+            variant="primary" size="md"
+            onClick={() => setShowAdd(true)}
+            icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}
+          >추가</Button>
         </div>
-        <Button
-          variant="primary" size="md"
-          onClick={() => setShowAdd(true)}
-          icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>}
-        >추가</Button>
       </div>
 
       {error && <Notice variant="red" className="text-xs">{error}</Notice>}

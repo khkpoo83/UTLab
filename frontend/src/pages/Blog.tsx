@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil, Check } from 'lucide-react'
+import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil, Check, Trash2 } from 'lucide-react'
 import { blogApi, settingsApi, BlogPost } from '../api/client'
 
 function formatDate(iso: string) {
@@ -32,8 +32,8 @@ export default function Blog() {
         tag: activeTag || undefined,
       })
       setPosts(data)
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // ignore
     } finally {
       setLoading(false)
     }
@@ -65,8 +65,8 @@ export default function Blog() {
     try {
       await settingsApi.update({ blog_title: next })
       setBlogTitle(next)
-    } catch (e) {
-      console.error(e)
+    } catch {
+      // ignore
     } finally {
       setSavingTitle(false)
       setEditingTitle(false)
@@ -224,13 +224,27 @@ export default function Blog() {
                 </div>
               </div>
 
-              {/* 수정 버튼 */}
-              <button
-                onClick={() => navigate(`/blog/${post.id}`)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 flex-shrink-0"
-              >
-                <Pencil size={13} />
-              </button>
+              {/* 수정/삭제 버튼 */}
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
+                <button
+                  onClick={() => navigate(`/blog/${post.id}/edit`)}
+                  className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                  title="수정"
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!confirm(`"${post.title}" 글을 삭제하시겠습니까?`)) return
+                    await blogApi.delete(post.id)
+                    loadPosts()
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500"
+                  title="삭제"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           ))}
         </div>

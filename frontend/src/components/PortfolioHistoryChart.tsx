@@ -8,11 +8,14 @@ import { portfolioApi, PortfolioHistoryPoint } from '../api/client'
 interface PortfolioHistoryChartProps {
   accountNo?: string
   todayPnlPct?: number
+  period?: 7 | 30 | 90 | 180 | 365
 }
 
-const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo, todayPnlPct }) => {
+const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo, todayPnlPct, period: externalPeriod }) => {
   const [rawData, setRawData] = useState<PortfolioHistoryPoint[]>([])
-  const [period, setPeriod] = useState<7 | 30 | 90 | 180 | 365>(30)
+  const [internalPeriod, setInternalPeriod] = useState<7 | 30 | 90 | 180 | 365>(30)
+  const period = externalPeriod ?? internalPeriod
+  const setPeriod = (p: 7 | 30 | 90 | 180 | 365) => { if (!externalPeriod) setInternalPeriod(p) }
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -72,53 +75,46 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo
   const domainMin = barMin < barMinAligned ? barMin * domainMax / barMax : domainMinNaive
   const dayDomain: [number, number] = [barMin, barMax]
 
-  const isDark = document.documentElement.classList.contains('dark')
-  const UP_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--c-up').trim() || '#F0507A'
-  const DN_COLOR = getComputedStyle(document.documentElement).getPropertyValue('--c-down').trim() || '#1A9EFF'
+  const cs = getComputedStyle(document.documentElement)
+  const isDark    = document.documentElement.classList.contains('dark')
+  const INK0      = cs.getPropertyValue('--ink-0').trim() || '#0A0A0B'
+  const INK2      = cs.getPropertyValue('--ink-2').trim() || '#3C3C40'
+  const INK3      = cs.getPropertyValue('--ink-3').trim() || '#6B6A65'
+  const INK4      = cs.getPropertyValue('--ink-4').trim() || '#A8A6A0'
+  const DOT_COLOR = cs.getPropertyValue('--dot').trim()   || '#F59E0B'
   const GRID_COLOR = isDark ? '#3f3f46' : '#d1d5db'
-  const TICK_COLOR = isDark ? '#a1a1aa' : '#71717a'
-  const TICK_ZERO_COLOR = isDark ? '#d4d4d8' : '#52525b'
-  const gradId = `pnlGrad_${accountNo ?? 'total'}`
-  const fillId = `pnlFill_${accountNo ?? 'total'}`
-
-  // 모든 값이 같은 부호이면 단색 사용 (objectBoundingBox 그라디언트 오정렬 방지)
-  const allPositive = yMin >= 0
-  const allNegative = yMax <= 0
-  const strokeColor = allPositive ? UP_COLOR : allNegative ? DN_COLOR : `url(#${gradId})`
-  const areaFill = allPositive ? UP_COLOR : allNegative ? DN_COLOR : `url(#${fillId})`
-  const areaFillOpacity = (allPositive || allNegative) ? 0.13 : 1
-  // 0% 기준선 위치: objectBoundingBox는 실제 데이터 범위(yMin~yMax) 기준 — 패딩된 도메인 X
-  const zeroRatio = (yMax - yMin) > 0 ? yMax / (yMax - yMin) : (yMax <= 0 ? 0 : 1)
-  const clampedZero = Math.max(0.01, Math.min(0.99, zeroRatio))
+  const fadeId = `ink0Fade_${accountNo ?? 'total'}`
 
   return (
     <div>
-      <div className="flex gap-1 mb-2">
-        {([7, 30, 90, 180, 365] as const).map(p => (
-          <button key={p} onClick={() => setPeriod(p)}
-            className={`text-2xs px-1.5 py-0.5 rounded ${period === p
-              ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium'
-              : 'text-zinc-400 dark:text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}>
-            {p === 7 ? '7일' : p === 30 ? '1개월' : p === 90 ? '3개월' : p === 180 ? '6개월' : '1년'}
-          </button>
-        ))}
-      </div>
+      {!externalPeriod && (
+        <div className="flex gap-1 mb-2">
+          {([7, 30, 90, 180, 365] as const).map(p => (
+            <button key={p} onClick={() => setPeriod(p)}
+              className={`text-2xs px-1.5 py-0.5 rounded ${period === p
+                ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium'
+                : 'text-zinc-400 dark:text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}>
+              {p === 7 ? '7일' : p === 30 ? '1개월' : p === 90 ? '3개월' : p === 180 ? '6개월' : '1년'}
+            </button>
+          ))}
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={140}>
-        <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset={`${(clampedZero * 100 - 0.5).toFixed(1)}%`} stopColor={UP_COLOR} stopOpacity="1" />
-              <stop offset={`${(clampedZero * 100 + 0.5).toFixed(1)}%`} stopColor={DN_COLOR} stopOpacity="1" />
-            </linearGradient>
-            <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={UP_COLOR} stopOpacity="0.18" />
-              <stop offset={`${(clampedZero * 100).toFixed(1)}%`} stopColor={UP_COLOR} stopOpacity="0.03" />
-              <stop offset={`${(clampedZero * 100).toFixed(1)}%`} stopColor={DN_COLOR} stopOpacity="0.03" />
-              <stop offset="100%" stopColor={DN_COLOR} stopOpacity="0.18" />
+            <linearGradient id={fadeId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={INK0} stopOpacity="0.08" />
+              <stop offset="100%" stopColor={INK0} stopOpacity="0.01" />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} strokeOpacity={0.7} />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fill: TICK_COLOR }} tickLine={{ stroke: GRID_COLOR }} axisLine={false} interval="preserveStartEnd" />
+          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} strokeOpacity={0.5} />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 9, fill: INK4 }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
           <YAxis
             yAxisId="left"
             axisLine={false}
@@ -130,7 +126,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo
               const isZero = Math.abs(payload.value) < 0.001
               return (
                 <text x={x} y={y} dy={3} textAnchor="end" fontSize={9}
-                  fill={isZero ? TICK_ZERO_COLOR : TICK_COLOR}
+                  fill={isZero ? INK2 : INK4}
                   fontWeight={isZero ? 700 : 400}>
                   {payload.value.toFixed(1)}%
                 </text>
@@ -138,7 +134,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo
             }}
           />
           <YAxis yAxisId="bar" hide domain={dayDomain} />
-          <ReferenceLine y={0} yAxisId="left" stroke="#6b7280" strokeWidth={1.2} />
+          <ReferenceLine y={0} yAxisId="left" stroke={INK3} strokeWidth={1} strokeOpacity={0.5} />
           <Tooltip
             formatter={(value: number, name: string) => [
               `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`,
@@ -157,12 +153,30 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({ accountNo
             itemStyle={{ color: 'var(--tooltip-text)', padding: '1px 0' }}
             labelStyle={{ color: 'var(--tooltip-label)', marginBottom: 2 }}
           />
-          <Bar yAxisId="bar" dataKey="day_chg" barSize={10} radius={[2, 2, 0, 0]}>
+          <Bar yAxisId="bar" dataKey="day_chg" barSize={8} radius={[2, 2, 0, 0]}>
             {chartData.map((d, i) => (
-              <Cell key={i} fill={(d.day_chg ?? 0) >= 0 ? UP_COLOR : DN_COLOR} fillOpacity={0.65} />
+              <Cell
+                key={i}
+                fill={(d.day_chg ?? 0) >= 0 ? INK2 : INK3}
+                fillOpacity={(d.day_chg ?? 0) >= 0 ? 0.30 : 0.20}
+              />
             ))}
           </Bar>
-          <Area yAxisId="left" type="monotone" dataKey="pnl_pct" stroke={strokeColor} strokeWidth={1.8} fill={areaFill} fillOpacity={areaFillOpacity} dot={false} isAnimationActive={false} />
+          <Area
+            yAxisId="left"
+            type="monotone"
+            dataKey="pnl_pct"
+            stroke={INK0}
+            strokeWidth={1.8}
+            fill={`url(#${fadeId})`}
+            fillOpacity={1}
+            isAnimationActive={false}
+            dot={(props: any) => {
+              if (props.index !== chartData.length - 1) return <g key={props.index} />
+              return <circle key={props.index} cx={props.cx} cy={props.cy} r={3} fill={DOT_COLOR} stroke="none" />
+            }}
+            activeDot={{ r: 3, fill: DOT_COLOR, strokeWidth: 0 }}
+          />
         </ComposedChart>
       </ResponsiveContainer>
     </div>

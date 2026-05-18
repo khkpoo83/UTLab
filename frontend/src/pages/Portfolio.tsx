@@ -9,7 +9,7 @@ import {
 } from '../api/client'
 import type { PersistedState } from '../components/DataTable'
 import Skeleton from '../components/Skeleton'
-import { LayoutDashboard, Briefcase, Settings2, Eye, EyeOff, RefreshCw } from 'lucide-react'
+import { Settings2, Eye, EyeOff, RefreshCw } from 'lucide-react'
 import { Card, fmtUpdated } from '../components/Card'
 import { DataTable, ColDef as DtColDef } from '../components/DataTable'
 import IndexPanel from '../components/IndexPanel'
@@ -25,8 +25,8 @@ import Button from '../components/Button'
 import ToggleChip from '../components/ToggleChip'
 import Sparkline from '../components/Sparkline'
 import HoldingDrawer from '../components/HoldingDrawer'
-import WeightBar from '../components/WeightBar'
 import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
+import PageTitle from '../components/PageTitle'
 
 function getMarketBadge(h: PortfolioItem): { market: string; marketClass: string; premarket: boolean } {
   const ticker = h.ticker
@@ -54,12 +54,122 @@ function getMarketBadge(h: PortfolioItem): { market: string; marketClass: string
   return { market: exchange || '', marketClass: 'tag tag-zinc', premarket: false }
 }
 
+// ── Weight Treemap ────────────────────────────────────────────────────────────
+const TREEMAP_TONE = ['#0a0a0b', '#1f1f22', '#3a3a3e', '#5a5a5e', '#84827c', '#a8a6a0']
 
+function WeightTreemap({ holdings, privacyMode }: { holdings: PortfolioItem[]; privacyMode: boolean }) {
+  const sorted = holdings.filter(h => (h.weight ?? 0) > 0).slice().sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+  if (sorted.length === 0) return (
+    <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>보유 종목 없음</span>
+    </div>
+  )
+
+  const THRESHOLD = 3
+  const main = sorted.filter(h => (h.weight ?? 0) >= THRESHOLD)
+  const etcItems = sorted.filter(h => (h.weight ?? 0) < THRESHOLD)
+  const etcWeight = etcItems.reduce((s, h) => s + (h.weight ?? 0), 0)
+  type EtcItem = { ticker: string; name: string; weight: number; _isEtc: true }
+  const data: (PortfolioItem | EtcItem)[] = [
+    ...main,
+    ...(etcWeight > 0 ? [{ ticker: '__etc__', name: '기타', weight: etcWeight, _isEtc: true as const }] : []),
+  ]
+
+  const big = data.slice(0, 2)
+  const mid = data.slice(2, 4)
+  const small = data.slice(4)
+
+  const totalW = data.reduce((s, h) => s + (h.weight ?? 0), 0)
+  const pctH = (items: typeof data) => {
+    const w = items.reduce((s, h) => s + (h.weight ?? 0), 0)
+    return totalW > 0 && w > 0 ? (w / totalW) * 100 : 0
+  }
+
+  const TOTAL_H = 160
+  const renderRow = (items: typeof data, heightPct: number, startIdx: number) => {
+    if (items.length === 0 || heightPct < 0.5) return null
+    const rowHeightPx = heightPct / 100 * TOTAL_H
+    const rowTotal = items.reduce((s, x) => s + (x.weight ?? 0), 0)
+    return (
+      <div style={{ display: 'flex', height: `${heightPct}%`, gap: 2 }}>
+        {items.map((h, i) => {
+          const wPct = rowTotal > 0 ? ((h.weight ?? 0) / rowTotal) * 100 : 100 / items.length
+          const cellIsDark = (startIdx + i) < 3
+          const pad = wPct > 14 ? 8 : wPct > 7 ? 5 : 3
+          const isEtc = '_isEtc' in h
+          const dayPct = isEtc ? null : (h as PortfolioItem).day_change_pct
+          const isUp = dayPct !== null && dayPct > 0
+          const isDown = dayPct !== null && dayPct < 0
+          const textColor = cellIsDark ? 'rgba(255,255,255,0.88)' : 'rgba(30,30,35,0.88)'
+          // 행이 너무 얇으면(< 40px) 이름 숨김 — 텍스트 겹침 방지 (9px이름+11px퍼센트+패딩 = ~36px 이상 필요)
+          const showName = wPct > 9 && rowHeightPx >= 40
+
+          return (
+            <div key={h.ticker} style={{
+              flex: wPct, minWidth: 0,
+              background: TREEMAP_TONE[Math.min(startIdx + i, TREEMAP_TONE.length - 1)],
+              color: textColor,
+              display: 'flex', flexDirection: 'column',
+              justifyContent: 'flex-start',
+              padding: pad, borderRadius: 4, overflow: 'hidden',
+              boxSizing: 'border-box',
+            }}>
+              {/* 상단: 종목명(좌) + 등락 badge(우) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, minHeight: 0 }}>
+                {showName && (
+                  <div style={{
+                    fontSize: wPct > 20 ? 11 : 9, fontWeight: 600, lineHeight: 1.2,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    flex: 1, minWidth: 0,
+                  }}>
+                    {privacyMode ? '···' : (h.name.length > 6 && wPct < 22 ? h.name.slice(0, 5) + '…' : h.name)}
+                  </div>
+                )}
+                {dayPct !== null && !isEtc && wPct > 5 && rowHeightPx >= 16 && (
+                  <div style={{
+                    width: 8, height: 8, borderRadius: 2, flexShrink: 0, marginTop: 1,
+                    background: isUp ? '#f87171' : isDown ? '#60a5fa' : 'rgba(128,128,128,0.4)',
+                  }} />
+                )}
+              </div>
+              {/* 하단: % (좌) — mt-auto로 셀 아래로 밀기 */}
+              {wPct > 4 && (
+                <div className="ut-mono" style={{
+                  fontSize: wPct > 18 ? 14 : wPct > 9 ? 11 : 9,
+                  fontWeight: 700, letterSpacing: '-0.02em',
+                  marginTop: 'auto',
+                }}>
+                  {privacyMode ? '··%' : `${(h.weight ?? 0).toFixed(wPct > 9 ? 1 : 0)}%`}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ width: '100%', height: 160, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {renderRow(big, pctH(big), 0)}
+      {renderRow(mid, pctH(mid), 2)}
+      {renderRow(small, pctH(small), 4)}
+    </div>
+  )
+}
+
+function getAccountStripColor(name: string): string {
+  if (/ISA/i.test(name)) return 'var(--dot)'
+  if (/연금/.test(name)) return 'rgba(215,74,74,0.38)'
+  if (/노후|IRP/i.test(name)) return 'var(--ink-4)'
+  if (/장기/.test(name)) return 'var(--ink-3)'
+  return 'var(--ink-2)'
+}
 
 const PORTFOLIO_CARD_IDS = ['portfolio-summary', 'portfolio-holdings']
 const PORTFOLIO_CARD_TITLES: Record<string, string> = {
-  'portfolio-summary': '포트폴리오 요약',
-  'portfolio-holdings': '보유 종목',
+  'portfolio-summary': 'Summary',
+  'portfolio-holdings': 'Holdings',
 }
 const PORTFOLIO_ORDER_KEY = 'portfolio_card_order'
 
@@ -81,16 +191,12 @@ const Portfolio: React.FC = () => {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedHolding, setSelectedHolding] = useState<PortfolioItem | null>(null)
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [, setLastUpdated] = useState<Date | null>(null)
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
 
-  // KIS 계좌 원본 데이터 (계좌 레벨 요약용)
   const [kisAccountsData, setKisAccountsData] = useState<KISPortfolioAccount[]>([])
-
-  // KIS 동기화 상태
   const [kisSyncing, setKisSyncing] = useState(false)
 
-  // 자동갱신 토글 (localStorage 영속)
   const [autoRefresh, setAutoRefresh] = useState(() =>
     localStorage.getItem('kis_auto_refresh') !== 'false'
   )
@@ -102,29 +208,23 @@ const Portfolio: React.FC = () => {
     })
   }, [])
 
-  // 자동갱신 카운트다운
   const autoRefreshStartRef = useRef<number>(Date.now())
   const [refreshCountdown, setRefreshCountdown] = useState(300)
   const fmtCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
-  // 프라이버시 모드
   const [privacyMode, setPrivacyMode] = useState(false)
-
-  // NXT 토글: true=NXT 가격 포함, false=KRX 정규장 가격만
   const [nxtMode, setNxtMode] = useState(true)
 
-  // 계좌 별명/색상 편집 모달
   const [showAliasModal, setShowAliasModal] = useState(false)
   const [aliasInputs, setAliasInputs] = useState<Record<string, string>>({})
   const [colorInputs, setColorInputs] = useState<Record<string, string>>({})
   const [aliasSaving, setAliasSaving] = useState(false)
 
-  // 테이블 컬럼 서버 설정 (null = 로딩 전, undefined = 서버에 없음)
   const [serverColState, setServerColState] = useState<PersistedState | null | undefined>(undefined)
 
-  // 카드 순서 (드래그앤드랍)
   const [portfolioCardOrder, setPortfolioCardOrder] = useState(loadPortfolioOrder)
   const [activePortfolioCardId, setActivePortfolioCardId] = useState<string | null>(null)
+  const [histPeriod, setHistPeriod] = useState<'7'|'30'|'90'|'180'|'365'>('30')
   const portfolioSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -224,7 +324,6 @@ const Portfolio: React.FC = () => {
     }
   }, [loadData])
 
-  // 계좌별 필터링 + 현재 뷰 기준으로 비중 재계산
   const filteredHoldings = React.useMemo(() => {
     const filtered = selectedAccountId === null
       ? holdings
@@ -237,11 +336,9 @@ const Portfolio: React.FC = () => {
     }))
   }, [holdings, selectedAccountId])
 
-  // summary 계산: KIS 계좌 레벨 데이터 우선 사용
   const displaySummary = React.useMemo(() => {
     if (!kisAccountsData.length && !holdings.length) return null
 
-    // 어제대비: holding의 day_change(KIS 현재가 - yfinance prev_close) 합산
     const calcDayChange = (hs: PortfolioItem[]) => {
       let day_pnl = 0, day_pnl_valid = true, up_count = 0, down_count = 0
       for (const h of hs) {
@@ -327,7 +424,7 @@ const Portfolio: React.FC = () => {
     autoRefreshStartRef.current = Date.now()
     setRefreshCountdown(300)
     const interval = setInterval(() => {
-      if (document.hidden) return  // 탭이 숨겨진 경우 스킵
+      if (document.hidden) return
       autoRefreshStartRef.current = Date.now()
       setRefreshCountdown(300)
       loadData()
@@ -344,7 +441,6 @@ const Portfolio: React.FC = () => {
     return () => clearInterval(tick)
   }, [autoRefresh])
 
-  // 마운트 시 서버에서 컬럼 설정 로드
   useEffect(() => {
     settingsApi.get().then(({ data }) => {
       setServerColState(data.ui_portfolio_cols ?? null)
@@ -359,39 +455,38 @@ const Portfolio: React.FC = () => {
     h.bought_at ? Math.floor((Date.now() - new Date(h.bought_at).getTime()) / 86400000) : 0, [])
   const holdCost = useCallback((h: PortfolioItem) => h.avg_price * h.quantity, [])
 
-  // ── DataTable 컬럼 정의 ──────────────────────────────────────────────────
   const pBlur = privacyMode ? 'blur-sm select-none' : ''
+  const maxWeight = useMemo(() =>
+    Math.max(...filteredHoldings.map(h => h.weight ?? 0), 1),
+  [filteredHoldings])
   const portfolioCols = useMemo((): DtColDef<PortfolioItem>[] => [
     {
       key: 'name', label: '종목명', width: 180, minWidth: 120,
       render: (h) => {
-        const { market, marketClass, premarket } = getMarketBadge(h)
+        const { market, marketClass } = getMarketBadge(h)
+        const acct = selectedAccountId === null && h.account_id
+          ? accounts.find(a => a.id === h.account_id) : null
+        const stripColor = acct ? getAccountStripColor(acct.name) : null
         return (
-          <div>
-            <div className="flex items-center gap-1.5">
-              <p className={`font-medium text-zinc-900 dark:text-zinc-100 leading-tight ${pBlur}`}>{h.name}</p>
-              {h.source === 'kiwoom' && (
-                <span className="text-2xs px-1 py-0.5 rounded font-medium shrink-0 text-down" style={{ backgroundColor: 'rgb(var(--c-accent-rgb) / 0.12)' }}>키움</span>
-              )}
-              {h.kis_market === 'NXT' && (
-                <span className="text-2xs px-1 py-0.5 rounded font-medium shrink-0" style={{ backgroundColor: 'rgb(var(--c-accent-rgb) / 0.12)', color: 'rgb(var(--c-accent-rgb))' }}>NXT</span>
-              )}
+          <div style={{ display: 'flex', alignItems: 'stretch' }}>
+            {stripColor && (
+              <div style={{ width: 3, borderRadius: 2, background: stripColor, flexShrink: 0, marginRight: 10, alignSelf: 'stretch', minHeight: 32 }} />
+            )}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className={pBlur} style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.3 }}>
+                {h.name}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2, flexWrap: 'wrap' }}>
+                <span className={`ut-mono${pBlur ? ` ${pBlur}` : ''}`} style={{ fontSize: 11, color: 'var(--ink-4)' }}>
+                  {h.ticker}
+                </span>
+                {h.kis_market === 'NXT' && (
+                  <span style={{ fontSize: 9, color: 'var(--ink-4)' }}>NXT</span>
+                )}
+                {market && <span className={marketClass}>{market}</span>}
+                {h.memo && <span style={{ fontSize: 11, fontStyle: 'italic', color: 'var(--ink-4)' }} className={pBlur}>{h.memo}</span>}
+              </div>
             </div>
-            <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-0.5 leading-tight flex items-center flex-wrap gap-1">
-              <span className={`tabular-nums ${pBlur}`}>{h.ticker}</span>
-              {market && <span className={marketClass}>{market}</span>}
-              {premarket && <span className="tag tag-amber">프리마켓</span>}
-              {h.sector && <span className={`text-zinc-400 ${pBlur}`}>{h.sector}</span>}
-              {h.memo && <span className={`italic text-zinc-400 ${pBlur}`}>{h.memo}</span>}
-              {selectedAccountId === null && h.account_id && (() => {
-                const acct = accounts.find(a => a.id === h.account_id)
-                return acct ? (
-                  <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-2xs font-semibold ${pBlur}`} style={{ border: `1px solid ${acct.color}`, color: acct.color }}>
-                    {acct.name}
-                  </span>
-                ) : null
-              })()}
-            </p>
           </div>
         )
       },
@@ -432,8 +527,9 @@ const Portfolio: React.FC = () => {
       render: (h) => <span className={`tabular-nums text-zinc-600 dark:text-zinc-400 ${pBlur}`}>{formatPrice(holdCost(h))}</span>,
     },
     {
-      key: 'weight', label: '비중', width: 80, type: 'pct-bar',
+      key: 'weight', label: '비중', width: 120, type: 'pct-bar',
       getValue: (h) => h.weight ?? 0,
+      barMax: maxWeight,
     },
     {
       key: 'account', label: '계좌', width: 90, sortable: false, visible: false,
@@ -483,13 +579,61 @@ const Portfolio: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* 글로벌 지수 */}
-      <IndexPanel />
 
-      {/* 계좌 탭 + KIS 동기화 버튼 */}
+      {/* ── Page Header ──────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <PageTitle
+          sub="investments"
+          title="Portfolio"
+          subtitle={lastFetched ? fmtUpdated(lastFetched) : undefined}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          {/* NXT / KRX segmented toggle */}
+          <div style={{ display: 'flex', borderRadius: 8, border: '1px solid var(--line)', overflow: 'hidden', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+            {[
+              { label: 'KRX', active: !nxtMode, onClick: () => setNxtMode(false) },
+              { label: 'NXT', active: nxtMode,  onClick: () => setNxtMode(true)  },
+            ].map(({ label, active, onClick }) => (
+              <button
+                key={label}
+                onClick={onClick}
+                style={{
+                  padding: '5px 12px', border: 'none', cursor: 'pointer', transition: 'all 0.15s',
+                  background: active ? 'var(--dot)' : 'transparent',
+                  color: active ? '#fff' : 'var(--ink-3)',
+                  boxShadow: active ? 'inset 0 1px 2px rgba(0,0,0,0.12)' : 'none',
+                }}
+              >{label}</button>
+            ))}
+          </div>
+          <ToggleChip
+            active={privacyMode} size="sm"
+            onClick={() => setPrivacyMode(v => !v)}
+            title={privacyMode ? '금액 표시' : '금액 숨기기'}
+            icon={privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
+          />
+          <ToggleChip
+            active={autoRefresh} size="sm"
+            onClick={toggleAutoRefresh}
+            title={autoRefresh ? `자동갱신 켜짐 — ${fmtCountdown(refreshCountdown)} 후 갱신` : '자동갱신 꺼짐'}
+            icon={<RefreshCw size={12} className={autoRefresh ? 'animate-spin-slow' : ''} />}
+          >{autoRefresh
+            ? <span style={{ color: 'var(--dot)', fontVariantNumeric: 'tabular-nums' }}>{fmtCountdown(refreshCountdown)}</span>
+            : '자동'
+          }</ToggleChip>
+          <Button
+            variant={kisSyncing ? 'tint' : 'secondary'} size="sm"
+            onClick={handleKisSync}
+            disabled={kisSyncing}
+            title="KIS API 강제 재조회 (캐시 무시)"
+            icon={<svg className={`w-3 h-3 ${kisSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
+          >{kisSyncing ? '동기화 중' : 'Sync'}</Button>
+        </div>
+      </div>
+
+      {/* ── Account Chips ─────────────────────────────────────────────────────── */}
       {(accounts.length > 0 || !loading) && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          {/* 왼쪽: 계좌 탭 */}
           <ToggleChip
             active={selectedAccountId === null}
             size="sm"
@@ -536,35 +680,13 @@ const Portfolio: React.FC = () => {
               icon={<Settings2 size={12} />}
             />
           )}
-          <ToggleChip
-            active={privacyMode}
-            size="sm"
-            onClick={() => setPrivacyMode(v => !v)}
-            title={privacyMode ? '금액 표시' : '금액 숨기기'}
-            icon={privacyMode ? <EyeOff size={12} /> : <Eye size={12} />}
-          />
-
-          {/* 스페이서 */}
-          <div className="flex-1 min-w-0" />
-
-          {/* 오른쪽: 자동갱신 + 수동동기화 */}
-          <ToggleChip
-            active={autoRefresh}
-            size="sm"
-            onClick={toggleAutoRefresh}
-            title={autoRefresh ? `자동갱신 켜짐 — ${fmtCountdown(refreshCountdown)} 후 갱신` : '자동갱신 꺼짐'}
-            icon={<RefreshCw size={12} className={autoRefresh ? 'animate-spin-slow' : ''} />}
-          >{autoRefresh ? fmtCountdown(refreshCountdown) : '자동'}</ToggleChip>
-          <Button
-            variant={kisSyncing ? 'tint' : 'secondary'} size="sm"
-            onClick={handleKisSync}
-            disabled={kisSyncing}
-            title="KIS API 강제 재조회 (캐시 무시)"
-            icon={<svg className={`w-3 h-3 ${kisSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
-          >{kisSyncing ? '동기화 중' : '수동동기화'}</Button>
         </div>
       )}
 
+      {/* ── Global Index ──────────────────────────────────────────────────────── */}
+      <IndexPanel />
+
+      {/* ── DnD Cards ─────────────────────────────────────────────────────────── */}
       <DndContext
         sensors={portfolioSensors}
         collisionDetection={closestCenter}
@@ -573,151 +695,171 @@ const Portfolio: React.FC = () => {
       >
         <SortableContext items={portfolioCardOrder} strategy={rectSortingStrategy}>
           <div className="flex flex-col gap-4">
-            {/* Summary Bar */}
+
+            {/* Summary Card */}
             <SortableItem id="portfolio-summary" order={portfolioCardOrder.indexOf('portfolio-summary')}>{(dragHandle) => (
-            <Card
-              collapsible
-              id="portfolio-summary"
-              dragHandle={dragHandle}
-              icon={<LayoutDashboard size={15} />}
-              title="포트폴리오 요약"
-              subtitle={lastFetched ? `업데이트 ${fmtUpdated(lastFetched)}` : undefined}
-              contentClassName="p-4 space-y-3"
-            >
-        {displaySummary ? (
-          <>
-            {/* NXT 토글 */}
-            <div className="flex items-center justify-between pb-1">
-              <div className="flex items-center gap-2">
-                <button
-                  role="switch"
-                  aria-checked={nxtMode}
-                  onClick={() => setNxtMode(v => !v)}
-                  className={`relative w-8 h-4 rounded-full transition-colors duration-200 ${
-                    nxtMode ? 'bg-accent' : 'bg-zinc-300 dark:bg-zinc-600'
-                  }`}
-                >
-                  <span className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${nxtMode ? 'translate-x-4' : ''}`} />
-                </button>
-                <span className={`text-2xs font-medium transition-colors ${nxtMode ? 'text-accent' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                  NXT 시간외 가격 반영
-                </span>
-              </div>
-            </div>
-            {/* 선택된 계좌 표시 */}
-            {selectedAccountId !== null && (() => {
-              const acct = accounts.find(a => a.id === selectedAccountId)
-              return acct ? (
-                <div className="flex items-center gap-1.5 text-xs text-zinc-500 pb-1">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: acct.color }} />
-                  <span className="font-medium" style={{ color: acct.color }}>{acct.name}</span>
-                  <span>계좌</span>
-                </div>
-              ) : null
-            })()}
-            {/* 1행: 기본 요약 */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5 font-medium">총 평가액</p>
-                <p className={`text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100 ${pBlur}`}>{formatPrice(displaySummary.total_value)}</p>
-              </div>
-              <div>
-                <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5 font-medium">총 투자금</p>
-                <p className={`text-sm tabular-nums text-zinc-700 dark:text-zinc-300 ${pBlur}`}>{formatPrice(displaySummary.total_cost)}</p>
-              </div>
-              <div>
-                <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5 font-medium">총 손익</p>
-                <p className={`text-sm font-semibold tabular-nums ${(displaySummary.total_pnl ?? 0) >= 0 ? 'text-up' : 'text-down'} ${pBlur}`}>
-                  {formatPrice(displaySummary.total_pnl)}
-                </p>
-              </div>
-              <div>
-                <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5 font-medium">수익률</p>
-                <p className={`text-sm font-semibold tabular-nums ${(displaySummary.total_pnl_pct ?? 0) >= 0 ? 'text-up' : 'text-down'}`}>
-                  {formatPct(displaySummary.total_pnl_pct)}
-                </p>
-              </div>
-            </div>
-            {/* 2행: 당일 변동 */}
-            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div>
-                <p className="text-2xs text-zinc-500 mb-0.5 font-medium">어제 대비</p>
-                <p className={`text-sm font-semibold tabular-nums ${(displaySummary.day_pnl ?? 0) >= 0 ? 'text-up' : 'text-down'}`}>
-                  <span className={pBlur}>{displaySummary.day_pnl != null ? formatPrice(displaySummary.day_pnl) : '-'}</span>
-                  {displaySummary.day_pnl_pct != null && (
-                    <span className="text-xs ml-1">({formatPct(displaySummary.day_pnl_pct)})</span>
-                  )}
-                </p>
-              </div>
-              <div>
-                <p className="text-2xs text-zinc-500 mb-0.5 font-medium">예수금</p>
-                <p className={`text-sm tabular-nums text-zinc-700 dark:text-zinc-300 ${pBlur}`}>
-                  {(displaySummary as any).deposit != null ? formatPrice((displaySummary as any).deposit) : '-'}
-                </p>
-                <p className="text-2xs text-zinc-400">{displaySummary.count}종목</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-2xs text-zinc-500 mb-0.5 font-medium">비중 분포</p>
-                <WeightBar holdings={filteredHoldings} privacyMode={privacyMode} />
-              </div>
-            </div>
-            {(() => {
-              const acct = selectedAccountId !== null ? accounts.find(a => a.id === selectedAccountId) : null
-              const kisAcct = acct?.account_no ? kisAccountsData.find(b => b.account_no === acct.account_no) : null
-              return (
-                <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3">
-                  <p className="text-2xs text-zinc-500 font-medium mb-2">
-                    수익률 추이 {acct ? `(${acct.name})` : '(전체)'}
+              <Card
+                collapsible
+                id="portfolio-summary"
+                dragHandle={dragHandle}
+                title="Summary"
+                contentClassName="p-0"
+              >
+                {displaySummary ? (
+                  <>
+                    {/* ── Hero: 2-column layout ── */}
+                    <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr]">
+                      {/* Left: big total value */}
+                      <div
+                        style={{ padding: '24px 28px' }}
+                      >
+                        <div className="ut-eyebrow" style={{ marginBottom: 10, color: 'var(--ink-4)' }}>총 평가액</div>
+                        <div className={pBlur} style={{
+                          fontSize: 'clamp(40px, 5.5vw, 64px)', fontWeight: 800,
+                          color: 'var(--ink-0)', letterSpacing: '-0.04em', lineHeight: 1,
+                          marginBottom: 16, fontVariantNumeric: 'tabular-nums',
+                        }}>
+                          {Math.round(displaySummary.total_value).toLocaleString('ko-KR')}
+                          <span style={{ fontSize: '0.28em', fontWeight: 500, color: 'var(--ink-3)', marginLeft: 6, letterSpacing: 0 }}>원</span>
+                        </div>
+                        {displaySummary.day_pnl != null && (
+                          <div style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                            padding: '5px 12px', borderRadius: 999, marginBottom: 10,
+                            background: (displaySummary.day_pnl ?? 0) >= 0 ? 'rgba(229,72,77,0.18)' : 'rgba(42,111,219,0.18)',
+                            color: (displaySummary.day_pnl ?? 0) >= 0 ? 'var(--up)' : 'var(--down)',
+                            fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                          }}>
+                            {(displaySummary.day_pnl ?? 0) >= 0 ? '▲' : '▼'}
+                            <span className={pBlur}>{(displaySummary.day_pnl ?? 0) >= 0 ? '+' : ''}{Math.round(displaySummary.day_pnl).toLocaleString('ko-KR')}</span>
+                            {displaySummary.day_pnl_pct != null && (
+                              <span style={{ opacity: 0.8 }}>({(displaySummary.day_pnl_pct ?? 0) >= 0 ? '+' : ''}{displaySummary.day_pnl_pct?.toFixed(2)}%)</span>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+                          총 수익률{' '}
+                          <span style={{
+                            fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                            color: (displaySummary.total_pnl_pct ?? 0) >= 0 ? 'var(--up)' : 'var(--down)',
+                          }}>
+                            {(displaySummary.total_pnl_pct ?? 0) >= 0 ? '+' : ''}{displaySummary.total_pnl_pct?.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: KPI grid + TreeMap */}
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {/* KPI 2×2 */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+                          {[
+                            { label: '총 투자금', value: formatPrice(displaySummary.total_cost), suffix: undefined, tone: undefined as string | undefined, blurred: true },
+                            { label: '예수금', value: displaySummary.deposit != null ? formatPrice(displaySummary.deposit) : '-', suffix: undefined, tone: undefined as string | undefined, blurred: true },
+                            { label: '어제 대비', value: displaySummary.day_pnl != null ? formatPrice(displaySummary.day_pnl) : '-', suffix: displaySummary.day_pnl_pct != null ? formatPct(displaySummary.day_pnl_pct) : undefined, tone: (displaySummary.day_pnl ?? 0) >= 0 ? 'up' : 'down', blurred: true },
+                            { label: '종목 수', value: `${displaySummary.count}`, suffix: '종목', tone: undefined as string | undefined, blurred: false },
+                          ].map((item) => (
+                            <div key={item.label} style={{
+                              padding: '12px 14px',
+                            }}>
+                              <div className="ut-eyebrow" style={{ marginBottom: 6 }}>{item.label}</div>
+                              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+                                <span
+                                  className={`ut-mono${item.blurred && pBlur ? ` ${pBlur}` : ''}`}
+                                  style={{
+                                    fontSize: 15, fontWeight: 800, letterSpacing: '-0.03em',
+                                    color: item.tone === 'up' ? 'var(--up)' : item.tone === 'down' ? 'var(--down)' : 'var(--ink-0)',
+                                  }}
+                                >
+                                  {item.value}
+                                </span>
+                                {item.suffix && <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>{item.suffix}</span>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* WeightTreemap */}
+                        <div style={{ padding: '12px 14px', flex: 1, overflow: 'hidden', minWidth: 0 }}>
+                          <div className="ut-eyebrow" style={{ marginBottom: 8, color: 'var(--ink-4)' }}>비중 분포</div>
+                          <WeightTreemap holdings={filteredHoldings} privacyMode={privacyMode} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── Return history chart ── */}
+                    {(() => {
+                      const acct = selectedAccountId !== null ? accounts.find(a => a.id === selectedAccountId) : null
+                      const kisAcct = acct?.account_no ? kisAccountsData.find(b => b.account_no === acct.account_no) : null
+                      const histLabels: Record<string, string> = { '7': '1W', '30': '1M', '90': '3M', '180': '6M', '365': '1Y' }
+                      return (
+                        <div style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                            <span className="ut-eyebrow">{`수익률 추이 ${acct ? `(${acct.name})` : '(전체)'}`}</span>
+                            <div style={{ display: 'inline-flex', gap: 2 }}>
+                              {(['7', '30', '90', '180', '365'] as const).map(v => (
+                                <button
+                                  key={v}
+                                  onClick={() => setHistPeriod(v)}
+                                  style={{
+                                    padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                                    fontSize: 11, fontWeight: 600,
+                                    background: histPeriod === v ? 'var(--ink-0)' : 'transparent',
+                                    color: histPeriod === v ? 'var(--paper)' : 'var(--ink-3)',
+                                    transition: 'all 0.12s ease',
+                                  }}
+                                >
+                                  {histLabels[v]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <PortfolioHistoryChart
+                            accountNo={acct?.account_no}
+                            todayPnlPct={acct ? kisAcct?.total_pnl_pct : displaySummary?.total_pnl_pct}
+                            period={parseInt(histPeriod) as 7|30|90|180|365}
+                          />
+                        </div>
+                      )
+                    })()}
+                  </>
+                ) : loading ? (
+                  <div className="p-6 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i}>
+                        <Skeleton className="h-3 w-16 mb-1.5 rounded" />
+                        <Skeleton className="h-5 w-24 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-400 text-center py-8">
+                    {selectedAccountId !== null ? '이 계좌에 종목이 없습니다' : '보유 종목이 없습니다'}
                   </p>
-                  <PortfolioHistoryChart
-                    accountNo={acct?.account_no}
-                    todayPnlPct={acct ? kisAcct?.total_pnl_pct : displaySummary?.total_pnl_pct}
-                  />
-                </div>
-              )
-            })()}
-          </>
-        ) : loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i}>
-                <Skeleton className="h-3 w-16 mb-1.5 rounded" />
-                <Skeleton className="h-5 w-24 rounded" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-zinc-400 text-center py-4">
-            {selectedAccountId !== null ? '이 계좌에 종목이 없습니다' : '보유 종목이 없습니다'}
-          </p>
-        )}
-            </Card>
+                )}
+              </Card>
             )}</SortableItem>
 
             {/* Holdings Table */}
             <SortableItem id="portfolio-holdings" order={portfolioCardOrder.indexOf('portfolio-holdings')}>{(dragHandle) => (
-            <Card
-              collapsible
-              id="portfolio-holdings"
-              dragHandle={dragHandle}
-              icon={<Briefcase size={15} />}
-              title={`보유 종목${!loading ? ` (${filteredHoldings.length})` : ''}`}
-              subtitle={lastUpdated ? `주가 ${lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 기준` : undefined}
-              contentClassName=""
-      >
-        <DataTable
-          id="portfolio-holdings"
-          columns={portfolioCols}
-          data={filteredHoldings}
-          rowKey={(h) => h.id}
-          onRowClick={privacyMode ? undefined : (h) => setSelectedHolding(h)}
-          selectedKey={selectedHolding?.id}
-          loading={loading}
-          emptyMessage={selectedAccountId !== null ? '이 계좌에 종목이 없습니다.' : '보유 종목이 없습니다. 종목을 추가하세요.'}
-          serverState={serverColState}
-          onPersist={handleColPersist}
-        />
-            </Card>
+              <Card
+                collapsible
+                id="portfolio-holdings"
+                dragHandle={dragHandle}
+                title={`Holdings${!loading ? ` (${filteredHoldings.length})` : ''}`}
+                contentClassName=""
+              >
+                <DataTable
+                  id="portfolio-holdings"
+                  columns={portfolioCols}
+                  data={filteredHoldings}
+                  rowKey={(h) => h.id}
+                  onRowClick={privacyMode ? undefined : (h) => setSelectedHolding(h)}
+                  selectedKey={selectedHolding?.id}
+                  loading={loading}
+                  emptyMessage={selectedAccountId !== null ? '이 계좌에 종목이 없습니다.' : '보유 종목이 없습니다. 종목을 추가하세요.'}
+                  serverState={serverColState}
+                  onPersist={handleColPersist}
+                />
+              </Card>
             )}</SortableItem>
 
           </div>

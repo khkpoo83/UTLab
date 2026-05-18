@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import PageTitle from '../components/PageTitle'
 import { recommendApi, portfolioApi, RecommendGroup } from '../api/client'
 import { getTonalPalette } from '../utils/theme'
 import Skeleton from '../components/Skeleton'
@@ -7,7 +8,7 @@ import EmptyState from '../components/EmptyState'
 import WeightBadge from '../components/WeightBadge'
 import HoldingStackBar from '../components/HoldingStackBar'
 import RecommendStockRow from '../components/RecommendStockRow'
-import { Lightbulb, PieChart as PieChartIcon, LayoutList, RefreshCw } from 'lucide-react'
+import { LayoutList, RefreshCw } from 'lucide-react'
 import Button from '../components/Button'
 import { Card, fmtUpdated } from '../components/Card'
 
@@ -45,6 +46,8 @@ const Recommend: React.FC = () => {
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const palette = useMemo(() => getTonalPalette(), [])
 
   const loadData = useCallback(async () => {
     try {
@@ -142,24 +145,15 @@ const Recommend: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-sm">
-            <Lightbulb size={18} className="text-zinc-500 dark:text-zinc-400" />
-          </div>
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">주식 추천</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Gemini AI 분석 · 뉴스+차트+매크로 종합 · 매일 07:00/22:00 업데이트
-            </p>
-          </div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <PageTitle sub="ai picks" title="Recommend" />
+        <div style={{ paddingTop: 6, flexShrink: 0 }}>
+          <Button variant="secondary" size="md"
+            onClick={handleRefresh} disabled={refreshing}
+            loading={refreshing} loadingText="계산 중..."
+            icon={<RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />}
+          >재계산</Button>
         </div>
-        <Button variant="secondary" size="md"
-          onClick={handleRefresh} disabled={refreshing}
-          loading={refreshing} loadingText="계산 중..."
-          icon={<RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />}
-        >재계산</Button>
       </div>
 
       {/* 재계산 진행 메시지 */}
@@ -189,7 +183,6 @@ const Recommend: React.FC = () => {
         <Card
           collapsible
           id="recommend-sectors"
-          icon={<PieChartIcon size={15} />}
           title="섹터 분포"
         >
           <SectorDonut sectors={sectors} loading={loading} />
@@ -199,7 +192,6 @@ const Recommend: React.FC = () => {
         <Card
           collapsible
           id="recommend-list"
-          icon={<LayoutList size={15} />}
           title="추천 종목"
           subtitle={lastFetched ? `업데이트 ${fmtUpdated(lastFetched)}` : undefined}
           contentClassName=""
@@ -223,7 +215,6 @@ const Recommend: React.FC = () => {
                 const displaySector = remapSector(group.sector)
                 const holdingItems = group.items.filter((i) => i.is_portfolio)
                 const nonHoldingItems = group.items.filter((i) => !i.is_portfolio)
-                const palette = getTonalPalette()
                 return (
                   <div key={group.sector}>
                     {/* Sector Header */}

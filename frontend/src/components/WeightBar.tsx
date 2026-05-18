@@ -1,12 +1,14 @@
 import React from 'react'
 import { Treemap, Tooltip, ResponsiveContainer } from 'recharts'
 import { PortfolioItem } from '../api/client'
-import { getTonalPalette } from '../utils/theme'
 
 interface WeightBarProps {
   holdings: PortfolioItem[]
   privacyMode?: boolean
 }
+
+// 라이트/다크 모두 지원하는 ink 스케일
+const INK_COLORS = ['#0A0A0B', '#18181A', '#3C3C40', '#6B6A65', '#A8A6A0', '#D9D7D2']
 
 const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) => {
   if (!holdings.length) return null
@@ -16,19 +18,21 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
   const sorted = [...holdings].sort((a, b) =>
     (b.current_value ?? b.avg_price * b.quantity) - (a.current_value ?? a.avg_price * a.quantity)
   )
-  const COLORS = getTonalPalette()
 
-  // CSS 변수에서 상승/하락 색상 읽기
   const styles =
     typeof window !== 'undefined'
       ? getComputedStyle(document.documentElement)
       : null
-  const colorUp   = styles?.getPropertyValue('--c-up').trim()   || '#F0507A'
-  const colorDown = styles?.getPropertyValue('--c-down').trim() || '#1A9EFF'
+  const colorUp   = styles?.getPropertyValue('--c-up').trim()   || '#E5484D'
+  const colorDown = styles?.getPropertyValue('--c-down').trim() || '#2A6FDB'
+  const dotColor  = styles?.getPropertyValue('--dot').trim()    || '#F59E0B'
+  const isDark    = typeof window !== 'undefined' && document.documentElement.classList.contains('dark')
 
-  // 기타 색상: accent 팔레트 기반 (gray 하드코딩 대신)
-  const accentRgb = styles?.getPropertyValue('--c-accent-rgb').trim() || '26 158 255'
-  const othersColor = `rgb(${accentRgb} / 0.28)`
+  // 다크모드: 밝은 ink 스케일로 반전
+  const COLORS = isDark
+    ? ['#FFFFFF', '#E8E6E1', '#C8C6C0', '#A8A6A0', '#6B6A65', '#3C3C40']
+    : INK_COLORS
+  const othersColor = isDark ? '#4A4A50' : '#D9D7D2'
 
   const top = sorted.slice(0, 8)
   const rest = sorted.slice(8)
@@ -74,8 +78,14 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
     const canShowName2 = !privacyMode && !!part2 && w > 26 && h > 30
     const canShowPct   = w > 18 && h > (canShowName1 ? (canShowName2 ? 46 : 28) : 14)
 
-    const icon = dayChangePct === null ? '' : dayChangePct > 0 ? '▲' : dayChangePct < 0 ? '▼' : ''
-    const iconColor = dayChangePct !== null && dayChangePct > 0 ? colorUp : colorDown
+    const isUp = dayChangePct !== null && dayChangePct > 0
+    const showDot = dayChangePct !== null && dayChangePct > 0 && w > 14 && h > 14
+
+    // 셀이 어두울수록 white 텍스트, 밝을수록 ink 텍스트
+    const fillIndex = COLORS.indexOf(fill)
+    const textColor = isDark
+      ? (fillIndex <= 2 ? 'var(--ink-0)' : 'white')
+      : (fillIndex <= 2 ? 'white' : 'var(--ink-1)')
 
     const lineCount = (canShowName1 ? 1 : 0) + (canShowName2 ? 1 : 0) + (canShowPct ? 1 : 0)
     const lineH = 13
@@ -85,6 +95,12 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
     return (
       <g>
         <rect x={x + 1} y={y + 1} width={w} height={h} fill={fill} rx={2} style={{ cursor: 'default' }} />
+        {/* 상승 amber 도트 */}
+        {showDot && <circle cx={x + w - 5} cy={y + 5} r={2.5} fill={dotColor} />}
+        {/* 하락 작은 파란 도트 */}
+        {dayChangePct !== null && !isUp && w > 14 && h > 14 && (
+          <circle cx={x + w - 5} cy={y + 5} r={2} fill={colorDown} fillOpacity={0.6} />
+        )}
         {canShowName1 && (() => {
           const ly = startY + lineIdx++ * lineH
           return (
@@ -97,8 +113,7 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
               fontWeight={600}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
-              {icon && <tspan fill={iconColor} fontSize={8}>{icon} </tspan>}
-              <tspan fill="white">{part1}</tspan>
+              <tspan fill={textColor}>{part1}</tspan>
             </text>
           )
         })()}
@@ -109,7 +124,7 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
               key="n2"
               x={mx} y={ly}
               textAnchor="middle" dominantBaseline="middle"
-              fill="white" fontSize={10} fontWeight={600}
+              fill={textColor} fontSize={10} fontWeight={600}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >{part2}</text>
           )
@@ -121,7 +136,7 @@ const WeightBar: React.FC<WeightBarProps> = ({ holdings, privacyMode = false }) 
               key="pct"
               x={mx} y={ly}
               textAnchor="middle" dominantBaseline="middle"
-              fill="rgba(255,255,255,0.82)" fontSize={9} fontWeight={400}
+              fill={textColor} fontSize={9} fontWeight={400} opacity={0.65}
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             >{`${pct.toFixed(0)}%`}</text>
           )

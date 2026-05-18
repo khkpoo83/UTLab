@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Hash, Newspaper, RefreshCw, GripVertical } from 'lucide-react'
+import { Hash, RefreshCw, GripVertical } from 'lucide-react'
+import PageTitle from '../components/PageTitle'
 import Button from '../components/Button'
 import ToggleChip from '../components/ToggleChip'
 import ProgressBar from '../components/ProgressBar'
@@ -484,7 +485,6 @@ const TopicSection = React.memo(function TopicSection({ sg, onBlockClick, dragHa
       collapsible
       id={`news-topic-${sg.topic}`}
       dragHandle={dragHandle}
-      icon={<Hash size={13} />}
       title={sg.topic}
       subtitle={`${sg.totalCount}건`}
       contentClassName=""
@@ -591,16 +591,17 @@ const News: React.FC = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
+  const orderedSuperGroupsRef = useRef(orderedSuperGroups)
+  orderedSuperGroupsRef.current = orderedSuperGroups
+
   function handleTopicDragEnd(event: DragEndEvent) {
     setActiveTopicId(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
-    setTopicOrder(() => {
-      const currentTopics = orderedSuperGroups.map(g => g.topic)
-      const next = arrayMove(currentTopics, currentTopics.indexOf(active.id as string), currentTopics.indexOf(over.id as string))
-      localStorage.setItem(NEWS_TOPIC_ORDER_KEY, JSON.stringify(next))
-      return next
-    })
+    const currentTopics = orderedSuperGroupsRef.current.map(g => g.topic)
+    const next = arrayMove(currentTopics, currentTopics.indexOf(active.id as string), currentTopics.indexOf(over.id as string))
+    localStorage.setItem(NEWS_TOPIC_ORDER_KEY, JSON.stringify(next))
+    setTopicOrder(next)
   }
 
   const loadNews = useCallback(
@@ -663,13 +664,15 @@ const News: React.FC = () => {
     }
   }
 
-  const allGroups = newsData ? groupNewsItems(newsData.items) : []
-  const groups = onlyDone
-    ? allGroups.filter((g) => g.representative.status === 'done' && g.representative.summary)
-    : allGroups
-  const superGroups = buildSuperGroups(groups)
-  const orderedSuperGroups = applyTopicOrder(superGroups, topicOrder)
-  const doneCount = allGroups.filter((g) => g.representative.status === 'done' && g.representative.summary).length
+  const allGroups = useMemo(() => newsData ? groupNewsItems(newsData.items) : [], [newsData])
+  const groups = useMemo(() =>
+    onlyDone
+      ? allGroups.filter((g) => g.representative.status === 'done' && g.representative.summary)
+      : allGroups,
+  [allGroups, onlyDone])
+  const superGroups = useMemo(() => buildSuperGroups(groups), [groups])
+  const orderedSuperGroups = useMemo(() => applyTopicOrder(superGroups, topicOrder), [superGroups, topicOrder])
+  const doneCount = useMemo(() => allGroups.filter((g) => g.representative.status === 'done' && g.representative.summary).length, [allGroups])
 
   return (
     <div className="space-y-3">
@@ -678,18 +681,7 @@ const News: React.FC = () => {
         <NewsModal group={selectedGroup} onClose={() => setSelectedGroup(null)} />
       )}
 
-      {/* 페이지 타이틀 */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shadow-sm">
-          <Newspaper size={18} className="text-zinc-500 dark:text-zinc-400" />
-        </div>
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-800 dark:text-zinc-100">뉴스</h1>
-          {lastFetched && (
-            <p className="text-2xs text-zinc-400">업데이트 {fmtUpdated(lastFetched)}</p>
-          )}
-        </div>
-      </div>
+      <PageTitle sub="market intel" title="News" subtitle={lastFetched ? fmtUpdated(lastFetched) : undefined} />
 
       {/* Queue Status */}
       <QueueStatusBar status={queueStatus} />

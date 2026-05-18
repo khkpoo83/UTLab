@@ -50,7 +50,7 @@ export function Card({
   onClick,
   children,
   className = '',
-  contentClassName = 'p-4',
+  contentClassName = 'px-6 py-5',
   minH,
   style,
 }: CardProps) {
@@ -75,11 +75,17 @@ export function Card({
     }
   }
 
-  // 헤더 배경: 열려 있거나 비-collapsible이면 accent 틴트
-  const isActive = !collapsible || isOpen
-  const headerBg = isActive
-    ? 'bg-accent/5 dark:bg-accent/10 border-b border-zinc-100 dark:border-zinc-700'
-    : 'bg-zinc-50 dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+  const headerStyle: React.CSSProperties = {
+    padding: '14px 20px',
+    borderBottom: isOpen ? '1px solid var(--line, #E8E7E2)' : 'none',
+    background: 'transparent',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    width: '100%',
+    textAlign: 'left' as const,
+  }
 
   const headerInner = (
     <>
@@ -87,13 +93,13 @@ export function Card({
       <div className="flex items-center gap-2 min-w-0">
         {dragHandle}
         {icon && (
-          <span className="text-zinc-400 dark:text-zinc-500 flex-shrink-0">{icon}</span>
+          <span style={{ color: 'var(--ink-4)', flexShrink: 0, display: 'flex', alignItems: 'center' }}>{icon}</span>
         )}
-        <span className="card-header-text text-sm font-semibold text-zinc-700 dark:text-zinc-300 truncate">
+        <span className="ut-eyebrow truncate" style={{ color: 'var(--ink-0)' }}>
           {title}
         </span>
         {subtitle && (
-          <span className="card-header-sub text-2xs text-zinc-400 flex-shrink-0">{subtitle}</span>
+          <span className="ut-mono flex-shrink-0" style={{ fontSize: 11, color: 'var(--ink-4)' }}>{subtitle}</span>
         )}
       </div>
 
@@ -110,15 +116,16 @@ export function Card({
         {collapsible && (
           <ChevronDown
             size={15}
-            className={`transition-transform duration-200 flex-shrink-0 ${
-              isOpen
-                ? 'rotate-0 text-accent'
-                : '-rotate-90 text-zinc-400 dark:text-zinc-500'
-            }`}
+            style={{
+              color: 'var(--ink-4)',
+              flexShrink: 0,
+              transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+              transition: 'transform 200ms',
+            }}
           />
         )}
         {!collapsible && onClick && (
-          <ChevronRight size={12} className="text-zinc-300 dark:text-zinc-600 flex-shrink-0" />
+          <ChevronRight size={12} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
         )}
       </div>
     </>
@@ -126,24 +133,29 @@ export function Card({
 
   return (
     <div
-      className={`card-surface border rounded-xl overflow-hidden shadow-sm dark:shadow-zinc-950/40 flex flex-col ${
-        !collapsible && onClick
-          ? 'cursor-pointer hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors'
-          : ''
+      className={`card-surface overflow-hidden flex flex-col ${
+        !collapsible && onClick ? 'cursor-pointer transition-colors' : ''
       } ${className}`}
       onClick={!collapsible && onClick ? onClick : undefined}
-      style={{ ...(minH ? { minHeight: minH } : {}), ...style }}
+      style={{
+        background: 'var(--c-surface)',
+        border: '1px solid var(--line)',
+        borderRadius: 'var(--r-md)',
+        boxShadow: '0 1px 2px rgba(10,10,11,0.04)',
+        ...(minH ? { minHeight: minH } : {}),
+        ...style,
+      }}
     >
       {collapsible ? (
         <button
           type="button"
           onClick={toggle}
-          className={`w-full flex items-center justify-between gap-2 px-4 py-3 text-left transition-colors ${headerBg}`}
+          style={headerStyle}
         >
           {headerInner}
         </button>
       ) : (
-        <div className={`flex items-center justify-between gap-2 px-4 py-3 ${headerBg}`}>
+        <div style={headerStyle}>
           {headerInner}
         </div>
       )}

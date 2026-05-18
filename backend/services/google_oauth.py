@@ -123,8 +123,7 @@ def exchange_code_for_tokens(code: str) -> dict:
         scopes=cfg["scopes"],
     )
     flow.redirect_uri = cfg["redirect_uri"]
-    import os as _os
-    _os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     flow.fetch_token(code=code)
     creds = flow.credentials
 
@@ -148,7 +147,6 @@ def refresh_access_token(refresh_token_plain: str) -> dict:
         token_uri="https://oauth2.googleapis.com/token",
         client_id=cfg["client_id"],
         client_secret=cfg["client_secret"],
-        scopes=cfg["scopes"],
     )
     request = google.auth.transport.requests.Request()
     creds.refresh(request)

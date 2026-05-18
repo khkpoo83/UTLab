@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, RefreshCw, ExternalLink, CalendarDays, Plus, Pencil, Trash2, MapPin, Search, Calendar, Layers } from 'lucide-react'
-import apiClient from '../api/client'
-import { settingsApi } from '../api/client'
+import { createPortal } from 'react-dom'
+import { ChevronLeft, ChevronRight, RefreshCw, ExternalLink, CalendarDays, Plus, MapPin, Search, ChevronDown } from 'lucide-react'
+import apiClient, { settingsApi } from '../api/client'
 import { Card } from '../components/Card'
 import Modal, { ModalHeader } from '../components/Modal'
 
@@ -107,66 +107,6 @@ function EventChip({
   )
 }
 
-// ── EventRow ──────────────────────────────────────────────────────────────────
-
-function EventRow({
-  ev, calendars, onEdit, onDelete,
-}: {
-  ev: CalEvent
-  calendars: GoogleCalendar[]
-  onEdit: (ev: CalEvent) => void
-  onDelete: (ev: CalEvent) => void
-}) {
-  const color = evColor(ev, calendars)
-  const cal = calendars.find(c => c.id === ev.calendar_id)
-  const timeStr = ev.all_day ? '종일' : (ev.start_dt ? toKstTime(ev.start_dt) : '')
-  const isReadOnly = cal && cal.accessRole === 'reader'
-
-  return (
-    <div className="flex items-start gap-2 py-1.5 group">
-      <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-zinc-700 dark:text-zinc-200 truncate">
-          {ev.summary ?? '(제목 없음)'}
-          {ev.recurrence && ev.recurrence.length > 0 && (
-            <span className="ml-1 text-[10px] text-zinc-400">↻</span>
-          )}
-          {ev.status === 'tentative' && (
-            <span className="ml-1 text-[10px] text-amber-400">(미정)</span>
-          )}
-        </div>
-        <div className="text-xs text-zinc-400 mt-0.5">
-          {timeStr}
-          {ev.location && ` · ${ev.location}`}
-          {cal && !cal.primary && (
-            <span className="ml-1 opacity-60">{cal.name}</span>
-          )}
-        </div>
-        {ev.description && (
-          <div className="text-xs text-zinc-400 mt-0.5 line-clamp-1">{ev.description}</div>
-        )}
-      </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 mt-0.5">
-        {!isReadOnly && (
-          <>
-            <button onClick={() => onEdit(ev)} className="p-0.5 text-zinc-400 hover:text-accent transition-colors" title="수정">
-              <Pencil size={12} />
-            </button>
-            <button onClick={() => onDelete(ev)} className="p-0.5 text-zinc-400 hover:text-red-500 transition-colors" title="삭제">
-              <Trash2 size={12} />
-            </button>
-          </>
-        )}
-        {ev.html_link && (
-          <a href={ev.html_link} target="_blank" rel="noopener noreferrer"
-            className="p-0.5 text-zinc-400 hover:text-accent transition-colors" title="Google Calendar에서 열기">
-            <ExternalLink size={12} />
-          </a>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // ── EventFormData ─────────────────────────────────────────────────────────────
 
@@ -714,21 +654,26 @@ function CalGridCells({
                 : isSel
                   ? 'bg-accent/10 dark:bg-accent/15 shadow-[inset_0_0_0_1px_rgba(var(--c-accent-rgb)/0.25)]'
                   : isToday
-                    ? 'bg-accent/5 dark:bg-accent/8'
+                    ? 'bg-[#FAFAF7] dark:bg-zinc-800/60'
                     : isSun
                       ? 'bg-red-50/40 dark:bg-red-950/10 hover:bg-red-50/70 dark:hover:bg-red-950/20'
                       : isSat
                         ? 'bg-blue-50/30 dark:bg-blue-950/10 hover:bg-blue-50/60 dark:hover:bg-blue-950/20'
                         : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/30'
-            } ${isToday && !isDragHL ? 'shadow-[inset_0_0_0_1.5px_rgba(var(--c-accent-rgb)/0.35)]' : ''}`}
+            } ${isToday && !isDragHL ? 'shadow-[inset_0_0_0_2px_#0A0A0B] dark:shadow-[inset_0_0_0_2px_rgba(255,255,255,0.25)]' : ''}`}
           >
-            <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium mb-1 ${
-              isToday ? 'bg-accent text-white shadow-sm shadow-accent/40'
-              : isSun ? 'text-red-400'
-              : isSat ? 'text-blue-400'
-              : 'text-zinc-600 dark:text-zinc-300'
-            }`}>
-              {day}
+            <div className="flex items-center justify-between mb-1">
+              <div className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium ${
+                isToday ? 'text-[#0A0A0B] dark:text-white font-bold'
+                : isSun ? 'text-red-400'
+                : isSat ? 'text-blue-400'
+                : 'text-zinc-600 dark:text-zinc-300'
+              }`} style={isToday ? { fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 800 } : {}}>
+                {day}
+              </div>
+              {isToday && (
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--dot)', display: 'inline-block' }} />
+              )}
             </div>
             <div className="space-y-0.5">
               {dayEvs.slice(0, 3).map(ev => (
@@ -775,42 +720,191 @@ function CalGridCells({
   )
 }
 
-// ── CalendarFilter ────────────────────────────────────────────────────────────
+// ── TodayCard ─────────────────────────────────────────────────────────────────
 
-function CalendarFilter({
+function TodayCard({ events, calendars }: { events: CalEvent[]; calendars: GoogleCalendar[] }) {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+  const todayEvents = events
+    .filter(ev => {
+      if (!ev.start_dt) return false
+      return toKstDateKey(ev.start_dt, ev.all_day) === today
+    })
+    .sort((a, b) => (a.start_dt ?? '').localeCompare(b.start_dt ?? ''))
+
+  const dateStr = new Date().toLocaleDateString('ko-KR', {
+    month: 'long', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul',
+  })
+
+  return (
+    <div style={{
+      background: '#0a0a0b', color: '#fff',
+      borderRadius: 16, padding: '20px 24px',
+    }}>
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginBottom: 6, letterSpacing: '0.10em', textTransform: 'uppercase', fontWeight: 700 }}>
+        TODAY
+      </div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: todayEvents.length ? 16 : 0 }}>
+        {dateStr}
+      </div>
+      {todayEvents.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.38)', marginTop: 8 }}>오늘 일정 없음</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {todayEvents.map(ev => {
+            const timeStr = ev.all_day ? '종일' : (ev.start_dt ? toKstTime(ev.start_dt) : '')
+            const color = evColor(ev, calendars)
+            return (
+              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 3, height: 28, borderRadius: 2, background: color, flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{ev.summary ?? '(제목 없음)'}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{timeStr}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── MiniCalendar ──────────────────────────────────────────────────────────────
+
+function MiniCalendar({ year, month, events }: { year: number; month: number; events: CalEvent[] }) {
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const eventDays = new Set(
+    events
+      .map(ev => ev.start_dt ? toKstDateKey(ev.start_dt, ev.all_day) : '')
+      .filter(Boolean)
+  )
+  const mn = new Date(year, month).toLocaleString('ko-KR', { month: 'long' })
+
+  return (
+    <div style={{ padding: '16px 20px', background: 'var(--mist)', borderRadius: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', marginBottom: 10 }}>
+        {mn} 미리보기
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, fontSize: 10, textAlign: 'center' }}>
+        {['일','월','화','수','목','금','토'].map((d, i) => (
+          <div key={d} style={{
+            color: i === 0 ? '#f87171' : i === 6 ? '#60a5fa' : 'var(--ink-4)',
+            padding: '2px 0', fontWeight: 600,
+          }}>{d}</div>
+        ))}
+        {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const hasEvent = eventDays.has(dateKey)
+          const dow = (firstDay + i) % 7
+          return (
+            <div key={day} style={{
+              padding: '3px 0',
+              color: dow === 0 ? '#f87171' : dow === 6 ? '#60a5fa' : 'var(--ink-2)',
+              position: 'relative',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+            }}>
+              {day}
+              {hasEvent && (
+                <div style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--c-accent)' }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── CalendarFilterDropdown ────────────────────────────────────────────────────
+
+function CalendarFilterDropdown({
   calendars, selectedIds, onToggle,
 }: {
   calendars: GoogleCalendar[]
   selectedIds: Set<string>
   onToggle: (id: string) => void
 }) {
+  const [open, setOpen] = useState(false)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [dropPos, setDropPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
   if (!calendars.length) return null
+
+  const activeCount = selectedIds.size
+  const totalCount = calendars.length
+
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      const dropWidth = 200
+      const left = rect.left + dropWidth > window.innerWidth - 16
+        ? Math.max(8, rect.right - dropWidth)
+        : rect.left
+      setDropPos({ top: rect.bottom + 6, left })
+    }
+    setOpen(p => !p)
+  }
+
   return (
-    <Card title="내 캘린더" icon={<Layers size={14} />}>
-      <div className="space-y-1 -my-1">
-        {calendars.map(cal => {
-          const active = selectedIds.has(cal.id)
-          return (
-            <button
-              key={cal.id}
-              onClick={() => onToggle(cal.id)}
-              className="w-full flex items-center gap-2.5 py-1.5 text-left group"
-            >
-              <span
-                className={`flex-shrink-0 w-3 h-3 rounded-sm border-2 transition-all ${active ? 'border-transparent' : 'border-zinc-300 dark:border-zinc-600 bg-transparent'}`}
-                style={active ? { backgroundColor: cal.backgroundColor } : {}}
-              />
-              <span className={`text-sm flex-1 truncate transition-colors ${active ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500'}`}>
-                {cal.name}
-              </span>
-              {cal.primary && (
-                <span className="text-[10px] text-zinc-400 flex-shrink-0">기본</span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-    </Card>
+    <div>
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border transition-colors ${
+          open
+            ? 'bg-accent text-white border-accent'
+            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent'
+        }`}
+        title="캘린더 선택"
+      >
+        <span
+          className="w-2 h-2 rounded-full flex-shrink-0"
+          style={{ background: open ? 'rgba(255,255,255,0.8)' : 'var(--c-accent)' }}
+        />
+        캘린더
+        {activeCount < totalCount && (
+          <span className={`tabular-nums ${open ? 'text-white/70' : 'text-zinc-400'}`}>
+            {activeCount}/{totalCount}
+          </span>
+        )}
+        <ChevronDown size={11} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && createPortal(
+        <>
+          <div className="fixed inset-0 z-[9990]" onClick={() => setOpen(false)} />
+          <div
+            className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 min-w-[180px]"
+            style={{ top: dropPos.top, left: dropPos.left }}
+          >
+            {calendars.map(cal => {
+              const active = selectedIds.has(cal.id)
+              return (
+                <button
+                  key={cal.id}
+                  onClick={() => onToggle(cal.id)}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <span
+                    className={`flex-shrink-0 w-3 h-3 rounded-sm border-2 transition-all ${active ? 'border-transparent' : 'border-zinc-300 dark:border-zinc-600 bg-transparent'}`}
+                    style={active ? { backgroundColor: cal.backgroundColor } : {}}
+                  />
+                  <span className={`text-sm flex-1 truncate transition-colors ${active ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                    {cal.name}
+                  </span>
+                  {cal.primary && (
+                    <span className="text-[10px] text-zinc-400 flex-shrink-0">기본</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </>,
+        document.body
+      )}
+    </div>
   )
 }
 
@@ -818,6 +912,25 @@ function CalendarFilter({
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월']
+const MONTHS_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+function LiveCountdown({ targetISO }: { targetISO: string }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  const ms = new Date(targetISO).getTime() - now
+  if (ms <= 0) return <span className="ut-mono" style={{ fontWeight: 700 }}>00:00:00</span>
+  const h = Math.floor(ms / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  const s = Math.floor((ms % 60000) / 1000)
+  return (
+    <span className="ut-mono" style={{ fontWeight: 700 }}>
+      {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(s).padStart(2,'0')}
+    </span>
+  )
+}
 
 type ModalState =
   | { type: 'none' }
@@ -967,7 +1080,7 @@ export default function CalendarPage() {
       // 숨긴 ID 목록 = 전체 캘린더 중 selectedIds에 없는 것
       const hiddenIds = calendars.filter(c => !next.has(c.id)).map(c => c.id)
       hiddenCalIdsRef.current = hiddenIds
-      settingsApi.update({ ui_calendar_hidden_ids: hiddenIds }).catch(console.error)
+      settingsApi.update({ ui_calendar_hidden_ids: hiddenIds }).catch(() => {})
       return next
     })
   }
@@ -1022,8 +1135,6 @@ export default function CalendarPage() {
     }
     return acc
   }, {})
-
-  const selectedEvents = selectedDate ? (eventsByDate[selectedDate] ?? []) : []
 
   const primaryCalId = calendars.find(c => c.primary)?.id ?? 'primary'
 
@@ -1096,89 +1207,154 @@ export default function CalendarPage() {
     )
   }
 
+  // 다음 일정 (비종일, 미래)
+  const nextEvent = filteredEvents
+    .filter(e => !e.all_day && e.start_dt)
+    .map(e => ({ ev: e, startDate: new Date(e.start_dt! + 'Z') }))
+    .filter(e => e.startDate > new Date())
+    .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null
+
+  const monthEventCount = Object.values(eventsByDate)
+    .reduce((s, arr) => s + arr.length, 0)
+
+  // 다음달 계산
+  const nextMonthYear = month === 11 ? year + 1 : year
+  const nextMonthMonth = month === 11 ? 0 : month + 1
+
   return (
     <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="relative z-30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-            <ChevronLeft size={17} />
-          </button>
-          <span className="text-base font-semibold text-zinc-800 dark:text-zinc-100 w-28 text-center tabular-nums">
-            {year}년 {MONTHS[month]}
-          </span>
-          <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-            <ChevronRight size={17} />
-          </button>
-          <button onClick={goToday} className="ml-1 chip text-xs px-2.5 py-1">
-            오늘
-          </button>
-          {/* 년월 이동 피커 */}
-          <div className="relative">
-            <button
-              onClick={() => { setPickerYear(year); setPickerOpen(p => !p) }}
-              className={`chip text-xs px-2.5 py-1 tabular-nums ${pickerOpen ? 'chip-active' : ''}`}
-              title="년월 이동"
-            >
-              이동
-            </button>
-            {pickerOpen && (
-              <>
-                <div className="fixed inset-0 z-[90]" onClick={() => setPickerOpen(false)} />
-                <div className="absolute top-full left-0 mt-1.5 z-[100] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-3 w-52">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-                      <ChevronLeft size={14} />
-                    </button>
-                    <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">{pickerYear}년</span>
-                    <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-                      <ChevronRight size={14} />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    {MONTHS.map((m, i) => {
-                      const isCurrent = pickerYear === year && i === month
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => goToYearMonth(pickerYear, i)}
-                          className={`py-1.5 text-xs rounded-lg transition-colors ${
-                            isCurrent
-                              ? 'bg-accent text-white font-medium'
-                              : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                          }`}
-                        >
-                          {m}
+      {/* ── Editorial Month Header (전체 너비) ─── */}
+      <div style={{
+        paddingBottom: 20, borderBottom: '1px solid var(--line)',
+        fontFamily: 'var(--font-sans)',
+      }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div className="ut-eyebrow" style={{ marginBottom: 10 }}>
+                CALENDAR · KST · {MONTHS_EN[month].slice(0,3).toUpperCase()} {year}
+              </div>
+              <h1 style={{
+                fontFamily: 'var(--font-sans)', fontWeight: 800,
+                fontSize: 'clamp(40px, 6vw, 80px)',
+                color: 'var(--ink-0)', letterSpacing: '-0.04em', lineHeight: 0.95, margin: 0,
+              }}>
+                <span className="ut-mono" style={{ fontWeight: 800 }}>{year}</span>{' '}
+                <span style={{ fontWeight: 500, color: 'var(--ink-3)' }}>{MONTHS_EN[month].slice(0, 3)}</span>
+                <span style={{ color: 'var(--dot)' }}>.</span>
+              </h1>
+              <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, fontSize: 13, color: 'var(--ink-3)', flexWrap: 'wrap' }}>
+                <span>
+                  오늘 — <span className="ut-mono" style={{ color: 'var(--ink-0)', fontWeight: 600 }}>
+                    {today.toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' })}
+                  </span>
+                </span>
+                <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--ink-5)', display: 'inline-block' }} />
+                <span>이번 달 <span className="ut-mono" style={{ color: 'var(--ink-0)', fontWeight: 600 }}>{monthEventCount}건</span></span>
+              </div>
+            </div>
+            {/* 우측: 내비게이션 + 캘린더 필터 */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                <ChevronLeft size={16} />
+              </button>
+              <button onClick={goToday} className="chip text-xs px-2.5 py-1">오늘</button>
+              <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                <ChevronRight size={16} />
+              </button>
+              <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px' }} />
+              <CalendarFilterDropdown
+                calendars={calendars}
+                selectedIds={selectedCalIds}
+                onToggle={toggleCalendar}
+              />
+              <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px' }} />
+              {/* 년월 이동 피커 */}
+              <div className="relative">
+                <button
+                  onClick={() => { setPickerYear(year); setPickerOpen(p => !p) }}
+                  className={`chip text-xs px-2.5 py-1 tabular-nums ${pickerOpen ? 'chip-active' : ''}`}
+                  title="년월 이동"
+                >이동</button>
+                {pickerOpen && (
+                  <>
+                    <div className="fixed inset-0 z-[90]" onClick={() => setPickerOpen(false)} />
+                    <div className="absolute top-full right-0 mt-1.5 z-[100] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-3 w-52">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                          <ChevronLeft size={14} />
                         </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </>
-            )}
+                        <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">{pickerYear}년</span>
+                        <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                          <ChevronRight size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1">
+                        {MONTHS.map((m, i) => {
+                          const isCurrent = pickerYear === year && i === month
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => goToYearMonth(pickerYear, i)}
+                              className={`py-1.5 text-xs rounded-lg transition-colors ${
+                                isCurrent
+                                  ? 'bg-accent text-white font-medium'
+                                  : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                              }`}
+                            >{m}</button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => setModal({ type: 'create', date: selectedDate ?? todayKey })}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                <Plus size={13} /> 일정 추가
+              </button>
+              <button
+                onClick={fetchEvents} disabled={loading}
+                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"
+                title="새로고침"
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setModal({ type: 'create', date: selectedDate ?? todayKey })}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors"
-          >
-            <Plus size={13} />
-            일정 추가
-          </button>
-          <button
-            onClick={fetchEvents} disabled={loading}
-            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"
-            title="새로고침"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
+      {/* ── NEXT UP 카운트다운 바 (전체 너비) ─── */}
+      {nextEvent && (
+        <div style={{
+          padding: '14px 20px',
+          background: 'var(--ink-0)', color: 'var(--paper)',
+          borderRadius: 'var(--r-md)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--dot)', flexShrink: 0 }} className="ut-dot-pulse" />
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.10em', color: 'rgba(255,255,255,0.55)' }}>NEXT UP</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{nextEvent.ev.summary || '(제목 없음)'}</span>
+            <span className="ut-mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+              {nextEvent.startDate.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)' }}>남은 시간</span>
+            <span style={{ fontSize: 17, color: 'var(--dot)' }}>
+              <LiveCountdown targetISO={nextEvent.ev.start_dt!} />
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2컬럼: 캘린더 그리드 | 사이드 패널 ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5 items-start">
         {/* 캘린더 그리드 */}
-        <Card title="" className="lg:col-span-3 !p-0 overflow-hidden">
+        <Card title="" className="!p-0 overflow-hidden">
           {/* 요일 헤더 */}
           <div className="grid grid-cols-7 border-b border-zinc-200/70 dark:border-zinc-700/70 bg-zinc-50/80 dark:bg-zinc-800/50">
             {DAYS.map((d, i) => (
@@ -1187,7 +1363,7 @@ export default function CalendarPage() {
               }`}>{d}</div>
             ))}
           </div>
-          {/* 날짜 셀 — 이중 애니메이션 */}
+          {/* 날짜 셀 */}
           <div className="relative overflow-hidden">
             {exitView && (
               <div className={`absolute inset-x-0 top-0 z-10 pointer-events-none ${
@@ -1230,45 +1406,13 @@ export default function CalendarPage() {
         </Card>
 
         {/* 사이드 패널 */}
-        <div className="space-y-4">
-          {/* 선택 날짜 이벤트 */}
-          <Card
-            title={selectedDate
-              ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('ko-KR', {
-                  month: 'long', day: 'numeric', weekday: 'short',
-                })
-              : '날짜를 선택하세요'
-            }
-            icon={<Calendar size={14} />}
-          >
-            {selectedDate && selectedEvents.length === 0 && (
-              <p className="text-xs text-zinc-400">일정 없음</p>
-            )}
-            <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50 -my-1">
-              {selectedEvents.map(ev => (
-                <EventRow
-                  key={ev.id}
-                  ev={ev}
-                  calendars={calendars}
-                  onEdit={ev => setModal({ type: 'edit', event: ev })}
-                  onDelete={ev => handleDelete(ev)}
-                />
-              ))}
-            </div>
-          </Card>
-
-          {/* 캘린더 필터 */}
-          <CalendarFilter
-            calendars={calendars}
-            selectedIds={selectedCalIds}
-            onToggle={toggleCalendar}
-          />
-
-          {/* 다가오는 일정 */}
+        <aside className="space-y-3">
+          <TodayCard events={filteredEvents} calendars={calendars} />
+          <MiniCalendar year={nextMonthYear} month={nextMonthMonth} events={filteredEvents} />
           <Card title="다가오는 일정" icon={<CalendarDays size={14} />}>
             <UpcomingPanel calendars={calendars} />
           </Card>
-        </div>
+        </aside>
       </div>
 
       {/* 모달 */}

@@ -11,6 +11,7 @@ import WeatherWidget from '../components/WeatherWidget'
 import CalendarWidget from '../components/CalendarWidget'
 import PhotoWidget from '../components/PhotoWidget'
 import { Card } from '../components/Card'
+import { PageTitle } from '../components/PageTitle'
 import { formatPrice, formatPct, relativeTime } from '../utils/format'
 import { STRENGTH_CONFIG } from '../constants/stock'
 import {
@@ -860,19 +861,19 @@ function HomeContent() {
 
   // ── 파생 값 ──────────────────────────────────────────────────────────────────
 
-  const summary  = calcKisSummary(kisAccounts)
-  const greeting = buildGreeting(now, summary, itemCount, !loading)
-  const retirementAge      = Number(localStorage.getItem('planner_retirement_age') ?? 55)
+  const summary  = useMemo(() => calcKisSummary(kisAccounts), [kisAccounts])
+  const greeting = useMemo(() => buildGreeting(now, summary, itemCount, !loading), [now, summary, itemCount, loading])
+  const retirementAge      = useMemo(() => Number(localStorage.getItem('planner_retirement_age') ?? 55), [])
   const dYears             = retirementAge - (PLANNER_CURRENT_YEAR - PLANNER_BIRTH_YEAR)
   const retirementYear     = PLANNER_BIRTH_YEAR + retirementAge
-  const upcomingMilestones = PLANNER_MILESTONES.filter(m => m.year >= PLANNER_CURRENT_YEAR).slice(0, 3)
+  const upcomingMilestones = useMemo(() => PLANNER_MILESTONES.filter(m => m.year >= PLANNER_CURRENT_YEAR).slice(0, 3), [])
 
-  const visibleWidgets = widgets.filter(w => w.visible)
-  const maxRow = visibleWidgets.reduce((m, w) => Math.max(m, w.y + w.h), 0)
+  const visibleWidgets = useMemo(() => widgets.filter(w => w.visible), [widgets])
+  const maxRow = useMemo(() => visibleWidgets.reduce((m, w) => Math.max(m, w.y + w.h), 0), [visibleWidgets])
 
   // ── 카드 렌더러 ──────────────────────────────────────────────────────────────
 
-  function renderCard(w: WidgetCfg) {
+  const renderCard = useCallback(function renderCard(w: WidgetCfg) {
     const { id } = w
     const minH   = w.h * GRID_ROW_H
     const widgetTitle = w.customTitle ?? WIDGET_META.find(m => m.id === id)?.label ?? id
@@ -1210,11 +1211,11 @@ function HomeContent() {
       default:
         return null
     }
-  }
+  }, [loading, editMode, itemCount, summary, kisAccounts, top3, news, diary, upcomingEvents, upcomingMilestones, dYears, retirementAge, retirementYear, navigate])
 
   // ── 숨겨진 위젯 추가 버튼 (편집 모드) ─────────────────────────────────────────
 
-  const hiddenWidgets = widgets.filter(w => !w.visible)
+  const hiddenWidgets = useMemo(() => widgets.filter(w => !w.visible), [widgets])
   const nextY = maxRow
 
   function addWidget(id: string) {
@@ -1238,10 +1239,11 @@ function HomeContent() {
         </div>
       )}
 
-      {/* 그리팅 */}
-      <p className="text-xl font-light text-zinc-600 dark:text-zinc-300 px-0.5 leading-relaxed">
-        {greeting}
-      </p>
+      {/* 페이지 타이틀 */}
+      <PageTitle
+        sub={greeting.split(' ').slice(1).join(' ')}
+        title="SWEET HOME"
+      />
 
       {/* 툴바 */}
       <div className="flex items-center justify-between">

@@ -1,6 +1,7 @@
 import {
   Home, TrendingUp, CalendarDays, Newspaper, Calculator, Settings,
-  Briefcase, BarChart2, Star, Lightbulb, CalendarCheck, BookOpen, FileText,
+  Briefcase, BarChart2, Star, Lightbulb, CalendarCheck, FileText,
+  Globe, PenLine, LayoutTemplate,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -14,8 +15,9 @@ export interface NavGroup {
   id: string
   label: string
   Icon: LucideIcon
-  to?: string        // 직접 링크 (children 없음)
-  href?: string      // 앱 외부 링크 (새 탭)
+  to?: string
+  href?: string
+  hideInSidebar?: boolean  // 사이드바 메인 nav에서 숨기고 하단 바에서만 노출
   children?: NavLeaf[]
 }
 
@@ -36,11 +38,17 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/calendar', label: '캘린더', Icon: CalendarCheck },
     ],
   },
-  { id: 'news',     label: '뉴스',   Icon: Newspaper,   to: '/news'     },
-  { id: 'planner',  label: '플래너', Icon: Calculator,  to: '/planner'  },
-  { id: 'blog',     label: '블로그', Icon: BookOpen,    to: '/blog'     },
-  { id: 'docs',     label: '명세서', Icon: FileText,    href: '/docs/'  },
-  { id: 'settings', label: '설정',   Icon: Settings,    to: '/settings' },
+  { id: 'news',    label: '뉴스',   Icon: Newspaper,  to: '/news'    },
+  { id: 'planner', label: '플래너', Icon: Calculator, to: '/planner' },
+  {
+    id: 'site', label: '홈페이지 관리', Icon: Globe,
+    children: [
+      { to: '/blog',        label: '블로그 관리',  Icon: PenLine        },
+      { to: '/site-manage', label: '메인화면 관리', Icon: LayoutTemplate },
+    ],
+  },
+  { id: 'docs',     label: '명세서', Icon: FileText, href: '/docs/',   hideInSidebar: true },
+  { id: 'settings', label: '설정',   Icon: Settings, to: '/settings', hideInSidebar: true },
 ]
 
 /** 현재 경로에 해당하는 그룹 반환 */
@@ -62,5 +70,5 @@ export const ALL_ROUTES = [
   '/home',
   '/portfolio', '/analytics', '/watchlist', '/recommend',
   '/calendar',
-  '/news', '/planner', '/blog', '/settings',
+  '/news', '/planner', '/blog', '/site-manage', '/settings',
 ]

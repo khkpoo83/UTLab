@@ -1,8 +1,8 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
-import { loadBgConfig, applyBackground, saveBgConfig } from './utils/background'
-import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, getCardOpacity, applyCardOpacity } from './utils/settings-utils'
+import { loadBgConfig, applyBackground, saveBgConfig, getCurrentMode } from './utils/background'
+import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, getCardOpacity, applyCardOpacity, getDotColor, applyDotColor } from './utils/settings-utils'
 import { setLogoIconStyle } from './components/Logo'
 import { loadOverlayStyle, applyOverlayStyle } from './utils/overlay'
 import apiClient from './api/client'
@@ -13,6 +13,7 @@ import { HomeFavContext, NavModeContext } from './contexts'
 import { ALL_ROUTES } from './nav'
 
 const SpatialHub      = React.lazy(() => import('./pages/SpatialHub'))
+const Landing         = React.lazy(() => import('./pages/Landing'))
 const Login           = React.lazy(() => import('./pages/Login'))
 const Home            = React.lazy(() => import('./pages/Home'))
 const Portfolio       = React.lazy(() => import('./pages/Portfolio'))
@@ -28,6 +29,7 @@ const BlogWrite       = React.lazy(() => import('./pages/BlogWrite'))
 const BlogDetail      = React.lazy(() => import('./pages/BlogDetail'))
 const PublicBlog      = React.lazy(() => import('./pages/PublicBlog'))
 const PublicBlogDetail = React.lazy(() => import('./pages/PublicBlogDetail'))
+const SiteManage      = React.lazy(() => import('./pages/SiteManage'))
 
 function PageLoader() {
   return (
@@ -117,6 +119,7 @@ const AppRoutes = () => (
         <Route path="/blog/new"       element={<BlogWrite />} />
         <Route path="/blog/:id"       element={<BlogDetail />} />
         <Route path="/blog/:id/edit"  element={<BlogWrite />} />
+        <Route path="/site-manage"    element={<SiteManage />} />
         <Route path="*"               element={<Navigate to="/home" replace />} />
       </Routes>
     </Suspense>
@@ -143,12 +146,14 @@ function MainLayout() {
   const touchFromEdge = useRef(false)
 
   useEffect(() => {
-    applyBackground(loadBgConfig())
+    applyBackground(loadBgConfig(getCurrentMode()))
     // 로컬 설정 먼저 적용 (서버 응답 전 깜빡임 방지)
     const localRadius = localStorage.getItem('ui_radius') as UiRadius | null
     if (localRadius) applyUiRadius(localRadius)
     applyOverlayStyle(loadOverlayStyle())
     applyCardOpacity(getCardOpacity())
+    applyPnlColors(loadPnlColorConfig())  // --up/--down 즉시 설정
+    applyDotColor(getDotColor())
 
     const token = localStorage.getItem('token')
     if (!token) return
@@ -156,7 +161,7 @@ function MainLayout() {
       if (data.ui_season)           applySeasonTheme(data.ui_season)
       if (data.ui_logo_icon)        setLogoIconStyle(data.ui_logo_icon as Parameters<typeof setLogoIconStyle>[0])
       if (data.ui_pnl_color_config) applyPnlColors({ ...loadPnlColorConfig(), ...data.ui_pnl_color_config })
-      if (data.ui_bg_config)        { saveBgConfig(data.ui_bg_config); applyBackground(data.ui_bg_config) }
+      if (data.ui_bg_config)        { saveBgConfig(data.ui_bg_config, 'light'); applyBackground(loadBgConfig(getCurrentMode())) }
       if (data.ui_dark_mode != null) {
         const dark = Boolean(data.ui_dark_mode)
         document.documentElement.classList.toggle('dark', dark)
@@ -170,6 +175,7 @@ function MainLayout() {
       if (data.ui_radius) applyUiRadius(data.ui_radius as UiRadius)
       if (data.ui_overlay_style) applyOverlayStyle(data.ui_overlay_style)
       if (data.ui_card_opacity != null) applyCardOpacity(data.ui_card_opacity)
+      if (data.ui_dot_color) applyDotColor(data.ui_dot_color as string)
     }).catch(() => {})
   }, [])
 
@@ -264,14 +270,12 @@ function MainLayout() {
                 onToggleCollapse={toggleSidebarCollapse}
               />
 
-              {/* 콘텐츠 + 글래스 래퍼 */}
+              {/* 콘텐츠 */}
               <div className={`${contentMargin} transition-[margin] duration-200 px-2 pt-2 pb-2`}>
                 <div className="max-w-screen-xl mx-auto">
-                  <div className="glass-panel rounded-2xl bg-white/30 dark:bg-zinc-950/30 min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-1rem)]">
-                    <main className="px-4 py-4">
-                      <AppRoutes />
-                    </main>
-                  </div>
+                  <main className="px-4 py-4 min-h-[calc(100vh-4rem)] lg:min-h-[calc(100vh-1rem)]">
+                    <AppRoutes />
+                  </main>
                 </div>
               </div>
             </>
@@ -279,13 +283,10 @@ function MainLayout() {
             /* ── 상단탭 레이아웃 ─────────────────────────────────────────── */
             <>
               <TopBar />
-              {/* 글래스 래퍼: TopBar 바로 아래부터, 콘텐츠 폭 = max-w-screen-xl */}
               <div className="max-w-screen-xl mx-auto px-2 pt-1 pb-2">
-                <div className="glass-panel rounded-2xl bg-white/30 dark:bg-zinc-950/30 min-h-[calc(100vh-6rem)]">
-                  <main className="px-4 py-4">
-                    <AppRoutes />
-                  </main>
-                </div>
+                <main className="px-4 py-4 min-h-[calc(100vh-6rem)]">
+                  <AppRoutes />
+                </main>
               </div>
             </>
           )}
@@ -322,6 +323,9 @@ function App() {
       }
     } catch {}
 
+    // 포인트(dot) 색상 조기 적용
+    applyDotColor(getDotColor())
+
     const syncThemeColor = () => {
       const dark = document.documentElement.classList.contains('dark')
       const meta = document.getElementById('theme-color-meta') as HTMLMetaElement | null
@@ -330,6 +334,14 @@ function App() {
     syncThemeColor()
     const obs = new MutationObserver(syncThemeColor)
     obs.observe(document.documentElement, { attributeFilter: ['class'] })
+
+    // 저장된 favicon 복원
+    const savedFavicon = localStorage.getItem('favicon')
+    if (savedFavicon) {
+      const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
+      if (link) link.href = savedFavicon
+    }
+
     return () => obs.disconnect()
   }, [])
 
@@ -338,7 +350,8 @@ function App() {
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/" element={<SpatialHub />} />
+            <Route path="/" element={<Landing />} />
+            <Route path="/spatial" element={<SpatialHub />} />
             <Route path="/login" element={<Login />} />
             <Route path="/public/blog" element={<PublicBlog />} />
             <Route path="/public/blog/:id" element={<PublicBlogDetail />} />

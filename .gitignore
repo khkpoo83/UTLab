@@ -56,3 +56,4 @@ git.sample
 
 # 임시 업로드/작업 파일
 tmp/
+renewal/
