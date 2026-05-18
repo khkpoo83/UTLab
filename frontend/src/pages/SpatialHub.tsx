@@ -5,6 +5,7 @@ import { authApi, blogApi, settingsApi, BlogPost } from '../api/client'
 import HubCenter from './HubCenter'
 import BreathingIndicator from '../components/BreathingIndicator'
 import RaindropCanvas from '../components/RaindropCanvas'
+import RaindropCanvasV2 from '../components/RaindropCanvasV2'
 
 type Position = 'center' | 'right' | 'bottom'
 type ContentView = 'card' | 'list'
@@ -178,6 +179,7 @@ const BlogPanel: React.FC<BlogPanelProps> = ({ onGoBack, scrollRef, isLight, onV
   const [contentView, setContentView] = useState<ContentView>('card')
   const [activeTag, setActiveTag]   = useState('all')
   const [blogTitle, setBlogTitle]   = useState(DEFAULT_BLOG_TITLE)
+  const [canvasVer, setCanvasVer]   = useState<1 | 2>(1)
 
   const animDivRef     = useRef<HTMLDivElement>(null)
   const detailPanelRef = useRef<HTMLDivElement>(null)
@@ -246,8 +248,23 @@ const BlogPanel: React.FC<BlogPanelProps> = ({ onGoBack, scrollRef, isLight, onV
           borderBottom: `1px solid ${t.divider}`,
         }}
       >
-        <RaindropCanvas isLight={isLight} />
+        {canvasVer === 1 ? <RaindropCanvas isLight={isLight} /> : <RaindropCanvasV2 isLight={isLight} />}
 
+        {/* 캔버스 버전 토글 버튼 */}
+        <button
+          onClick={() => setCanvasVer(v => v === 1 ? 2 : 1)}
+          style={{
+            position: 'absolute', top: 10, right: 12, zIndex: 20,
+            padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
+            fontFamily: 'ui-monospace,monospace', letterSpacing: '0.08em',
+            cursor: 'pointer', border: '1px solid',
+            background: isLight ? 'rgba(255,255,255,0.72)' : 'rgba(6,12,32,0.72)',
+            borderColor: isLight ? 'rgba(8,10,30,0.18)' : 'rgba(188,214,255,0.22)',
+            color: isLight ? 'rgba(8,10,30,0.70)' : 'rgba(188,214,255,0.80)',
+          }}
+        >
+          v{canvasVer} ⇄
+        </button>
 
         {/* 하단 타이틀 오버레이 — 콘텐츠 좌측라인에 맞춤 */}
         <div style={{
