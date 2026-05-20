@@ -3,11 +3,27 @@
  */
 import { useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { Moon, Sun, Monitor, Globe } from 'lucide-react'
 import Logo from './Logo'
 import apiClient from '../api/client'
+import { loadBgConfig, applyBackground } from '../utils/background'
 import { getProfileIconNode } from '../utils/settings-utils'
 import { HomeFavContext } from '../contexts'
 import { NAV_GROUPS, getActiveGroup, getFirstRoute } from '../nav'
+
+type ThemeMode = 'light' | 'dark' | 'system'
+
+function syncPnlColors(isDark: boolean) {
+  const el = document.documentElement
+  const uL = el.getAttribute('data-pnl-up-light'), dL = el.getAttribute('data-pnl-down-light')
+  const uD = el.getAttribute('data-pnl-up-dark'),  dD = el.getAttribute('data-pnl-down-dark')
+  if (uL && dL && uD && dD) {
+    el.style.setProperty('--c-up',   isDark ? uD : uL)
+    el.style.setProperty('--c-down', isDark ? dD : dL)
+    el.style.setProperty('--up',     isDark ? uD : uL)
+    el.style.setProperty('--down',   isDark ? dD : dL)
+  }
+}
 
 // ── 서브 컴포넌트 ─────────────────────────────────────────────────────────────
 
@@ -21,28 +37,6 @@ function Clock() {
     <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500 hidden sm:inline">
       {time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </span>
-  )
-}
-
-function DarkToggle({ dark, onToggle }: { dark: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors p-1"
-      title={dark ? '라이트 모드' : '다크 모드'}
-    >
-      {dark ? (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      ) : (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-      )}
-    </button>
   )
 }
 
@@ -83,6 +77,8 @@ function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) 
 
 // ── TopBar ────────────────────────────────────────────────────────────────────
 
+const siteGroup = NAV_GROUPS.find(g => g.id === 'site')
+
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -90,36 +86,52 @@ export function TopBar() {
   const activeGroup = getActiveGroup(location.pathname)
   const hasSubNav = (activeGroup?.children?.length ?? 0) > 0
 
-  const [darkMode, setDarkMode] = useState(
-    () => localStorage.getItem('theme') === 'dark' || document.documentElement.classList.contains('dark')
-  )
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('theme') as ThemeMode | null
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
+    return 'system'
+  })
 
-  const toggleDark = () => {
-    const next = !darkMode
-    document.documentElement.classList.toggle('dark', next)
-    localStorage.setItem('theme', next ? 'dark' : 'light')
-    setDarkMode(next)
-    const el = document.documentElement
-    const upLight = el.getAttribute('data-pnl-up-light')
-    const downLight = el.getAttribute('data-pnl-down-light')
-    const upDark = el.getAttribute('data-pnl-up-dark')
-    const downDark = el.getAttribute('data-pnl-down-dark')
-    if (upLight && downLight && upDark && downDark) {
-      el.style.setProperty('--c-up', next ? upDark : upLight)
-      el.style.setProperty('--c-down', next ? downDark : downLight)
+  useEffect(() => {
+    if (themeMode !== 'system') return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => {
+      document.documentElement.classList.toggle('dark', e.matches)
+      syncPnlColors(e.matches)
     }
-    const token = localStorage.getItem('token')
-    if (token) apiClient.put('/api/settings', { settings: { ui_dark_mode: next } }).catch(() => {})
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [themeMode])
+
+  const cycleTheme = () => {
+    const next: ThemeMode = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light'
+    localStorage.setItem('theme', next)
+    setThemeModeState(next)
+    let isDark: boolean
+    if (next === 'dark') { isDark = true }
+    else if (next === 'light') { isDark = false }
+    else { isDark = window.matchMedia('(prefers-color-scheme: dark)').matches }
+    document.documentElement.classList.toggle('dark', isDark)
+    syncPnlColors(isDark)
+    applyBackground(loadBgConfig(isDark ? 'dark' : 'light'))
+    if (next !== 'system') {
+      apiClient.put('/api/settings', { settings: { ui_dark_mode: isDark } }).catch(() => {})
+    }
   }
+
+  const ThemeIcon = themeMode === 'dark' ? Moon : themeMode === 'light' ? Sun : Monitor
+  const themeTitle = themeMode === 'dark' ? '다크 모드' : themeMode === 'light' ? '라이트 모드' : '시스템 모드'
 
   const handleLogout = () => {
     localStorage.removeItem('token')
     navigate('/login')
   }
 
+  const utilBtnCls = 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors p-1'
+
   return (
     <header className="sticky top-0 z-50 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800">
-      {/* 메인 행: 로고 | 구분선 | 탭 | 유저컨트롤 */}
+      {/* 메인 행: 로고 | 구분선 | 탭 | 구분선 | 관리영역 | 구분선 | 유저컨트롤 */}
       <div className="flex items-center h-11 px-3 gap-2">
         {/* 로고 */}
         <div
@@ -133,9 +145,9 @@ export function TopBar() {
         {/* 세로 구분선 */}
         <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
 
-        {/* 그룹 탭 (스크롤 가능) */}
+        {/* 그룹 탭 (스크롤 가능) — hideInTopBar 제외 */}
         <div className="flex-1 flex overflow-x-auto scrollbar-none min-w-0">
-          {NAV_GROUPS.map(group => {
+          {NAV_GROUPS.filter(g => !g.hideInTopBar).map(group => {
             const isActive = activeGroup?.id === group.id
             const dest = getFirstRoute(group)
             return (
@@ -157,10 +169,66 @@ export function TopBar() {
           })}
         </div>
 
+        {/* 구분선 */}
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
+
+        {/* 우측 관리 영역 — 연한 bg로 구분 */}
+        <div className="flex items-center gap-0.5 flex-shrink-0 px-1.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-900/60">
+          {/* 홈페이지 관리 서브 링크 */}
+          {siteGroup?.children?.map(item => {
+            const isActive = location.pathname.startsWith(item.to)
+            return (
+              <button
+                key={item.to}
+                onClick={() => navigate(item.to)}
+                title={item.label}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors whitespace-nowrap ${
+                  isActive
+                    ? 'text-accent bg-accent/10 font-medium'
+                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                }`}
+              >
+                <item.Icon size={12} />
+                <span className="hidden sm:inline">{item.label}</span>
+              </button>
+            )
+          })}
+
+          {/* 구분 */}
+          <div className="w-px h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+
+          {/* 홈화면으로 */}
+          <button
+            onClick={() => navigate('/')}
+            title="홈화면으로"
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap"
+          >
+            <Globe size={12} />
+            <span className="hidden sm:inline">홈화면</span>
+          </button>
+        </div>
+
+        {/* 구분선 */}
+        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
+
         {/* 유저 컨트롤 */}
-        <div className="flex items-center gap-1.5 flex-shrink-0 pl-1">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock />
-          <DarkToggle dark={darkMode} onToggle={toggleDark} />
+          <button onClick={cycleTheme} title={themeTitle} className={utilBtnCls}>
+            <ThemeIcon size={15} />
+          </button>
+          <a
+            href="/docs/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="명세서"
+            className={utilBtnCls}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </a>
           <ProfileBtn />
           <button
             onClick={handleLogout}

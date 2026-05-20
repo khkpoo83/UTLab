@@ -26,6 +26,7 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  overflow-x: hidden;
   @apply bg-white dark:bg-zinc-950;
   color: var(--c-text-base);
 }
@@ -1010,4 +1011,20 @@ html.dark {
 }
 .ut-marquee-track.slow { animation-duration: 80s; }
 .ut-marquee-track.rev  { animation-direction: reverse; }
+
+/* ── 퍼블릭 페이지 슬라이드 전환 ──────────────────────────────── */
+@keyframes pub-slide-from-right {
+  from { transform: translateX(100vw); }
+  to   { transform: translateX(0); }
+}
+@keyframes pub-slide-from-left {
+  from { transform: translateX(-100vw); }
+  to   { transform: translateX(0); }
+}
+.pub-slide-from-right {
+  animation: pub-slide-from-right 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.pub-slide-from-left {
+  animation: pub-slide-from-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
 

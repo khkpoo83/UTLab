@@ -47,10 +47,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 
 function useHomeTab() {
   const [homeTab, setHomeTab] = useState(() => localStorage.getItem('homeTab') ?? '/portfolio')
-  const saveHomeTab = (path: string) => {
+  const saveHomeTab = useCallback((path: string) => {
     localStorage.setItem('homeTab', path)
     setHomeTab(path)
-  }
+  }, [])
   return { homeTab, saveHomeTab }
 }
 
@@ -58,10 +58,10 @@ function useNavMode() {
   const [navMode, setNavModeState] = useState<'top' | 'sidebar'>(
     () => (localStorage.getItem('nav_mode') as 'top' | 'sidebar') ?? 'top'
   )
-  const setNavMode = (mode: 'top' | 'sidebar') => {
+  const setNavMode = useCallback((mode: 'top' | 'sidebar') => {
     localStorage.setItem('nav_mode', mode)
     setNavModeState(mode)
-  }
+  }, [])
   useEffect(() => {
     const handler = (e: Event) => {
       const mode = (e as CustomEvent<{ mode: 'top' | 'sidebar' }>).detail.mode
@@ -134,12 +134,12 @@ function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => localStorage.getItem('sidebar_collapsed') === 'true'
   )
-  const toggleSidebarCollapse = () => {
+  const toggleSidebarCollapse = useCallback(() => {
     setSidebarCollapsed(v => {
       localStorage.setItem('sidebar_collapsed', String(!v))
       return !v
     })
-  }
+  }, [])
 
   const touchStartX = useRef<number | null>(null)
   const touchStartY = useRef<number | null>(null)
@@ -221,11 +221,11 @@ function MainLayout() {
     }
   }, [])
 
-  const getActiveIdx = () => {
+  const getActiveIdx = useCallback(() => {
     const path = window.location.pathname
     const idx = ALL_ROUTES.findIndex(r => path.startsWith(r))
     return idx >= 0 ? idx : 0
-  }
+  }, [])
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const x = e.touches[0].clientX

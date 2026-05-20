@@ -191,7 +191,6 @@ const Portfolio: React.FC = () => {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedHolding, setSelectedHolding] = useState<PortfolioItem | null>(null)
-  const [, setLastUpdated] = useState<Date | null>(null)
   const [lastFetched, setLastFetched] = useState<Date | null>(null)
 
   const [kisAccountsData, setKisAccountsData] = useState<KISPortfolioAccount[]>([])
@@ -240,14 +239,16 @@ const Portfolio: React.FC = () => {
     })
   }
 
-  const kisColorPalette = getTonalPalette()
-  const KIS_ACCOUNT_COLORS: Record<string, string> = {
-    GENERAL:      kisColorPalette[0],
-    ISA:          kisColorPalette[1],
-    PENSION:      kisColorPalette[2],
-    IRP_PERSONAL: kisColorPalette[3],
-    IRP_COMPANY:  kisColorPalette[4],
-  }
+  const KIS_ACCOUNT_COLORS = useMemo((): Record<string, string> => {
+    const p = getTonalPalette()
+    return {
+      GENERAL:      p[0],
+      ISA:          p[1],
+      PENSION:      p[2],
+      IRP_PERSONAL: p[3],
+      IRP_COMPANY:  p[4],
+    }
+  }, [])
 
   const loadData = useCallback(async (force = false) => {
     try {
@@ -297,7 +298,6 @@ const Portfolio: React.FC = () => {
         }
       }
       setHoldings(allHoldings)
-      setLastUpdated(new Date())
       setLastFetched(new Date())
     } catch {
       // Handle error

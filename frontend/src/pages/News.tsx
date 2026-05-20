@@ -591,8 +591,7 @@ const News: React.FC = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
-  const orderedSuperGroupsRef = useRef(orderedSuperGroups)
-  orderedSuperGroupsRef.current = orderedSuperGroups
+  const orderedSuperGroupsRef = useRef<SuperGroup[]>([])
 
   function handleTopicDragEnd(event: DragEndEvent) {
     setActiveTopicId(null)
@@ -672,6 +671,7 @@ const News: React.FC = () => {
   [allGroups, onlyDone])
   const superGroups = useMemo(() => buildSuperGroups(groups), [groups])
   const orderedSuperGroups = useMemo(() => applyTopicOrder(superGroups, topicOrder), [superGroups, topicOrder])
+  orderedSuperGroupsRef.current = orderedSuperGroups
   const doneCount = useMemo(() => allGroups.filter((g) => g.representative.status === 'done' && g.representative.summary).length, [allGroups])
 
   return (

@@ -51,6 +51,14 @@ DEFAULT_SETTINGS = {
     "ui_photo_keyword": None,       # 홈 사진 위젯 검색 키워드 (기본: Alphonse Mucha)
     # ── 블로그 공개 설정 ──
     "blog_title": "Notes from the U.T Lab4",
+    "blog_subtitle": "영화 · 책 · 음악 · 여행 · 코드 · 가끔 시장. 한 사람의 인덱스.",
+    # ── 메인 홈페이지 설정 ──
+    "site_hero_title": "한 사람의 인덱스",
+    "site_hero_subtitle": "매일 들여다보면서 알게 된 것들.",
+    "site_editor_note": "인덱스를 만드는 게 목표가 아니라, 다시 찾아보고 싶은 기록을 남기는 게 목표입니다.",
+    "site_footer_copyright": "U.T Lab4 — 한 사람의 인덱스",
+    "site_marquee_items": None,  # JSON array of {text, size} objects
+    "site_marquee_speed": 60,   # 마퀴 기준 속도 (초, 낮을수록 빠름)
 }
 
 
@@ -66,7 +74,12 @@ async def get_all_settings(db: AsyncSession) -> dict:
     return cfg
 
 
-PUBLIC_KEYS = {"blog_title"}
+PUBLIC_KEYS = {
+    "blog_title", "blog_subtitle",
+    "site_hero_title", "site_hero_subtitle",
+    "site_editor_note", "site_footer_copyright",
+    "site_marquee_items", "site_marquee_speed",
+}
 
 @router.get("/public")
 async def public_settings(db: DB) -> dict:

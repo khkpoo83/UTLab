@@ -1024,40 +1024,46 @@ async def get_recommendations() -> list[dict]:
     if cached is not None:
         return cached
 
-    # 포트폴리오 보유 종목 조회
-    async with AsyncSessionLocal() as session:
-        portfolio_result = await session.execute(select(Portfolio))
-        holdings = portfolio_result.scalars().all()
+    # 포트폴리오 + 추천 동시 조회
+    async def _fetch_holdings():
+        async with AsyncSessionLocal() as session:
+            portfolio_result = await session.execute(select(Portfolio))
+            return portfolio_result.scalars().all()
+
+    async def _fetch_recs():
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(Recommendation).order_by(
+                    Recommendation.sector,
+                    Recommendation.news_count.desc(),
+                )
+            )
+            return result.scalars().all()
+
+    holdings, rows = await asyncio.gather(_fetch_holdings(), _fetch_recs())
 
     portfolio_tickers = {h.ticker for h in holdings}
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Recommendation).order_by(
-                Recommendation.sector,
-                Recommendation.news_count.desc(),
-            )
-        )
-        rows = result.scalars().all()
 
     sector_groups: dict[str, list[dict]] = {}
     seen_tickers: set[str] = set()
 
-    # 최신 뉴스 제목 일괄 조회
+    # 최신 뉴스 제목 — 병렬 조회 (N+1 개선)
+    all_tickers_names: list[tuple[str, str]] = []
+    for row in rows:
+        all_tickers_names.append((row.ticker, row.name or row.ticker))
+    for h in holdings:
+        if h.ticker not in {r.ticker for r in rows}:
+            all_tickers_names.append((h.ticker, h.name or h.ticker))
+
     async with AsyncSessionLocal() as session:
-        news_tasks = []
-        all_tickers_names: list[tuple[str, str]] = []
-
-        for row in rows:
-            all_tickers_names.append((row.ticker, row.name or row.ticker))
-        for h in holdings:
-            if h.ticker not in {r.ticker for r in rows}:
-                all_tickers_names.append((h.ticker, h.name or h.ticker))
-
-        latest_news_map: dict[str, str | None] = {}
-        for ticker, name in all_tickers_names:
-            title = await _get_latest_news_title(session, ticker, name)
-            latest_news_map[ticker] = title
+        news_titles = await asyncio.gather(
+            *(_get_latest_news_title(session, ticker, name) for ticker, name in all_tickers_names),
+            return_exceptions=True,
+        )
+    latest_news_map: dict[str, str | None] = {
+        ticker: (title if isinstance(title, str) else None)
+        for (ticker, _), title in zip(all_tickers_names, news_titles)
+    }
 
     # 1) AI 분석 완료 추천 종목만 표시 (ai_session 있는 것만)
     rows = [r for r in rows if r.ai_session is not None]

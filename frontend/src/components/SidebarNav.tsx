@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react'
+import React, { Fragment, useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu,
@@ -126,6 +126,11 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
     text-zinc-500 dark:text-zinc-400
     hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200`
 
+  // 관리 영역 전용 — 메인 nav보다 한 단계 작게
+  const mgmtBtnCls = `flex items-center justify-center w-7 h-7 rounded-md transition-colors
+    text-zinc-400 dark:text-zinc-500
+    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300`
+
   const mainNavGroups = NAV_GROUPS.filter(g => !g.hideInSidebar)
 
   return (
@@ -145,25 +150,62 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
       `}>
-        {/* 헤더: 로고 */}
+        {/* 헤더: 로고 + 접기/펼치기 */}
         <div className="flex-shrink-0 flex items-center h-11 px-2.5 border-b border-zinc-100 dark:border-white/[.05]">
-          <div
-            className={`cursor-pointer hover:opacity-75 transition-opacity active:scale-95 ${collapsed ? 'flex-1 flex justify-center' : 'flex-1'}`}
-            onClick={() => { navigate(homeTab); onClose() }}
-          >
-            {collapsed
-              ? <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
-              : <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
-            }
-          </div>
+          {collapsed ? (
+            <>
+              {/* 데스크탑: 로고 클릭 = 펼치기 */}
+              <button
+                className="hidden lg:flex flex-1 items-center justify-center hover:opacity-75 transition-opacity active:scale-95"
+                onClick={onToggleCollapse}
+                title="펼치기"
+              >
+                <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
+              </button>
+              {/* 모바일: 로고 클릭 = 홈 이동 */}
+              <div
+                className="lg:hidden flex-1 flex justify-center cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
+                onClick={() => { navigate(homeTab); onClose() }}
+              >
+                <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                className="flex-1 cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
+                onClick={() => { navigate(homeTab); onClose() }}
+              >
+                <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
+              </div>
+              <button
+                onClick={onToggleCollapse}
+                title="접기"
+                className={`${iconBtnCls} hidden lg:flex flex-shrink-0`}
+              >
+                <ChevronsLeft size={16} />
+              </button>
+            </>
+          )}
         </div>
 
         {/* 네비게이션 */}
         <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
           {mainNavGroups.map(group => {
+            const isSiteSection = group.id === 'site'
             const isGroupActive = activeGroup?.id === group.id
             const isExpanded = expanded.has(group.id)
             const hasChildren = (group.children?.length ?? 0) > 0
+
+            const divider = isSiteSection ? (
+              <div key={`${group.id}-divider`} className="border-t border-zinc-100 dark:border-zinc-800 my-1.5 mx-0.5" />
+            ) : null
+
+            const siteWrap = (content: React.ReactNode) => isSiteSection ? (
+              <div className={`rounded-lg py-0.5 ${collapsed ? '' : 'bg-zinc-50/60 dark:bg-zinc-800/20'}`}>
+                {content}
+              </div>
+            ) : <>{content}</>
 
             if (!hasChildren) {
               const linkClass = `flex items-center rounded-lg text-sm transition-colors ${
@@ -172,120 +214,135 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
 
               if (group.href) {
                 return (
-                  <div key={group.id} className="relative group/item">
-                    <a
-                      href={group.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title={collapsed ? group.label : undefined}
-                      className={linkClass}
-                      onClick={onClose}
-                    >
-                      <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
-                      {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
-                    </a>
-                  </div>
+                  <Fragment key={group.id}>
+                    {divider}
+                    {siteWrap(
+                      <div className="relative group/item">
+                        <a
+                          href={group.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={collapsed ? group.label : undefined}
+                          className={linkClass}
+                          onClick={onClose}
+                        >
+                          <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
+                          {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
+                        </a>
+                      </div>
+                    )}
+                  </Fragment>
                 )
               }
 
               return (
-                <div key={group.id} className="relative group/item">
-                  <NavLink
-                    to={group.to!}
-                    onClick={onClose}
-                    title={collapsed ? group.label : undefined}
-                    className={({ isActive }) =>
-                      `flex items-center rounded-lg text-sm transition-colors ${
-                        collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
-                      } ${
-                        isActive
-                          ? 'bg-accent/10 text-accent font-medium'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
-                      }`
-                    }
-                  >
-                    <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
-                    {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
-                  </NavLink>
-                  {!collapsed && (
-                    <FavStar active={homeTab === group.to!} onClick={() => saveHomeTab(group.to!)} />
+                <Fragment key={group.id}>
+                  {divider}
+                  {siteWrap(
+                    <div className="relative group/item">
+                      <NavLink
+                        to={group.to!}
+                        onClick={onClose}
+                        title={collapsed ? group.label : undefined}
+                        className={({ isActive }) =>
+                          `flex items-center rounded-lg text-sm transition-colors ${
+                            collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
+                          } ${
+                            isActive
+                              ? 'bg-accent/10 text-accent font-medium'
+                              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                          }`
+                        }
+                      >
+                        <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
+                        {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
+                      </NavLink>
+                      {!collapsed && (
+                        <FavStar active={homeTab === group.to!} onClick={() => saveHomeTab(group.to!)} />
+                      )}
+                    </div>
                   )}
-                </div>
+                </Fragment>
               )
             }
 
             return (
-              <div key={group.id}>
-                <button
-                  onClick={() => { if (!collapsed) toggle(group.id) }}
-                  title={collapsed ? group.label : undefined}
-                  className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-                    collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
-                  } ${
-                    isGroupActive
-                      ? 'text-accent'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
-                  }`}
-                >
-                  <group.Icon size={collapsed ? 19 : 17} className={`flex-shrink-0 ${isGroupActive ? 'text-accent' : ''}`} />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 text-left truncate">{group.label}</span>
-                      {isExpanded
-                        ? <ChevronDown size={13} className="opacity-40 flex-shrink-0" />
-                        : <ChevronRight size={13} className="opacity-40 flex-shrink-0" />
-                      }
-                    </>
-                  )}
-                </button>
-
-                {!collapsed && isExpanded && (
-                  <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
-                    {group.children!.map(item => (
-                      <div key={item.to} className="relative group/item">
-                        <NavLink
-                          to={item.to}
-                          onClick={onClose}
-                          className={({ isActive }) =>
-                            `flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-r-md text-xs transition-colors ${
-                              isActive
-                                ? 'bg-accent/10 text-accent font-medium'
-                                : 'text-zinc-500 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300'
-                            }`
+              <Fragment key={group.id}>
+                {divider}
+                {siteWrap(
+                  <div>
+                    <button
+                      onClick={() => { if (!collapsed) toggle(group.id) }}
+                      title={collapsed ? group.label : undefined}
+                      className={`w-full flex items-center rounded-lg text-sm transition-colors ${
+                        collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
+                      } ${
+                        isGroupActive
+                          ? 'text-accent'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                      }`}
+                    >
+                      <group.Icon size={collapsed ? 19 : 17} className={`flex-shrink-0 ${isGroupActive ? 'text-accent' : ''}`} />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 text-left truncate">{group.label}</span>
+                          {isExpanded
+                            ? <ChevronDown size={13} className="opacity-40 flex-shrink-0" />
+                            : <ChevronRight size={13} className="opacity-40 flex-shrink-0" />
                           }
-                        >
-                          <item.Icon size={13} className="flex-shrink-0" />
-                          <span className="flex-1 truncate">{item.label}</span>
-                        </NavLink>
-                        <FavStar active={homeTab === item.to} onClick={() => saveHomeTab(item.to)} />
-                      </div>
-                    ))}
-                  </div>
-                )}
+                        </>
+                      )}
+                    </button>
 
-                {collapsed && (
-                  <div className="relative mt-0.5 space-y-0.5 ml-[5px]">
-                    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full pointer-events-none" />
-                    {group.children!.map(item => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        onClick={onClose}
-                        title={item.label}
-                        className={({ isActive }) =>
-                          `flex items-center justify-center pl-2 pr-1.5 py-1.5 rounded-r-md transition-colors ${
-                            isActive
-                              ? 'bg-accent/10 text-accent'
-                              : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300'
-                          }`
-                        }
-                      >
-                        <item.Icon size={13} />
-                      </NavLink>
-                    ))}
+                    {!collapsed && isExpanded && (
+                      <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
+                        {group.children!.map(item => (
+                          <div key={item.to} className="relative group/item">
+                            <NavLink
+                              to={item.to}
+                              onClick={onClose}
+                              className={({ isActive }) =>
+                                `flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-r-md text-xs transition-colors ${
+                                  isActive
+                                    ? 'bg-accent/10 text-accent font-medium'
+                                    : 'text-zinc-500 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300'
+                                }`
+                              }
+                            >
+                              <item.Icon size={13} className="flex-shrink-0" />
+                              <span className="flex-1 truncate">{item.label}</span>
+                            </NavLink>
+                            <FavStar active={homeTab === item.to} onClick={() => saveHomeTab(item.to)} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {collapsed && (
+                      <div className="relative mt-0.5 space-y-0.5 ml-[5px]">
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full pointer-events-none" />
+                        {group.children!.map(item => (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            onClick={onClose}
+                            title={item.label}
+                            className={({ isActive }) =>
+                              `flex items-center justify-center pl-2 pr-1.5 py-1.5 rounded-r-md transition-colors ${
+                                isActive
+                                  ? 'bg-accent/10 text-accent'
+                                  : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300'
+                              }`
+                            }
+                          >
+                            <item.Icon size={13} />
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </Fragment>
             )
           })}
 
@@ -294,115 +351,113 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         {/* 하단 유저 바 */}
         <div className="flex-shrink-0 border-t border-zinc-100 dark:border-white/[.05]">
           {collapsed ? (
-            /* ── 접힌 상태: 프로필 카드 + 아이콘 + 펼치기 버튼 ── */
+            /* ── 접힌 상태 ── */
             <div className="flex flex-col items-center gap-0.5 py-2 px-1">
-              <div className="w-9 h-9 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800/80 rounded-lg text-zinc-600 dark:text-zinc-300">
-                {getProfileIconNode(profileIcon, 20)}
+              {/* 프로필 카드 (접힘) — card 스타일 */}
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 flex-shrink-0">
+                {getProfileIconNode(profileIcon, 17)}
               </div>
-              <div className="w-5 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
-              <button onClick={cycleTheme} title={themeTitle} className={iconBtnCls}>
-                <ThemeIcon size={20} />
+              <div className="w-4 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
+              {/* 관리 아이콘 — 소형 */}
+              <button onClick={cycleTheme} title={themeTitle} className={mgmtBtnCls}>
+                <ThemeIcon size={15} />
               </button>
               <button
                 onClick={() => { navigate('/settings'); onClose() }}
                 title="설정"
-                className={iconBtnCls}
+                className={mgmtBtnCls}
               >
-                <Settings size={20} />
+                <Settings size={15} />
               </button>
               <a
                 href="/docs/"
                 target="_blank"
                 rel="noopener noreferrer"
                 title="명세서"
-                className={iconBtnCls}
+                className={mgmtBtnCls}
               >
-                <FileText size={20} />
+                <FileText size={15} />
               </a>
               <button
                 onClick={handleLogout}
                 title="로그아웃"
-                className={`${iconBtnCls} hover:text-red-500 dark:hover:text-red-400`}
+                className={`${mgmtBtnCls} hover:text-red-400 dark:hover:text-red-400`}
               >
-                <LogOut size={20} />
+                <LogOut size={15} />
               </button>
-              <div className="w-5 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
+              <div className="w-4 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
               <button
                 onClick={() => { navigate('/'); onClose() }}
                 title="메인으로 가기"
-                className={iconBtnCls}
+                className={mgmtBtnCls}
               >
-                <Globe size={16} />
+                <Globe size={13} />
               </button>
               <button
                 onClick={onToggleCollapse}
                 title="펼치기"
-                className={`${iconBtnCls} hidden lg:flex`}
+                className={`${mgmtBtnCls} hidden lg:flex`}
               >
-                <ChevronsRight size={16} />
+                <ChevronsRight size={13} />
               </button>
             </div>
           ) : (
-            /* ── 펼친 상태: 프로필 카드 + 아이콘 + 접기 버튼 ── */
-            <div className="px-3 py-2.5">
-              {/* 프로필 카드 */}
-              <div className="card-surface rounded-lg px-3 py-2 mb-2.5 flex items-center gap-2.5">
+            /* ── 펼친 상태 ── */
+            <div className="px-2.5 py-2">
+              {/* 프로필 카드 (펼침) — card 스타일 (테두리 + 그림자) */}
+              <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm bg-white dark:bg-zinc-900 px-2.5 py-2 mb-2 flex items-center gap-2">
                 <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-zinc-500 dark:text-zinc-400">
-                  {getProfileIconNode(profileIcon, 18)}
+                  {getProfileIconNode(profileIcon, 16)}
                 </span>
-                <span className="flex-1 text-sm font-medium truncate" style={{ color: 'var(--ink-1)' }}>
+                <span className="flex-1 text-xs font-semibold truncate text-zinc-700 dark:text-zinc-200">
                   {username || 'admin'}
                 </span>
               </div>
-              {/* 아이콘 행 */}
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={cycleTheme}
-                  title={themeTitle}
-                  className={iconBtnCls}
-                >
-                  <ThemeIcon size={20} />
+              {/* 관리 아이콘 행 — 소형 */}
+              <div className="flex items-center gap-0.5 mb-1">
+                <button onClick={cycleTheme} title={themeTitle} className={mgmtBtnCls}>
+                  <ThemeIcon size={15} />
                 </button>
                 <button
                   onClick={() => { navigate('/settings'); onClose() }}
                   title="설정"
-                  className={iconBtnCls}
+                  className={mgmtBtnCls}
                 >
-                  <Settings size={20} />
+                  <Settings size={15} />
                 </button>
                 <a
                   href="/docs/"
                   target="_blank"
                   rel="noopener noreferrer"
                   title="명세서"
-                  className={iconBtnCls}
+                  className={mgmtBtnCls}
                 >
-                  <FileText size={20} />
+                  <FileText size={15} />
                 </a>
                 <button
                   onClick={handleLogout}
                   title="로그아웃"
-                  className={`${iconBtnCls} hover:text-red-500 dark:hover:text-red-400`}
+                  className={`${mgmtBtnCls} hover:text-red-400 dark:hover:text-red-400`}
                 >
-                  <LogOut size={20} />
+                  <LogOut size={15} />
                 </button>
               </div>
-              {/* 구분선 + 하단 버튼들 */}
-              <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 my-1.5" />
+              {/* 구분선 + 하단 소형 버튼 */}
+              <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 mb-1" />
               <button
                 onClick={() => { navigate('/'); onClose() }}
-                className="flex w-full items-center gap-2 px-1.5 py-1.5 text-xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                className="flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
                 title="메인으로 가기"
               >
-                <Globe size={14} />
+                <Globe size={12} />
                 <span>메인으로 가기</span>
               </button>
               <button
                 onClick={onToggleCollapse}
-                className="hidden lg:flex w-full items-center gap-2 px-1.5 py-1.5 text-xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-lg transition-colors"
+                className="hidden lg:flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
                 title="접기"
               >
-                <ChevronsLeft size={14} />
+                <ChevronsLeft size={12} />
                 <span>접기</span>
               </button>
             </div>

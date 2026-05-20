@@ -1,7 +1,7 @@
 import {
   Home, TrendingUp, CalendarDays, Newspaper, Calculator, Settings,
   Briefcase, BarChart2, Star, Lightbulb, CalendarCheck, FileText,
-  Globe, PenLine, LayoutTemplate,
+  Globe, PenLine, Layers,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -17,7 +17,8 @@ export interface NavGroup {
   Icon: LucideIcon
   to?: string
   href?: string
-  hideInSidebar?: boolean  // 사이드바 메인 nav에서 숨기고 하단 바에서만 노출
+  hideInSidebar?: boolean  // 사이드바 메인 nav 탭 목록에서 숨김 (하단 유틸 바에서 노출)
+  hideInTopBar?: boolean   // 상단 탭 행에서 숨김 (우측 유틸 영역에서 노출)
   children?: NavLeaf[]
 }
 
@@ -41,14 +42,16 @@ export const NAV_GROUPS: NavGroup[] = [
   { id: 'news',    label: '뉴스',   Icon: Newspaper,  to: '/news'    },
   { id: 'planner', label: '플래너', Icon: Calculator, to: '/planner' },
   {
-    id: 'site', label: '홈페이지 관리', Icon: Globe,
+    id: 'site', label: '홈페이지 관리', Icon: Globe, hideInTopBar: true,
     children: [
       { to: '/blog',        label: '블로그 관리',  Icon: PenLine        },
-      { to: '/site-manage', label: '메인화면 관리', Icon: LayoutTemplate },
+      { to: '/site-manage', label: '메인화면 관리', Icon: Layers },
     ],
   },
-  { id: 'docs',     label: '명세서', Icon: FileText, href: '/docs/',   hideInSidebar: true },
-  { id: 'settings', label: '설정',   Icon: Settings, to: '/settings', hideInSidebar: true },
+  // 설정: 사이드바 메인 nav 및 상단 탭 모두 숨김 (사이드바 하단 유틸바 / 상단 우측에서 접근)
+  { id: 'settings', label: '설정', Icon: Settings, to: '/settings', hideInTopBar: true, hideInSidebar: true },
+  // 명세서: 사이드바 유틸 바에서만, 상단 탭에서는 우측 유틸 영역에서 노출
+  { id: 'docs', label: '명세서', Icon: FileText, href: '/docs/', hideInSidebar: true, hideInTopBar: true },
 ]
 
 /** 현재 경로에 해당하는 그룹 반환 */

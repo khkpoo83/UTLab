@@ -16,8 +16,11 @@ export default function Blog() {
   const [activeTag, setActiveTag] = useState('')
 
   const [blogTitle, setBlogTitle] = useState('Notes from the U.T Lab4')
+  const [blogSubtitle, setBlogSubtitle] = useState('영화 · 책 · 음악 · 여행 · 코드 · 가끔 시장. 한 사람의 인덱스.')
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
+  const [subtitleDraft, setSubtitleDraft] = useState('')
+  const [editingSubtitle, setEditingSubtitle] = useState(false)
   const [savingTitle, setSavingTitle] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -42,8 +45,11 @@ export default function Blog() {
   useEffect(() => { loadPosts() }, [visibility, activeTag])
 
   useEffect(() => {
-    settingsApi.publicGet()
-      .then(({ data }) => { if (data.blog_title) setBlogTitle(data.blog_title) })
+    settingsApi.get()
+      .then(({ data }) => {
+        if (data.blog_title)    setBlogTitle(data.blog_title)
+        if (data.blog_subtitle) setBlogSubtitle(data.blog_subtitle)
+      })
       .catch(() => {})
   }, [])
 
@@ -59,17 +65,30 @@ export default function Blog() {
   }
 
   async function saveTitle() {
-    const next = titleDraft.trim()
+    const next = titleDraft.trim().replace(/\.$/, '')
     if (!next || next === blogTitle) { setEditingTitle(false); return }
     setSavingTitle(true)
     try {
       await settingsApi.update({ blog_title: next })
       setBlogTitle(next)
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('blog_title 저장 실패', e)
     } finally {
       setSavingTitle(false)
       setEditingTitle(false)
+    }
+  }
+
+  async function saveSubtitle() {
+    const next = subtitleDraft.trim()
+    if (next === blogSubtitle) { setEditingSubtitle(false); return }
+    try {
+      await settingsApi.update({ blog_subtitle: next })
+      setBlogSubtitle(next)
+    } catch (e) {
+      console.error('blog_subtitle 저장 실패', e)
+    } finally {
+      setEditingSubtitle(false)
     }
   }
 
@@ -111,6 +130,34 @@ export default function Blog() {
             onClick={startEditTitle}
             className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
           >
+            <Pencil size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* 블로그 소개문구 편집 */}
+      <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-zinc-400 mb-1 tracking-widest uppercase">소개문구 <span className="normal-case font-normal">(블로그 페이지 부제목 — 마침표는 자동으로 붙습니다)</span></p>
+          {editingSubtitle ? (
+            <input
+              value={subtitleDraft}
+              onChange={e => setSubtitleDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') saveSubtitle(); else if (e.key === 'Escape') setEditingSubtitle(false) }}
+              className="w-full text-sm bg-transparent outline-none border-b border-accent text-zinc-800 dark:text-zinc-200 pb-0.5"
+              placeholder="소개문구 입력..."
+              autoFocus
+            />
+          ) : (
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{blogSubtitle || '소개문구를 입력하세요...'}</p>
+          )}
+        </div>
+        {editingSubtitle ? (
+          <button onClick={saveSubtitle} className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-accent text-white flex-shrink-0">
+            <Check size={11} /> 저장
+          </button>
+        ) : (
+          <button onClick={() => { setSubtitleDraft(blogSubtitle); setEditingSubtitle(true) }} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
             <Pencil size={13} />
           </button>
         )}

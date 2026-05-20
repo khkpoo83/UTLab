@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -19,115 +19,17 @@ import {
   KISPortfolioAccount, RecommendItem, NewsItem, DiaryEntry, CalendarEventItem,
 } from '../api/client'
 
-// ── 그리팅 ───────────────────────────────────────────────────────────────────
+// ── 홈 서브타이틀 풀 ─────────────────────────────────────────────────────────
 
-function buildGreeting(
-  now: Date,
-  summary: { pnl: number; pnlPct: number; dayPnl: number; totalValue: number },
-  itemCount: number,
-  loaded: boolean,
-): string {
-  const hour = now.getHours()
-  const age  = now.getFullYear() - 1983
-  const retireAge   = Number(localStorage.getItem('planner_retirement_age') ?? 55)
-  const yearsToRetire = Math.max(0, retireAge - age)
-
-  const dayOfYear = Math.floor(
-    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000,
-  )
-
-  const fmt = (n: number) =>
-    Math.abs(n) >= 100_000_000
-      ? `${(n / 100_000_000).toFixed(1)}억원`
-      : `${Math.round(n).toLocaleString('ko-KR')}원`
-  const pnlStr    = (summary.pnl    >= 0 ? '+' : '') + fmt(summary.pnl)
-  const pctStr    = (summary.pnlPct >= 0 ? '+' : '') + summary.pnlPct.toFixed(2) + '%'
-  const dayStr    = (summary.dayPnl >= 0 ? '+' : '') + fmt(summary.dayPnl)
-  const totalStr  = Math.round(summary.totalValue / 10000).toLocaleString('ko-KR') + '만원'
-
-  let pool: string[]
-  if (hour < 5) {
-    pool = [
-      `🌙 새벽에도 시장이 눈에 밟히시나요? ${age}세 투자자, 오늘도 수고하십니다.`,
-      loaded
-        ? `🌙 이 시간엔 미국장이 한창이네요. ${itemCount}개 종목이 오버나이트 중입니다.`
-        : '🌙 이 시간엔 미국장이 한창이네요. 오버나이트 포지션 잘 버텨주길 바랍니다.',
-      '🌙 늦은 밤입니다. 내일 좋은 컨디션을 위해 일단 쉬어가세요.',
-      '🌙 새벽 시장 정보는 내일 아침에도 확인할 수 있습니다. 숙면이 최고의 투자입니다.',
-      loaded
-        ? `🌙 은퇴까지 D-${yearsToRetire}년. 새벽에도 포트폴리오 챙기는 모습이 그 답입니다.`
-        : `🌙 ${age}세의 새벽, 내일도 침착하게 임합시다.`,
-    ]
-  } else if (hour < 9) {
-    pool = [
-      '🌅 좋은 아침입니다. 오늘 개장 전 준비 잘 되셨나요?',
-      `🌅 ${age}세, 은퇴까지 D-${yearsToRetire}년. 오늘 하루도 그 여정의 한 걸음입니다.`,
-      '🌅 아침이 밝았습니다. 오늘 하루도 냉정하고 침착하게.',
-      '🌅 굿모닝. 국내장 개장까지 얼마 남지 않았습니다.',
-      loaded
-        ? `🌅 아침 포트폴리오 확인. 누적 ${pctStr}, 오늘도 잘 지켜봅시다.`
-        : '🌅 아침입니다. 오늘 어떤 흐름이 펼쳐질지 기대됩니다.',
-    ]
-  } else if (hour < 13) {
-    pool = [
-      loaded
-        ? `☀️ 장이 열렸습니다. ${itemCount}개 종목과 오늘을 시작합니다.`
-        : '☀️ 장이 열렸습니다. 오전장 침착하게 대응해봅시다.',
-      loaded
-        ? `☀️ 누적 수익률 ${pctStr}. 오전장은 느긋하게 지켜보는 게 최선입니다.`
-        : '☀️ 오전장 진행 중. 단기 노이즈에 흔들리지 않는 게 중요합니다.',
-      `☀️ ${age}세의 오전, 조급함 없이 오늘 흐름을 읽어봅시다.`,
-      loaded
-        ? `☀️ 누적 손익 ${pnlStr}. 오늘도 잘 지켜주길 바랍니다.`
-        : '☀️ 오전 시장이 열렸습니다. 오늘 하루도 차분하게.',
-      loaded
-        ? `☀️ ${itemCount}개 종목이 지금 이 순간도 움직이고 있습니다.`
-        : '☀️ 시장이 열려 있습니다. 오늘 뉴스도 확인해보세요.',
-    ]
-  } else if (hour < 17) {
-    pool = [
-      loaded
-        ? `🌤 오후장 진행 중. 오늘 어제 대비 ${dayStr} 변동 중이네요.`
-        : '🌤 오후장입니다. 오늘의 흐름을 정리해볼 시간입니다.',
-      '🌤 점심은 드셨나요? 배부른 상태에서의 판단이 더 냉정합니다.',
-      `🌤 ${age}세 투자자의 오후, 느긋하게 시장을 지켜볼 자격이 있습니다.`,
-      loaded
-        ? `🌤 ${itemCount}개 종목 중 오늘 웃는 종목이 더 많길 바랍니다.`
-        : '🌤 오후장, 오늘의 흐름을 확인해보세요.',
-      loaded
-        ? `🌤 은퇴까지 D-${yearsToRetire}년. 총 ${totalStr}이 착실히 쌓이고 있습니다.`
-        : `🌤 은퇴까지 D-${yearsToRetire}년. 오늘도 그 여정을 걷고 있습니다.`,
-    ]
-  } else if (hour < 21) {
-    pool = [
-      '🌇 장 마감이 가까워집니다. 오늘 하루 어떠셨나요?',
-      loaded
-        ? `🌇 오늘 ${dayStr}. 수고하셨습니다. 저녁 식사 맛있게 드세요.`
-        : '🌇 저녁입니다. 오늘도 고생하셨습니다.',
-      loaded
-        ? `🌇 ${itemCount}개 종목이 오늘 하루를 버텨냈습니다.`
-        : '🌇 저녁은 시장 걱정 잠시 내려두셔도 됩니다.',
-      `🌇 은퇴까지 D-${yearsToRetire}년. 오늘 하루도 착실히 쌓아가고 있습니다.`,
-      loaded
-        ? `🌇 누적 손익 ${pnlStr}. ${age}세에 이 정도면 잘 해오고 있습니다.`
-        : `🌇 ${age}세의 저녁, 오늘도 잘 마무리해봅시다.`,
-    ]
-  } else {
-    pool = [
-      '🌃 오늘 하루도 마무리됩니다. AI 일기가 오늘을 기록해줄 겁니다.',
-      loaded
-        ? `🌃 총 ${totalStr}. 내일도 잘 지켜주길 바랍니다.`
-        : '🌃 내일의 시장은 내일 걱정하면 됩니다. 오늘은 편히 쉬세요.',
-      '🌃 내일의 시장은 내일 걱정하면 됩니다. 오늘은 편히 쉬세요.',
-      `🌃 ${age}세, 은퇴까지 D-${yearsToRetire}년. 오늘도 잘 버텼습니다.`,
-      loaded
-        ? `🌃 누적 수익률 ${pctStr}. 오늘도 포트폴리오가 잘 지켜줬습니다.`
-        : '🌃 오늘 하루도 수고하셨습니다. 좋은 밤 되세요.',
-    ]
-  }
-
-  return pool[dayOfYear % pool.length]
-}
+const HOME_SUBS = [
+  'MY PORTFOLIO',
+  'DAILY BRIEFING',
+  'MARKET WATCH',
+  'INVESTMENT LOG',
+  'ASSET TRACKER',
+  'FINANCIAL HQ',
+  'PORTFOLIO DESK',
+]
 
 // ── 플래너 상수 ───────────────────────────────────────────────────────────────
 
@@ -627,7 +529,6 @@ function HomeContent() {
   const [diary,       setDiary]       = useState<DiaryEntry | null>(null)
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState<string | null>(null)
-  const [now,         setNow]         = useState(() => new Date())
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEventItem[]>([])
 
   // 위젯 상태
@@ -651,11 +552,6 @@ function HomeContent() {
   widgetsRef.current = widgets
 
   // ── 데이터 로딩 ──────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 60 * 60 * 1000)
-    return () => clearInterval(t)
-  }, [])
 
   useEffect(() => {
     const fetchUpcoming = () =>
@@ -862,7 +758,7 @@ function HomeContent() {
   // ── 파생 값 ──────────────────────────────────────────────────────────────────
 
   const summary  = useMemo(() => calcKisSummary(kisAccounts), [kisAccounts])
-  const greeting = useMemo(() => buildGreeting(now, summary, itemCount, !loading), [now, summary, itemCount, loading])
+  const homeSub  = useMemo(() => HOME_SUBS[Math.floor(Math.random() * HOME_SUBS.length)], [])
   const retirementAge      = useMemo(() => Number(localStorage.getItem('planner_retirement_age') ?? 55), [])
   const dYears             = retirementAge - (PLANNER_CURRENT_YEAR - PLANNER_BIRTH_YEAR)
   const retirementYear     = PLANNER_BIRTH_YEAR + retirementAge
@@ -1241,7 +1137,7 @@ function HomeContent() {
 
       {/* 페이지 타이틀 */}
       <PageTitle
-        sub={greeting.split(' ').slice(1).join(' ')}
+        sub={homeSub}
         title="SWEET HOME"
       />
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import datetime
 from typing import Annotated, Optional
@@ -62,20 +63,22 @@ async def list_watchlist(current_user: CurrentUser, db: DB) -> list[WatchlistRes
     )
     recommended_tickers = {row[0] for row in rec_result.fetchall()}
 
-    response = []
-    for item in items:
-        current_price = None
-        change_pct = None
+    # 병렬로 모든 watchlist 종목 가격 조회 (N+1 → 1 round)
+    async def _safe_fetch(item: Watchlist) -> tuple[Optional[float], Optional[float]]:
         try:
             price_data = await fetch_current_price(item.ticker)
             if isinstance(price_data, dict):
-                current_price = price_data.get("price")
-                change_pct = price_data.get("change_pct")
+                return price_data.get("price"), price_data.get("change_pct")
             elif price_data is not None:
-                current_price = float(price_data)
+                return float(price_data), None
         except Exception as e:
             logger.debug(f"Failed to fetch price for watchlist ticker {item.ticker}: {e}")
+        return None, None
 
+    price_results = await asyncio.gather(*(_safe_fetch(item) for item in items))
+
+    response = []
+    for item, (current_price, change_pct) in zip(items, price_results):
         response.append(
             WatchlistResponse(
                 id=item.id,

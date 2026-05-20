@@ -337,12 +337,13 @@ async def get_news_list(
             base_query = base_query.where(filter_clause)
             count_query = count_query.where(filter_clause)
 
-        total_result = await session.scalar(count_query)
-        total = total_result or 0
-
         offset = (page - 1) * page_size
-        query = base_query.offset(offset).limit(page_size)
-        result = await session.execute(query)
+        data_query = base_query.offset(offset).limit(page_size)
+        total_result, result = await asyncio.gather(
+            session.scalar(count_query),
+            session.execute(data_query),
+        )
+        total = total_result or 0
         rows = result.scalars().all()
 
         return {

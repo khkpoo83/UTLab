@@ -8,10 +8,9 @@ import { NavModeContext } from '../contexts'
 import apiClient, { settingsApi, profileApi, authApi, calendarApi, UserProfile, AiUsageStats, CalendarStatus } from '../api/client'
 import { Card } from '../components/Card'
 import ProgressBar from '../components/ProgressBar'
-import Logo, {
-  LOGO_ICON_STYLES, LogoAnyStyle, getLogoIconStyle, setLogoIconStyle,
+import {
+  LogoAnyStyle, getLogoIconStyle, setLogoIconStyle,
   NEW_LOGO_STYLES,
-  PNG_LOGO_OPTIONS, PngLogoOption, getPngLogoOption, setPngLogoOption,
 } from '../components/Logo'
 import {
   BgConfig, BgType, GradientDir, loadBgConfig, saveBgConfig, getBgStyle, applyBackground,
@@ -81,107 +80,35 @@ function ProfileIconPicker({ value, onChange }: { value: string; onChange: (id: 
 // ── 로고 아이콘 피커 ──────────────────────────────────────────────────────────
 
 function LogoIconPicker({
-  svgValue, pngValue,
-  onSvg, onPng,
+  svgValue,
+  onSvg,
 }: {
   svgValue: LogoAnyStyle
-  pngValue: PngLogoOption | null
   onSvg: (s: LogoAnyStyle) => void
-  onPng: (opt: PngLogoOption | null) => void
 }) {
-  const isPng = pngValue !== null
-  const w1392Opts = PNG_LOGO_OPTIONS.filter(o => o.src === 'w1392')
-  const w1403Opts = PNG_LOGO_OPTIONS.filter(o => o.src === 'w1403')
-
-  function PngCell({ opt }: { opt: PngLogoOption }) {
-    const active = isPng && pngValue?.filterId === opt.filterId
-    const imgSrc = opt.src === 'w1392' ? '/logo_width_1392.png' : '/logo_width_1403.png'
-    return (
-      <button
-        onClick={() => onPng(opt)}
-        title={opt.label}
-        className={`flex flex-col items-center gap-1.5 py-2 px-1 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-          active ? 'border-2' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-        }`}
-        style={active ? { borderColor: 'var(--c-accent)' } : {}}
-      >
-        <img
-          src={imgSrc}
-          alt=""
-          style={{ width: 36, height: 36, objectFit: 'contain', filter: opt.filter === 'none' ? undefined : opt.filter }}
-        />
-        <span className="text-2xs text-zinc-500 dark:text-zinc-400 text-center leading-tight">
-          {opt.label.split(' · ')[1]}
-        </span>
-      </button>
-    )
-  }
-
   return (
     <div className="space-y-4">
       <p className="text-2xs text-zinc-400">로고 아이콘을 선택합니다.</p>
-
-      {/* ── 신규 아이콘 ─────────────────────────────────────────────── */}
-      <div>
-        <p className="text-2xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">신규 아이콘</p>
-        <div className="grid grid-cols-5 gap-2">
-          {NEW_LOGO_STYLES.map(s => {
-            const active = !isPng && svgValue === s.id
-            return (
-              <button
-                key={s.id}
-                onClick={() => { onPng(null); onSvg(s.id) }}
-                className={`flex flex-col items-center gap-2 py-3 px-1 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-                  active ? 'border-2' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-                }`}
-                style={active ? { borderColor: 'var(--c-accent)' } : {}}
-              >
-                <s.Component size={44} />
-                <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 text-center leading-tight">
-                  {s.label}<br />
-                  <span className="text-zinc-400 dark:text-zinc-500 font-normal">{s.desc}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ── 기존 그라디언트 SVG ─────────────────────────────────────── */}
-      <div>
-        <p className="text-2xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">그라디언트 SVG</p>
-        <div className="grid grid-cols-5 gap-2">
-          {LOGO_ICON_STYLES.map(s => (
+      <div className="grid grid-cols-5 gap-2">
+        {NEW_LOGO_STYLES.map(s => {
+          const active = svgValue === s.id
+          return (
             <button
               key={s.id}
-              onClick={() => { onPng(null); onSvg(s.id) }}
+              onClick={() => onSvg(s.id)}
               className={`flex flex-col items-center gap-2 py-3 px-1 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-                !isPng && svgValue === s.id ? 'border-2' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                active ? 'border-2' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
               }`}
-              style={!isPng && svgValue === s.id ? { borderColor: 'var(--c-accent)' } : {}}
+              style={active ? { borderColor: 'var(--c-accent)' } : {}}
             >
-              <Logo size="md" iconStyle={s.id} className="text-zinc-900 dark:text-zinc-100" />
+              <s.Component size={44} />
               <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 text-center leading-tight">
                 {s.label}<br />
                 <span className="text-zinc-400 dark:text-zinc-500 font-normal">{s.desc}</span>
               </span>
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── PNG ─────────────────────────────────────────────────────── */}
-      <div>
-        <p className="text-2xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">PNG 로고 A</p>
-        <div className="grid grid-cols-4 gap-2">
-          {w1392Opts.map(opt => <PngCell key={opt.filterId} opt={opt} />)}
-        </div>
-      </div>
-      <div>
-        <p className="text-2xs font-medium text-zinc-500 dark:text-zinc-400 mb-2">PNG 로고 B</p>
-        <div className="grid grid-cols-4 gap-2">
-          {w1403Opts.map(opt => <PngCell key={opt.filterId} opt={opt} />)}
-        </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -342,7 +269,6 @@ function ColorInput({ label, value, onChange }: { label: string; value: string; 
 function BackgroundPicker({ value, onChange }: { value: BgConfig; onChange: (cfg: BgConfig) => void }) {
   const update = (partial: Partial<BgConfig>) => onChange({ ...value, ...partial })
   const isPattern = !['none', 'solid', 'gradient'].includes(value.type)
-  const canFixed = value.type !== 'none'
 
   return (
     <div className="space-y-4">
@@ -423,19 +349,6 @@ function BackgroundPicker({ value, onChange }: { value: BgConfig; onChange: (cfg
         </div>
       )}
 
-      {/* 패턴 옵션 */}
-      {/* 배경 고정 (스크롤 시 배경 고정) */}
-      {canFixed && (
-        <label className="flex items-center gap-3 cursor-pointer">
-          <div
-            className={`relative w-10 h-5 rounded-full transition-colors ${value.bgFixed ? 'bg-accent' : 'bg-zinc-300 dark:bg-zinc-600'}`}
-            onClick={() => update({ bgFixed: !value.bgFixed })}
-          >
-            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${value.bgFixed ? 'translate-x-5' : 'translate-x-0.5'}`} />
-          </div>
-          <span className="text-xs text-zinc-600 dark:text-zinc-400">배경 뷰포트 고정 (스크롤 시 배경 고정)</span>
-        </label>
-      )}
 
       {isPattern && (
         <div className="space-y-3">
@@ -797,55 +710,6 @@ function WeatherIconStylePicker() {
   )
 }
 
-// ── FaviconPicker ─────────────────────────────────────────────────────────────
-
-const FAVICON_OPTIONS = [
-  { label: 'SVG', path: '/favicon.svg', type: 'image/svg+xml' },
-  { label: 'PNG', path: '/favicon.png', type: 'image/png' },
-  { label: 'ICO', path: '/favicon.ico', type: 'image/x-icon' },
-]
-
-function FaviconPicker() {
-  const [active, setActive] = useState<string>(
-    () => localStorage.getItem('favicon') || '/favicon.svg'
-  )
-
-  const apply = (path: string, type: string) => {
-    setActive(path)
-    localStorage.setItem('favicon', path)
-    let link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
-    if (!link) {
-      link = document.createElement('link')
-      link.rel = 'icon'
-      document.head.appendChild(link)
-    }
-    link.type = type
-    link.href = path
-  }
-
-  return (
-    <div className="space-y-3">
-      <p className="text-2xs text-zinc-400">브라우저 탭에 표시되는 아이콘을 선택합니다. 즉시 적용됩니다.</p>
-      <div className="flex items-center gap-3">
-        {FAVICON_OPTIONS.map(o => (
-          <button
-            key={o.path}
-            onClick={() => apply(o.path, o.type)}
-            className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all ${
-              active === o.path
-                ? 'border-accent bg-accent/5'
-                : 'border-zinc-100 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600'
-            }`}
-          >
-            <img src={o.path} className="w-8 h-8 object-contain" alt={o.label} />
-            <span className="text-2xs text-zinc-500 font-medium">{o.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 const Settings: React.FC = () => {
@@ -860,7 +724,6 @@ const Settings: React.FC = () => {
 
   // 시각 설정 — 저장 전까지 pending 상태, 적용되지 않음
   const [pendingLogoIcon, setPendingLogoIcon] = useState<LogoAnyStyle>(getLogoIconStyle)
-  const [pendingPngLogo, setPendingPngLogo] = useState<PngLogoOption | null>(getPngLogoOption)
   const [bgEditMode, setBgEditMode] = useState<'light' | 'dark'>(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -1030,7 +893,6 @@ const Settings: React.FC = () => {
   }
 
   const updateLogoIcon = (s: LogoAnyStyle) => { setPendingLogoIcon(s); setDirty(true); setSaved(false) }
-  const updatePngLogo = (opt: PngLogoOption | null) => { setPendingPngLogo(opt); setDirty(true); setSaved(false) }
   const updateBg = (cfg: BgConfig) => {
     if (bgEditMode === 'dark') setPendingBgDark(cfg)
     else setPendingBgLight(cfg)
@@ -1059,7 +921,6 @@ const Settings: React.FC = () => {
       setSettings(data)
       // 시각 설정 일괄 적용 (localStorage + DOM)
       setLogoIconStyle(pendingLogoIcon)
-      setPngLogoOption(pendingPngLogo)
       saveBgConfig(pendingBgLight, 'light')
       saveBgConfig(pendingBgDark, 'dark')
       const isDark = document.documentElement.classList.contains('dark')
@@ -1587,16 +1448,10 @@ const Settings: React.FC = () => {
       <Card collapsible id="settings-logo-icon" icon={<Shapes size={16} />} title="로고 아이콘">
         <LogoIconPicker
           svgValue={pendingLogoIcon}
-          pngValue={pendingPngLogo}
           onSvg={updateLogoIcon}
-          onPng={updatePngLogo}
         />
       </Card>
 
-      {/* 파비콘 */}
-      <Card collapsible id="settings-favicon" icon={<Shapes size={16} />} title="파비콘 (탭 아이콘)" defaultOpen={false}>
-        <FaviconPicker />
-      </Card>
 
       <div className="flex items-center gap-3 pb-8">
         <button

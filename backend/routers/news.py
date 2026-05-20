@@ -69,22 +69,19 @@ async def refresh_news(current_user: CurrentUser) -> dict:
 
 @router.get("/queue/status")
 async def get_news_queue_status(current_user: CurrentUser) -> dict:
+    import asyncio as _asyncio
     from services.ollama_service import get_queue_status
     qs = get_queue_status()
     async with AsyncSessionLocal() as session:
-        pending_cnt = await session.scalar(
-            select(func.count(News.id)).where(News.status == "pending")
-        ) or 0
-        summarizing_cnt = await session.scalar(
-            select(func.count(News.id)).where(News.status == "summarizing")
-        ) or 0
-        done_cnt = await session.scalar(
-            select(func.count(News.id)).where(News.status == "done")
-        ) or 0
+        pending_cnt, summarizing_cnt, done_cnt = await _asyncio.gather(
+            session.scalar(select(func.count(News.id)).where(News.status == "pending")),
+            session.scalar(select(func.count(News.id)).where(News.status == "summarizing")),
+            session.scalar(select(func.count(News.id)).where(News.status == "done")),
+        )
     return {
         "queue_size": qs["queue_size"],
         "worker_running": qs["worker_running"],
-        "pending": pending_cnt,
-        "summarizing": summarizing_cnt,
-        "done": done_cnt,
+        "pending": pending_cnt or 0,
+        "summarizing": summarizing_cnt or 0,
+        "done": done_cnt or 0,
     }
