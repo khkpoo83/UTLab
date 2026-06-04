@@ -146,11 +146,6 @@ body {
   background-color: rgb(var(--c-accent-rgb) / 0.12);
 }
 
-/* 버튼/행 active 피드백 */
-.interactive {
-  @apply transition-all duration-100 active:scale-95;
-}
-
 /* Skeleton */
 .skeleton {
   @apply animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded;
@@ -495,7 +490,6 @@ body {
 /* ── 카드 시스템 ─────────────────────────────────────────
    .card       : 섹션 레벨 외부 카드 (흰 배경 + 그림자)
    .card-inner : 카드 내부 서브 카드 (연한 배경)
-   .card-hover : 클릭 가능한 외부 카드
    ────────────────────────────────────────────────────── */
 .card {
   @apply rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm;
@@ -504,16 +498,6 @@ body {
 .card-inner {
   @apply rounded-lg;
   background-color: var(--c-surface-subtle);
-}
-.card-hover {
-  @apply card transition-colors cursor-pointer;
-}
-.card-hover:hover {
-  @apply border-zinc-300 dark:border-zinc-600;
-  background-color: rgb(var(--c-accent-rgb) / 0.04);
-}
-.dark .card-hover:hover {
-  background-color: rgb(var(--c-accent-rgb) / 0.08);
 }
 
 /* ── 나이 슬라이더 (.age-slider) ────────────────────────── */
@@ -574,22 +558,11 @@ body {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes fade-in-fast {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
 @keyframes accordion-down {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.animate-fade-in       { animation: fade-in 0.22s ease both; }
-.animate-fade-in-fast  { animation: fade-in-fast 0.15s ease both; }
-.animate-slide-in-left { animation: slide-in-left 0.2s ease both; }
 .animate-accordion     { animation: accordion-down 0.18s ease both; }
 
 @keyframes cal-enter-up {
@@ -616,18 +589,6 @@ body {
 /* 메인 콘텐츠 진입 애니메이션 */
 main > div > * {
   animation: fade-in 0.2s ease both;
-}
-
-/* 카드 호버 리프트 */
-.card-hover {
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
-}
-.card-hover:hover {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  transform: translateY(-1px);
-}
-.dark .card-hover:hover {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.28);
 }
 
 /* 버튼 프레스 피드백 */
@@ -686,14 +647,6 @@ body {
 /* none 프리셋에서도 rounded-full은 유지 */
 .rounded-full { border-radius: 9999px !important; }
 
-/* ── 콘텐츠 영역 글래스 효과 (현재 미사용 — fixed strip으로 대체됨) ─────── */
-.content-glass {
-  background: rgba(255, 255, 255, 0.30);
-}
-.dark .content-glass {
-  background: rgba(9, 9, 14, 0.32);
-}
-
 /* ── card-surface 안 input/textarea/select: 가시성 보장 ── */
 .card-surface input,
 .card-surface textarea,
@@ -745,13 +698,6 @@ body {
   background-color: var(--c-surface);
   border-color: rgb(42 41 37 / max(var(--card-opacity), 0.3)); /* #2A2925 renewal */
 }
-.card-header-surface {
-  background-color: rgb(255 255 255 / var(--card-opacity)) !important;
-}
-.dark .card-header-surface {
-  background-color: rgb(19 19 18 / var(--card-opacity)) !important;
-}
-
 /* ── 패널(모달·슬라이드) 투명도 시스템 ── 카드보다 +0.05 더 불투명 ── */
 :root {
   --panel-opacity: min(calc(var(--card-opacity) + 0.05), 1);
@@ -783,11 +729,6 @@ body {
 .dark .panel-inner-surface {
   background-color: rgb(29 28 26 / var(--card-opacity));
   border-color: rgb(42 41 37 / max(var(--card-opacity), 0.3));
-}
-
-/* ── 슬라이드 드로어 너비 전환 ── */
-.drawer-width-transition {
-  transition: max-width 0.3s ease-in-out;
 }
 
 /* ── 공간 네비게이션 Breathing Indicator 애니메이션 ── */
