@@ -26,7 +26,7 @@ export default function Modal({ onClose, children, maxWidth = 'max-w-md', bottom
         className={`
           w-full ${maxWidth} mx-0 sm:mx-4
           panel-surface border
-          ${bottomSheet ? 'rounded-t-2xl sm:rounded-2xl' : 'rounded-2xl'}
+          ${bottomSheet ? 'rounded-t-xl sm:rounded-xl' : 'rounded-xl'}
           shadow-2xl overflow-hidden
           max-h-[90vh] overflow-y-auto
           ${className}

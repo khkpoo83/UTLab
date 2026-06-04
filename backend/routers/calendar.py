@@ -34,6 +34,9 @@ from services.calendar_service import (
     create_event,
     update_event,
     delete_event,
+    get_event_recurrence,
+    update_event_scoped,
+    delete_event_scoped,
 )
 from services.sse_broker import broker as sse_broker
 
@@ -285,6 +288,25 @@ async def manual_sync(current_user: CurrentUser, db: DB) -> dict:
     return {"synced": count, "message": f"{count}개 이벤트 동기화 완료"}
 
 
+@router.post("/sync/incremental")
+async def manual_incremental_sync(
+    current_user: CurrentUser,
+    db: DB,
+    calendar_id: Optional[str] = Query(None, description="특정 캘린더만 증분 동기화 (없으면 전체)"),
+) -> dict:
+    """증분 동기화 — 편집 직후 변경분만 빠르게 반영 (full_sync 대비 훨씬 빠름)"""
+    try:
+        if calendar_id:
+            changed = await incremental_sync(current_user.id, db, calendar_id)
+        else:
+            changed = await incremental_sync_all(current_user.id, db)
+    except ValueError as e:
+        if "NEED_RECONNECT" in str(e):
+            raise HTTPException(403, "Google 토큰이 만료되었습니다. Google Calendar를 다시 연결해주세요.")
+        raise HTTPException(400, str(e))
+    return {"changed": changed}
+
+
 @router.post("/watch/register")
 async def register_watch(current_user: CurrentUser, db: DB) -> dict:
     """Push Notification 채널 수동 등록/갱신"""
@@ -362,6 +384,7 @@ class CalendarEventResponse(BaseModel):
     html_link: Optional[str] = None
     color_id: Optional[str] = None
     recurrence: Optional[list] = None
+    recurring_event_id: Optional[str] = None   # 인스턴스가 가리키는 마스터 ID (반복 일정 판별용)
 
 
 def _event_to_response(ev: CalendarEvent) -> CalendarEventResponse:
@@ -371,7 +394,14 @@ def _event_to_response(ev: CalendarEvent) -> CalendarEventResponse:
             recurrence = json.loads(ev.recurrence)
         except Exception:
             pass
+    recurring_event_id = None
+    if ev.raw_json:
+        try:
+            recurring_event_id = json.loads(ev.raw_json).get("recurringEventId")
+        except Exception:
+            pass
     return CalendarEventResponse(
+        recurring_event_id=recurring_event_id,
         id=ev.id,
         google_event_id=ev.google_event_id,
         calendar_id=ev.calendar_id,
@@ -445,6 +475,7 @@ class EventCreateRequest(BaseModel):
     calendar_id: Optional[str] = None      # 대상 캘린더 ID (없으면 primary)
     reminders: Optional[list[int]] = None  # 팝업 알림 분 목록 (예: [10, 30])
     status: Optional[str] = None           # confirmed | tentative
+    recurrence: Optional[list[str]] = None # RRULE 목록 (예: ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE"])
 
 
 class EventUpdateRequest(BaseModel):
@@ -457,6 +488,7 @@ class EventUpdateRequest(BaseModel):
     color_id: Optional[str] = None
     reminders: Optional[list[int]] = None
     status: Optional[str] = None
+    recurrence: Optional[list[str]] = None
 
 
 def _build_google_event(req: EventCreateRequest) -> dict:
@@ -490,6 +522,8 @@ def _build_google_event(req: EventCreateRequest) -> dict:
             "useDefault": False,
             "overrides": [{"method": "popup", "minutes": m} for m in req.reminders],
         }
+    if req.recurrence:
+        body["recurrence"] = req.recurrence
     return body
 
 
@@ -520,8 +554,9 @@ async def update_calendar_event(
     req: EventUpdateRequest,
     current_user: CurrentUser,
     db: DB,
+    scope: Optional[str] = Query(None, description="반복 일정 범위: this | following | all"),
 ) -> dict:
-    """Google Calendar 이벤트 수정"""
+    """Google Calendar 이벤트 수정 (scope 지정 시 반복 일정 범위 처리)"""
     from datetime import datetime as _dt, timedelta as _td
     body: dict = {}
     if req.summary is not None:
@@ -539,6 +574,8 @@ async def update_calendar_event(
             "useDefault": False,
             "overrides": [{"method": "popup", "minutes": m} for m in req.reminders],
         }
+    if req.recurrence is not None:
+        body["recurrence"] = req.recurrence
     if req.start is not None:
         if req.all_day:
             start_date = req.start[:10]
@@ -554,7 +591,10 @@ async def update_calendar_event(
     elif req.end is not None and not req.all_day:
         body["end"] = {"dateTime": req.end, "timeZone": "Asia/Seoul"}
     try:
-        result = await update_event(current_user.id, db, google_event_id, body)
+        if scope in ("this", "following", "all", "redefine"):
+            result = await update_event_scoped(current_user.id, db, google_event_id, body, scope)
+        else:
+            result = await update_event(current_user.id, db, google_event_id, body)
         return {"google_event_id": result.get("id"), "updated": True}
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -563,15 +603,36 @@ async def update_calendar_event(
         raise HTTPException(500, "이벤트 수정에 실패했습니다.")
 
 
+@router.get("/events/{google_event_id}/recurrence", response_model=dict)
+async def get_calendar_event_recurrence(
+    google_event_id: str,
+    current_user: CurrentUser,
+    db: DB,
+) -> dict:
+    """반복 일정의 RRULE 규칙 조회 (인스턴스면 마스터에서 가져옴)"""
+    try:
+        recurrence = await get_event_recurrence(current_user.id, db, google_event_id)
+        return {"recurrence": recurrence}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        logger.error(f"get_calendar_event_recurrence error: {e}")
+        raise HTTPException(500, "반복 규칙 조회에 실패했습니다.")
+
+
 @router.delete("/events/{google_event_id}", response_model=dict)
 async def delete_calendar_event(
     google_event_id: str,
     current_user: CurrentUser,
     db: DB,
+    scope: Optional[str] = Query(None, description="반복 일정 범위: this | following | all"),
 ) -> dict:
-    """Google Calendar 이벤트 삭제"""
+    """Google Calendar 이벤트 삭제 (scope 지정 시 반복 일정 범위 처리)"""
     try:
-        await delete_event(current_user.id, db, google_event_id)
+        if scope in ("this", "following", "all"):
+            await delete_event_scoped(current_user.id, db, google_event_id, scope)
+        else:
+            await delete_event(current_user.id, db, google_event_id)
         return {"deleted": True}
     except ValueError as e:
         raise HTTPException(400, str(e))

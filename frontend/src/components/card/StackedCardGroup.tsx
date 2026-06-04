@@ -24,18 +24,22 @@ export function StackedCardGroup({
 
   return (
     <div style={{
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       overflow: 'hidden',
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
     }}>
       {/* Header — tone=ink → inverted */}
       <div style={{
         padding: density === 'compact' ? '12px 18px' : '16px 22px',
         borderBottom: '1px solid var(--line)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        background: isInk ? 'var(--ink-0)' : 'var(--paper)',
+        background: isInk ? 'var(--ink-0)' : 'var(--c-surface)',
         color: isInk ? 'var(--paper)' : 'var(--ink-0)',
+        flexShrink: 0,
       }}>
         <div>
           <div style={{
@@ -61,7 +65,7 @@ export function StackedCardGroup({
         )}
       </div>
 
-      {/* Rows */}
+      {/* Rows — 높이 티어로 개수를 맞추므로 스크롤 없이 클립 */}
       {rows.map((r, i) => (
         <div key={r.label} style={{
           padding: rPad,

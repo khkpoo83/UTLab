@@ -5,6 +5,8 @@ import apiClient, { settingsApi } from '../api/client'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
+type PhotoSource = 'unsplash' | 'openverse' | 'wikimedia' | 'aic'
+
 interface ArtWork {
   id: string
   title: string
@@ -12,6 +14,7 @@ interface ArtWork {
   artistUrl?: string
   imageUrl: string
   downloadLocation?: string
+  source?: PhotoSource
 }
 
 interface WikiPage {
@@ -31,6 +34,13 @@ interface WikiPage {
 
 const DEFAULT_KEYWORD = 'nature landscape'
 
+const SRC_LABEL: Record<PhotoSource, string> = {
+  unsplash:  'Unsplash',
+  openverse: 'Openverse',
+  wikimedia: 'Wikimedia',
+  aic:       'Art Institute',
+}
+
 function stripHtml(s: string) {
   return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim()
 }
@@ -44,18 +54,20 @@ function widgetOrientation(w: number, h: number): 'portrait' | 'squarish' | 'lan
   return 'squarish'
 }
 
-// ── Unsplash (백엔드 프록시) ──────────────────────────────────────────────────
+// ── 백엔드 통합 검색 (Unsplash + Openverse, 한글→영어 번역 포함) ──────────────
 
-async function fetchFromUnsplash(
+async function fetchFromBackend(
   keyword: string,
   orientation: 'portrait' | 'squarish' | 'landscape',
   page = 1,
-): Promise<{ items: ArtWork[]; configured: boolean }> {
+): Promise<{ items: ArtWork[]; query: string }> {
   const { data: json } = await apiClient.get('/api/photos/search', {
     params: { q: keyword, per_page: 30, page, orientation },
   })
-  if (json.source === 'none') return { items: [], configured: false }
-  return { items: json.items as ArtWork[], configured: true }
+  return {
+    items: (json.items ?? []) as ArtWork[],
+    query: json.query || keyword,   // 번역된 영어 키워드 (폴백 소스에 재사용)
+  }
 }
 
 async function triggerUnsplashDownload(downloadLocation: string) {
@@ -106,7 +118,7 @@ async function fetchFromWikimedia(
           .replace(/_/g, ' ')
         const title  = meta.ObjectName?.value ? stripHtml(meta.ObjectName.value) : rawTitle
         const artist = meta.Artist?.value    ? stripHtml(meta.Artist.value)      : ''
-        return { id: String(p.pageid), title, artist, imageUrl: info.thumburl ?? info.url }
+        return { id: String(p.pageid), title, artist, imageUrl: info.thumburl ?? info.url, source: 'wikimedia' as const }
       })
   } finally {
     clearTimeout(tid)
@@ -133,13 +145,14 @@ async function fetchFromAIC(keyword: string): Promise<ArtWork[]> {
         title: a.title,
         artist: a.artist_display.split('\n')[0],
         imageUrl: `https://www.artic.edu/iiif/2/${a.image_id}/full/843,/0/default.jpg`,
+        source: 'aic' as const,
       }))
   } finally {
     clearTimeout(tid)
   }
 }
 
-// ── 통합 검색: Unsplash 우선 → Wikimedia → AIC ───────────────────────────────
+// ── 통합 검색: 백엔드(Unsplash+Openverse) → Wikimedia → AIC ───────────────────
 
 async function fetchArtworks(
   keyword: string,
@@ -147,31 +160,26 @@ async function fetchArtworks(
   widgetW: number,
   widgetH: number,
   page = 1,
-): Promise<{ items: ArtWork[]; source: 'unsplash' | 'wikimedia' | 'aic' }> {
+): Promise<{ items: ArtWork[]; fromBackend: boolean }> {
   const orientation = widgetOrientation(widgetW, widgetH)
+  let enKw = keyword
 
   try {
-    const { items, configured } = await fetchFromUnsplash(keyword, orientation, page)
-    if (configured && items.length > 0) return { items, source: 'unsplash' }
-    if (!configured) {
-      // API 키 미설정 → 기존 소스로
-    }
+    const { items, query } = await fetchFromBackend(keyword, orientation, page)
+    if (query) enKw = query   // 번역된 영어 키워드 → 폴백 소스에도 사용
+    if (items.length > 0) return { items, fromBackend: true }
   } catch (e) {
-    console.warn('[PhotoWidget] Unsplash 실패:', e)
+    console.warn('[PhotoWidget] 백엔드 검색 실패:', e)
   }
 
   try {
-    const data = await fetchFromWikimedia(keyword, thumbW, orientation)
-    if (data.length >= 3) return { items: data, source: 'wikimedia' }
+    const data = await fetchFromWikimedia(enKw, thumbW, orientation)
+    if (data.length >= 3) return { items: data, fromBackend: false }
   } catch (e) {
     console.warn('[PhotoWidget] Wikimedia 실패, AIC로 전환:', e)
   }
 
-  return { items: await fetchFromAIC(keyword), source: 'aic' }
-}
-
-function containsKorean(str: string) {
-  return /[ㄱ-ㅣ가-힣]/.test(str)
+  return { items: await fetchFromAIC(enKw), fromBackend: false }
 }
 
 // ── KeywordOverlay ────────────────────────────────────────────────────────────
@@ -195,8 +203,12 @@ function KeywordOverlay({
           ref={ref}
           value={draft}
           onChange={e => onChange(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') onApply(); if (e.key === 'Escape') onCancel() }}
-          placeholder="예: Alphonse Mucha, Van Gogh…"
+          // 한글 IME 조합 중 Enter(조합 확정)는 제출하지 않음
+          onKeyDown={e => {
+            if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) onApply()
+            else if (e.key === 'Escape') onCancel()
+          }}
+          placeholder="예: 꽃, 바다, Van Gogh…"
           className="flex-1 px-3 py-2 text-sm bg-white/20 border border-white/30 rounded-lg text-white placeholder-white/40 outline-none focus:border-white/60 transition-colors min-w-0"
         />
         <button onClick={onApply}
@@ -209,14 +221,9 @@ function KeywordOverlay({
         </button>
       </div>
       <p className="text-white/45 text-[11px] mt-2.5 text-center leading-relaxed">
-        Unsplash · Wikimedia · Art Institute of Chicago<br />
-        <span className="text-white/30">nature · city · abstract · portrait · architecture</span>
+        Unsplash · Openverse · Wikimedia · Art Institute<br />
+        <span className="text-white/30">한글 입력 OK (자동 번역) · 꽃 · 바다 · 추상 · 건축</span>
       </p>
-      {containsKorean(draft) && (
-        <p className="text-yellow-400/90 text-[11px] mt-2 text-center font-medium">
-          ⚠ Unsplash는 영어 키워드만 지원합니다
-        </p>
-      )}
     </div>
   )
 }
@@ -238,8 +245,8 @@ export default function PhotoWidget({
 
   const [keyword,      setKeyword]      = useState(DEFAULT_KEYWORD)
   const [artworks,     setArtworks]     = useState<ArtWork[]>([])
-  const [source,       setSource]       = useState<'unsplash' | 'wikimedia' | 'aic' | null>(null)
-  const [unsplashPage, setUnsplashPage] = useState(1)
+  const [fromBackend,  setFromBackend]  = useState(false)
+  const [page,         setPage]         = useState(1)
   const [idx,          setIdx]          = useState(0)
   const [loading,      setLoading]      = useState(true)
   const [fetchError,   setFetchError]   = useState(false)
@@ -261,19 +268,20 @@ export default function PhotoWidget({
 
   const thumbW = Math.min(1200, Math.max(400, widgetW * 300))
 
-  const loadArtworks = useCallback(async (kw: string, tw: number, page = 1) => {
+  const loadArtworks = useCallback(async (kw: string, tw: number, pg = 1) => {
     setLoading(true)
     setFetchError(false)
     setImgError(false)
     try {
-      const { items, source: src } = await fetchArtworks(kw, tw, widgetW, widgetH, page)
+      const { items, fromBackend: fb } = await fetchArtworks(kw, tw, widgetW, widgetH, pg)
       if (items.length === 0) {
         setFetchError(true)
         setArtworks([])
       } else {
-        setArtworks(src === 'unsplash' ? items : [...items].sort(() => Math.random() - 0.5))
-        setSource(src)
-        setUnsplashPage(page)
+        // 백엔드 결과는 Unsplash 우선 순서 유지, 폴백(미술관)은 섞어서 다양화
+        setArtworks(fb ? items : [...items].sort(() => Math.random() - 0.5))
+        setFromBackend(fb)
+        setPage(pg)
         setIdx(0)
       }
     } catch {
@@ -281,7 +289,7 @@ export default function PhotoWidget({
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [widgetW, widgetH])
 
   // 키워드 또는 설정 로드 완료 시 작품 목록 갱신
   const kwRef      = useRef(keyword)
@@ -316,9 +324,9 @@ export default function PhotoWidget({
   function refresh() {
     if (artworks.length === 0) { loadArtworks(keyword, thumbW, 1); return }
     setImgError(false)
-    // Unsplash: 마지막 이미지면 다음 페이지 로드, 아니면 다음으로 이동
-    if (source === 'unsplash' && idx >= artworks.length - 1) {
-      loadArtworks(keyword, thumbW, unsplashPage + 1)
+    // 백엔드 소스: 마지막 이미지면 다음 페이지 로드, 아니면 다음으로 이동
+    if (fromBackend && idx >= artworks.length - 1) {
+      loadArtworks(keyword, thumbW, page + 1)
     } else {
       setIdx(i => (i + 1) % artworks.length)
     }
@@ -328,7 +336,7 @@ export default function PhotoWidget({
     const kw = kwDraft.trim() || DEFAULT_KEYWORD
     setEditingKw(false)
     if (kw === keyword) { loadArtworks(kw, thumbW, 1); return }
-    setUnsplashPage(1)
+    setPage(1)
     setKeyword(kw)
     settingsApi.update({ ui_photo_keyword: kw }).catch(console.error)
   }
@@ -337,13 +345,15 @@ export default function PhotoWidget({
     <div className="flex items-center gap-0.5">
       <button
         onClick={() => { setEditingKw(true); setKwDraft(keyword) }}
-        className="p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+        className="p-1 rounded transition-colors"
+        style={{ color: 'var(--ink-4)' }}
         title="키워드 변경"
       ><Pencil size={12} /></button>
       <button
         onClick={refresh}
         disabled={loading}
-        className="p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors disabled:opacity-40"
+        className="p-1 rounded transition-colors disabled:opacity-40"
+        style={{ color: 'var(--ink-4)' }}
         title="다음 이미지"
       ><RefreshCw size={12} className={loading ? 'animate-spin' : ''} /></button>
     </div>
@@ -362,15 +372,15 @@ export default function PhotoWidget({
       <div className="relative overflow-hidden rounded-b-xl" style={{ height: `${(minH ?? 100) - 44}px` }}>
 
         {loading && (
-          <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-            <RefreshCw size={22} className="text-zinc-400 animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'var(--mist)' }}>
+            <RefreshCw size={22} className="animate-spin" style={{ color: 'var(--ink-4)' }} />
           </div>
         )}
 
         {!loading && (fetchError || !current) && (
-          <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800 flex flex-col items-center justify-center gap-2 p-4">
-            <ImageOff size={24} className="text-zinc-300 dark:text-zinc-600" />
-            <p className="text-xs text-zinc-400 text-center">"{keyword}" 검색 결과 없음</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4" style={{ background: 'var(--mist)' }}>
+            <ImageOff size={24} style={{ color: 'var(--ink-5)' }} />
+            <p className="text-xs text-center" style={{ color: 'var(--ink-4)' }}>"{keyword}" 검색 결과 없음</p>
             <button onClick={() => loadArtworks(keyword, thumbW)}
               className="text-xs text-accent hover:underline">다시 시도</button>
           </div>
@@ -379,9 +389,9 @@ export default function PhotoWidget({
         {!loading && current && !fetchError && (
           <>
             {imgError ? (
-              <div className="absolute inset-0 bg-zinc-100 dark:bg-zinc-800 flex flex-col items-center justify-center gap-2">
-                <RefreshCw size={18} className="text-zinc-400 animate-spin" />
-                <p className="text-xs text-zinc-400">다음 이미지로 이동 중...</p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ background: 'var(--mist)' }}>
+                <RefreshCw size={18} className="animate-spin" style={{ color: 'var(--ink-4)' }} />
+                <p className="text-xs" style={{ color: 'var(--ink-4)' }}>다음 이미지로 이동 중...</p>
               </div>
             ) : (
               <div className="relative w-full h-full bg-black">
@@ -405,26 +415,17 @@ export default function PhotoWidget({
             {!imgError && (
               <>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent pointer-events-none" />
-                {/* 소스 표시 배지 */}
-                {source && (
+                {/* 소스 표시 배지 (이미지별) */}
+                {current.source && (
                   <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                     <span className="bg-black/30 text-white/60 text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm pointer-events-none">
-                      {source === 'unsplash' ? 'Unsplash' : source === 'wikimedia' ? 'Wikimedia' : 'Art Institute'}
+                      {SRC_LABEL[current.source]}
                     </span>
-                    {source !== 'unsplash' && containsKorean(keyword) && (
-                      <button
-                        onClick={() => { setEditingKw(true); setKwDraft(keyword) }}
-                        className="bg-yellow-500/75 hover:bg-yellow-500/95 text-white text-[9px] px-1.5 py-0.5 rounded-full backdrop-blur-sm transition-colors"
-                        title="Unsplash는 영어 키워드만 지원합니다"
-                      >
-                        영어 키워드 → Unsplash
-                      </button>
-                    )}
                   </div>
                 )}
                 <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between gap-2">
                   <div className="min-w-0">
-                    {source === 'unsplash' && current.artist ? (
+                    {current.source === 'unsplash' && current.artist ? (
                       <p className="text-white/55 text-[10px] drop-shadow truncate leading-snug">
                         Photo by{' '}
                         <a

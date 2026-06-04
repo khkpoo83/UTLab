@@ -880,6 +880,9 @@ body {
   --line:   rgba(0,0,0,0.05);
   --line-2: rgba(0,0,0,0.03);
 
+  /* 공개 페이지 (로그인 전) */
+  --pub-header-bg: rgba(250,250,247,0.88);
+
   /* 브랜드 — amber dot 시그니처 */
   --dot: #F59E0B;
 
@@ -919,6 +922,7 @@ html.dark {
   --mist:   #27272A;
   --line:   rgba(255,255,255,0.05);
   --line-2: rgba(255,255,255,0.03);
+  --pub-header-bg: rgba(9,9,11,0.88);
   --up:     #FF7A97;
   --down:   #4DBFFF;
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.18);
@@ -1026,5 +1030,36 @@ html.dark {
 }
 .pub-slide-from-left {
   animation: pub-slide-from-left 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 메모 — 미리보기 마크다운 렌더링 */
+.memo-md-preview { color: var(--ink-0, inherit); line-height: 1.7; font-size: 14px; }
+.memo-md-preview h1 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; letter-spacing: -.02em; }
+.memo-md-preview h2 { font-size: 1.25em; font-weight: 700; margin: .9em 0 .35em; border-bottom: 1px solid rgba(128,128,128,.2); padding-bottom: .2em; }
+.memo-md-preview h3 { font-size: 1.05em; font-weight: 600; margin: .8em 0 .3em; }
+.memo-md-preview h4, .memo-md-preview h5, .memo-md-preview h6 { font-size: .95em; font-weight: 600; margin: .6em 0 .25em; }
+.memo-md-preview p  { margin: .5em 0; }
+.memo-md-preview ul { list-style: disc; padding-left: 1.4em; margin: .4em 0; }
+.memo-md-preview ol { list-style: decimal; padding-left: 1.4em; margin: .4em 0; }
+.memo-md-preview li { margin: .15em 0; }
+.memo-md-preview blockquote { border-left: 3px solid rgba(128,128,128,.4); padding-left: .8em; margin: .5em 0; opacity: .8; font-style: italic; }
+.memo-md-preview code { font-family: ui-monospace, monospace; font-size: .88em; background: rgba(128,128,128,.1); padding: .1em .35em; border-radius: 4px; }
+.memo-md-preview pre { background: rgba(128,128,128,.08); border-radius: 8px; padding: .8em 1em; overflow-x: auto; margin: .6em 0; }
+.memo-md-preview pre code { background: none; padding: 0; }
+.memo-md-preview a { color: rgb(var(--c-accent-rgb)); text-decoration: underline; }
+.memo-md-preview strong { font-weight: 700; }
+.memo-md-preview em { font-style: italic; }
+.memo-md-preview hr { border: none; border-top: 1px solid rgba(128,128,128,.25); margin: .8em 0; }
+
+/* 메모 — 제목 필수 유효성 흔들림 */
+@keyframes memo-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.memo-shake {
+  animation: memo-shake 320ms ease;
 }
 

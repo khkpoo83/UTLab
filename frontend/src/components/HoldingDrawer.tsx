@@ -2,15 +2,17 @@ import React, { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   portfolioApi,
+  kisApi,
   Account,
   PortfolioItem,
   ChartPoint,
   NewsItem,
+  StockFundamentals,
+  StockTransaction,
 } from '../api/client'
-import { formatPrice, formatPct } from '../utils/format'
+import { formatPrice } from '../utils/format'
 import StockChart from './StockChart'
 import Skeleton from './Skeleton'
-import PnlText from './PnlText'
 
 interface HoldingDrawerProps {
   holding: PortfolioItem
@@ -18,9 +20,21 @@ interface HoldingDrawerProps {
   accounts: Account[]
 }
 
-function PnlCell({ value, pct }: { value: number | null; pct: number | null }) {
-  return <PnlText value={value} pct={pct} />
+// ── 포맷 헬퍼 ───────────────────────────────────────────────────────────────
+function fmtMarketCap(n: number | null, currency: string | null): string {
+  if (n == null) return '-'
+  if (currency && currency !== 'KRW') {
+    return `${(n / 1e9).toFixed(2)}B ${currency}`
+  }
+  const eok = n / 1e8
+  if (eok >= 10000) return `${(eok / 10000).toFixed(2)}조`
+  if (eok >= 1) return `${Math.round(eok).toLocaleString()}억`
+  return n.toLocaleString()
 }
+const fmtNum = (n: number | null, digits = 2): string =>
+  n == null ? '-' : n.toFixed(digits)
+const fmtPctV = (n: number | null): string =>
+  n == null ? '-' : `${n.toFixed(2)}%`
 
 const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, accounts }) => {
   const [period, setPeriod] = useState('3m')
@@ -28,10 +42,20 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
   const [chartLoading, setChartLoading] = useState(true)
   const [news, setNews] = useState<NewsItem[]>([])
   const [newsLoading, setNewsLoading] = useState(true)
-  const [drawerTab, setDrawerTab] = useState<'chart' | 'calc'>('chart')
-  const [calcQty, setCalcQty] = useState('')
-  const [calcPrice, setCalcPrice] = useState('')
   const [isWide, setIsWide] = useState(false)
+
+  const [topTab, setTopTab] = useState<'summary' | 'info'>('summary')
+  const [bottomTab, setBottomTab] = useState<'news' | 'tx'>('news')
+
+  const [fundamentals, setFundamentals] = useState<StockFundamentals | null>(null)
+  const [fundLoading, setFundLoading] = useState(false)
+  const [fundLoaded, setFundLoaded] = useState(false)
+
+  const [transactions, setTransactions] = useState<StockTransaction[]>([])
+  const [txLoading, setTxLoading] = useState(false)
+  const [txLoaded, setTxLoaded] = useState(false)
+
+  const acct = accounts.find(a => a.name === holding.account_name)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -60,6 +84,74 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
     }).catch(() => setNewsLoading(false))
   }, [holding.ticker, holding.name])
 
+  // 기업정보 탭 최초 진입 시 로드
+  useEffect(() => {
+    if (topTab !== 'info' || fundLoaded) return
+    setFundLoading(true)
+    portfolioApi.infoByTicker(holding.ticker)
+      .then(({ data }) => setFundamentals(data))
+      .catch(() => setFundamentals(null))
+      .finally(() => { setFundLoading(false); setFundLoaded(true) })
+  }, [topTab, fundLoaded, holding.ticker])
+
+  // 거래내역 탭 최초 진입 시 로드
+  useEffect(() => {
+    if (bottomTab !== 'tx' || txLoaded) return
+    setTxLoading(true)
+    kisApi.getTransactions(holding.ticker, acct?.account_no)
+      .then(data => setTransactions(data))
+      .catch(() => setTransactions([]))
+      .finally(() => { setTxLoading(false); setTxLoaded(true) })
+  }, [bottomTab, txLoaded, holding.ticker, acct?.account_no])
+
+  const code = holding.ticker.replace(/\.[A-Z]+$/, '')
+
+  // ── 요약 지표 셀 ──
+  const summaryCells: { label: string; value: React.ReactNode; tone?: 'up' | 'down' }[] = [
+    { label: '현재가', value: holding.current_price != null ? formatPrice(holding.current_price) : '-' },
+    {
+      label: '당일등락',
+      value: holding.day_change_pct != null
+        ? `${holding.day_change_pct >= 0 ? '+' : ''}${holding.day_change_pct.toFixed(2)}%`
+        : '-',
+      tone: (holding.day_change_pct ?? 0) >= 0 ? 'up' : 'down',
+    },
+    { label: '평균단가', value: formatPrice(holding.avg_price) },
+    {
+      label: '수익률',
+      value: holding.pnl_pct != null ? `${holding.pnl_pct >= 0 ? '+' : ''}${holding.pnl_pct.toFixed(2)}%` : '-',
+      tone: (holding.pnl_pct ?? 0) >= 0 ? 'up' : 'down',
+    },
+    {
+      label: '평가손익',
+      value: holding.pnl != null ? `${holding.pnl >= 0 ? '+' : ''}${Math.round(holding.pnl).toLocaleString('ko-KR')}` : '-',
+      tone: (holding.pnl ?? 0) >= 0 ? 'up' : 'down',
+    },
+    { label: '평가금액', value: holding.current_value != null ? formatPrice(holding.current_value) : '-' },
+    { label: '보유수량', value: `${holding.quantity.toLocaleString()}주` },
+    { label: '비중', value: holding.weight != null ? `${holding.weight.toFixed(1)}%` : '-' },
+  ]
+
+  // ── 기업정보 지표 셀 ──
+  const f = fundamentals
+  const infoCells: { label: string; value: string }[] = f ? [
+    { label: '시가총액', value: f.market_cap_display || fmtMarketCap(f.market_cap, f.currency) },
+    { label: 'PER', value: fmtNum(f.per) },
+    { label: 'PER(선행)', value: fmtNum(f.forward_per) },
+    { label: 'PBR', value: fmtNum(f.pbr) },
+    { label: 'EPS', value: f.eps != null ? formatPrice(Math.round(f.eps)) : '-' },
+    { label: 'BPS', value: f.bps != null ? formatPrice(Math.round(f.bps)) : '-' },
+    { label: '배당수익률', value: fmtPctV(f.dividend_yield) },
+    { label: 'ROE', value: fmtPctV(f.roe) },
+    { label: '52주 최고', value: f.week52_high != null ? formatPrice(f.week52_high) : '-' },
+    { label: '52주 최저', value: f.week52_low != null ? formatPrice(f.week52_low) : '-' },
+  ] : []
+
+  const tabBtn = (active: boolean) =>
+    `px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+      active ? 'border-accent text-accent' : 'border-transparent text-zinc-400 hover:text-zinc-600'
+    }`
+
   return createPortal(
     <div className="fixed inset-0 z-[200] flex"
       style={{ backdropFilter: 'var(--overlay-filter)', WebkitBackdropFilter: 'var(--overlay-filter)' }}>
@@ -78,22 +170,22 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 panel-header-surface z-10">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{holding.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-xs text-zinc-400">{holding.ticker} · {holding.exchange ?? ''}</p>
-              {holding.account_name && (() => {
-                const acct = accounts.find(a => a.name === holding.account_name)
-                return acct ? (
-                  <span className="flex items-center gap-1 text-2xs px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: acct.color }} />
-                    {acct.name}
-                  </span>
-                ) : null
-              })()}
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 truncate">{holding.name}</h2>
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <p className="text-xs text-zinc-400">{code} · {holding.exchange ?? ''}</p>
+              {holding.kis_market === 'NXT' && (
+                <span className="text-2xs px-1.5 py-0.5 rounded tag tag-tonal">NXT</span>
+              )}
+              {acct && (
+                <span className="flex items-center gap-1 text-2xs px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: acct.color }} />
+                  {acct.name}
+                </span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-1 ml-1 flex-shrink-0">
             <button
               onClick={() => setIsWide(w => !w)}
               title={isWide ? '기본 너비로' : '더 넓게 보기'}
@@ -118,184 +210,127 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
         </div>
 
         <div className="px-5 py-4 space-y-5">
-          {/* Summary */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">현재가</p>
-              <p className="text-sm font-semibold tabular-nums">
-                {holding.current_price != null ? formatPrice(holding.current_price) : '-'}
-              </p>
-            </div>
-            <div>
-              <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">평균단가</p>
-              <p className="text-sm tabular-nums">{formatPrice(holding.avg_price)}</p>
-            </div>
-            <div>
-              <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">평가손익</p>
-              <PnlCell value={holding.pnl} pct={holding.pnl_pct} />
-            </div>
-          </div>
-
-          {/* Tabs */}
+          {/* ── 상단: 요약 / 기업정보 탭 ── */}
           <div>
             <div className="flex gap-1 mb-3 border-b border-zinc-100 dark:border-zinc-800">
-              {(['chart', 'calc'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setDrawerTab(tab)}
-                  className={`px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-                    drawerTab === tab
-                      ? 'border-accent text-accent'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-600'
-                  }`}
-                >
-                  {tab === 'chart' ? '차트' : '추가매수 계산기'}
-                </button>
-              ))}
+              <button onClick={() => setTopTab('summary')} className={tabBtn(topTab === 'summary')}>요약</button>
+              <button onClick={() => setTopTab('info')} className={tabBtn(topTab === 'info')}>기업정보</button>
             </div>
 
-            {drawerTab === 'chart' ? (
-              <StockChart
-                data={chartData}
-                avgPrice={holding.avg_price}
-                period={period}
-                onPeriodChange={setPeriod}
-                loading={chartLoading}
-                height={280}
-              />
-            ) : (
-              (() => {
-                const addQty = parseFloat(calcQty) || 0
-                const addPrice = parseFloat(calcPrice) || 0
-                const newTotalQty = holding.quantity + addQty
-                const newAvgPrice = addQty > 0 && addPrice > 0
-                  ? (holding.avg_price * holding.quantity + addPrice * addQty) / newTotalQty
-                  : holding.avg_price
-                const newTotalCost = newAvgPrice * newTotalQty
-                const breakEven = newAvgPrice
-                const newPnl = holding.current_price != null
-                  ? (holding.current_price - newAvgPrice) * newTotalQty
-                  : null
-                const newPnlPct = holding.current_price != null
-                  ? (holding.current_price - newAvgPrice) / newAvgPrice * 100
-                  : null
-                return (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-2xs text-zinc-500 mb-1 block">추가 수량 (주)</label>
-                        <input
-                          type="number"
-                          value={calcQty}
-                          onChange={e => setCalcQty(e.target.value)}
-                          placeholder="0"
-                          className="w-full text-sm px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-accent tabular-nums"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-2xs text-zinc-500 mb-1 block">추가 단가 (원)</label>
-                        <input
-                          type="number"
-                          value={calcPrice}
-                          onChange={e => setCalcPrice(e.target.value)}
-                          placeholder={holding.current_price?.toString() ?? '0'}
-                          className="w-full text-sm px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-accent tabular-nums"
-                        />
-                      </div>
-                    </div>
-                    <div className="panel-inner-surface border rounded-xl p-4 space-y-2.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-zinc-500">현재 보유</span>
-                        <span className="text-xs tabular-nums">{holding.quantity.toLocaleString()}주 @ {formatPrice(holding.avg_price)}</span>
-                      </div>
-                      {addQty > 0 && addPrice > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500">추가 매수</span>
-                          <span className="text-xs tabular-nums text-accent">{addQty.toLocaleString()}주 @ {formatPrice(addPrice)}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-2.5 space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">새 평균단가</span>
-                          <span className="text-sm font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                            {formatPrice(Math.round(newAvgPrice))}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500">총 수량</span>
-                          <span className="text-xs tabular-nums">{newTotalQty.toLocaleString()}주</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500">총 투자금</span>
-                          <span className="text-xs tabular-nums">{formatPrice(Math.round(newTotalCost))}</span>
-                        </div>
-                        {newPnl !== null && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-zinc-500">현재가 기준 손익</span>
-                            <span className={`text-xs font-semibold tabular-nums ${newPnl >= 0 ? 'text-up' : 'text-down'}`}>
-                              {formatPrice(Math.round(newPnl))} ({newPnlPct != null ? formatPct(Math.round(newPnlPct * 100) / 100) : '-'})
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-zinc-500">손익분기점</span>
-                          <span className="text-xs tabular-nums text-zinc-600 dark:text-zinc-400">{formatPrice(Math.round(breakEven))}</span>
-                        </div>
-                      </div>
-                    </div>
+            {topTab === 'summary' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-3">
+                {summaryCells.map((c) => (
+                  <div key={c.label}>
+                    <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">{c.label}</p>
+                    <p className={`text-sm font-semibold tabular-nums ${
+                      c.tone === 'up' ? 'text-up' : c.tone === 'down' ? 'text-down' : 'text-zinc-900 dark:text-zinc-100'
+                    }`}>
+                      {c.value}
+                    </p>
                   </div>
-                )
-              })()
+                ))}
+              </div>
+            ) : (
+              fundLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i}>
+                      <Skeleton className="h-3 w-14 mb-1.5 rounded" />
+                      <Skeleton className="h-4 w-16 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : f && infoCells.some(c => c.value !== '-') ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-3">
+                    {infoCells.map((c) => (
+                      <div key={c.label}>
+                        <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">{c.label}</p>
+                        <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{c.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {(f.sector || f.industry) && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {f.sector && <span className="tag tag-zinc">{f.sector}</span>}
+                      {f.industry && <span className="tag tag-tonal">{f.industry}</span>}
+                    </div>
+                  )}
+                  {f.summary && (
+                    <p className="text-2xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-4">{f.summary}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="py-6 text-center">
+                  <p className="text-xs text-zinc-400">기업 기초정보를 불러올 수 없습니다.</p>
+                  <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">해외/일부 종목은 제공되지 않을 수 있습니다.</p>
+                </div>
+              )
             )}
           </div>
 
-          {/* Related News + External Links */}
-          <div className="space-y-3">
-            <div>
-              <h3 className="text-xs font-medium text-zinc-500 mb-2">외부 링크</h3>
-              <div className="flex flex-wrap gap-2">
+          {/* ── 차트 ── */}
+          <StockChart
+            data={chartData}
+            avgPrice={holding.avg_price}
+            period={period}
+            onPeriodChange={setPeriod}
+            loading={chartLoading}
+            height={280}
+          />
+
+          {/* ── 외부 링크 ── */}
+          <div>
+            <h3 className="text-xs font-medium text-zinc-500 mb-2">외부 링크</h3>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`https://finance.naver.com/item/main.naver?code=${code}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+              >
+                <span className="font-bold text-accent">N</span> 네이버 금융
+              </a>
+              <a
+                href={`https://finance.naver.com/item/board.naver?code=${code}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+              >
+                <span className="font-bold text-accent">N</span> 종목토론방
+              </a>
+              <a
+                href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(holding.name)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+                뉴스 검색
+              </a>
+              {/^\d{6}$/.test(code) && (
                 <a
-                  href={`https://finance.naver.com/item/main.naver?code=${holding.ticker.replace(/\.[A-Z]+$/, '')}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
-                >
-                  <span className="font-bold text-accent">N</span> 네이버 금융
-                </a>
-                <a
-                  href={`https://finance.naver.com/item/board.naver?code=${holding.ticker.replace(/\.[A-Z]+$/, '')}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
-                >
-                  <span className="font-bold text-accent">N</span> 종목토론방
-                </a>
-                <a
-                  href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(holding.name)}`}
+                  href={`https://dart.fss.or.kr/dsab002/search.ax?textCrpNm=${encodeURIComponent(holding.name)}`}
                   target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  뉴스 검색
+                  DART 공시
                 </a>
-                {/^\d{6}$/.test(holding.ticker.replace(/\.[A-Z]+$/, '')) && (
-                  <a
-                    href={`https://dart.fss.or.kr/dsab002/search.ax?textCrpNm=${encodeURIComponent(holding.name)}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    DART 공시
-                  </a>
-                )}
-              </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── 하단: 관련 뉴스 / 거래내역 탭 ── */}
+          <div>
+            <div className="flex gap-1 mb-3 border-b border-zinc-100 dark:border-zinc-800">
+              <button onClick={() => setBottomTab('news')} className={tabBtn(bottomTab === 'news')}>관련 뉴스</button>
+              <button onClick={() => setBottomTab('tx')} className={tabBtn(bottomTab === 'tx')}>거래내역</button>
             </div>
 
-            <div>
-              <h3 className="text-xs font-medium text-zinc-500 mb-2">관련 뉴스 (수집된 기사)</h3>
-              {newsLoading ? (
+            {bottomTab === 'news' ? (
+              newsLoading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full rounded" />)}
                 </div>
@@ -326,8 +361,43 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                     </a>
                   ))}
                 </div>
-              )}
-            </div>
+              )
+            ) : (
+              txLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-10 w-full rounded" />)}
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="py-3 text-center">
+                  <p className="text-xs text-zinc-400">거래내역이 없습니다.</p>
+                  <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">최근 1년 내 매매 체결 내역이 없거나 조회할 수 없습니다.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-zinc-50 dark:divide-zinc-800">
+                  {transactions.map((t, i) => {
+                    const isBuy = t.type === '매수'
+                    return (
+                      <div key={i} className="flex items-center justify-between py-2.5 px-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className={`text-2xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 ${
+                            isBuy ? 'text-up' : 'text-down'
+                          }`}>
+                            {t.type}
+                          </span>
+                          <span className="text-2xs text-zinc-400 tabular-nums">{t.date}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs tabular-nums text-zinc-800 dark:text-zinc-200">
+                            {t.quantity.toLocaleString()}주 @ {formatPrice(t.price)}
+                          </p>
+                          <p className="text-2xs text-zinc-400 tabular-nums">{formatPrice(t.amount)}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            )}
           </div>
         </div>
       </div>

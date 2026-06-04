@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { Sun, Moon, Monitor } from 'lucide-react'
 import { LogoMark, Wordmark } from '../components/ut/UTLogo'
 import { blogApi, BlogPost } from '../api/client'
+import { usePublicTheme } from '../hooks/usePublicTheme'
 
 function formatDate(iso: string) {
   const d = new Date(iso)
@@ -107,7 +109,7 @@ function PostReader({ post, loading }: { post: BlogPost; loading: boolean }) {
           }}>{post.title}</h1>
 
           {/* 날짜 */}
-          <div style={{ fontSize: 12, color: 'var(--ink-4)', marginBottom: 40 }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 40 }}>
             {new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
             {post.word_count ? ` · ${Math.max(1, Math.round(post.word_count / 200))}분` : null}
           </div>
@@ -141,6 +143,8 @@ const RECENT_PAGE_SIZE = 6
 export default function PublicBlog() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { mode: themeMode, isDark, cycleTheme } = usePublicTheme()
+  const ThemeIcon = themeMode === 'dark' ? Moon : themeMode === 'light' ? Sun : Monitor
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTag, setActiveTag] = useState('전체')
@@ -200,7 +204,7 @@ export default function PublicBlog() {
   return (
     <div
       className={slideClass || undefined}
-      style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: '#FAFAF7', fontFamily: 'var(--font-sans)' }}
+      style={{ position: 'relative', height: '100vh', overflow: 'hidden', background: 'var(--cream)', fontFamily: 'var(--font-sans)' }}
     >
       {/* ── 글 목록 패널 ─────────────────────────────────────────── */}
       <div style={{
@@ -208,7 +212,7 @@ export default function PublicBlog() {
         transform: selectedPost ? 'translateX(-100%)' : 'translateX(0)',
         transition: SLIDE_TRANSITION,
         overflowY: 'auto',
-        background: '#FAFAF7',
+        background: 'var(--cream)',
       }}>
         {/* Header */}
         <header style={{
@@ -216,7 +220,7 @@ export default function PublicBlog() {
           padding: '0 clamp(20px, 4vw, 48px)',
           height: 56,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'rgba(250,250,247,0.92)', backdropFilter: 'blur(12px)',
+          background: 'var(--pub-header-bg)', backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--line)',
           gap: 12, boxSizing: 'border-box',
         }}>
@@ -224,7 +228,7 @@ export default function PublicBlog() {
             onClick={() => navigate('/', { state: { enterFrom: 'left' } })}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexShrink: 0, cursor: 'pointer' }}
           >
-            <LogoMark size={24} />
+            <LogoMark size={24} variant={isDark ? 'ink' : 'paper'} />
             <Wordmark size={13} />
           </div>
           <nav style={{
@@ -248,6 +252,16 @@ export default function PublicBlog() {
             ))}
           </nav>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <button
+              onClick={cycleTheme}
+              title={themeMode === 'dark' ? '다크 모드' : themeMode === 'light' ? '라이트 모드' : '시스템 모드'}
+              style={{
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                border: '1px solid var(--line)', background: 'var(--mist)',
+                color: 'var(--ink-3)', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', cursor: 'pointer',
+              }}
+            ><ThemeIcon size={14} /></button>
             <button
               className="ut-btn ut-btn-secondary ut-btn-sm"
               onClick={() => navigate('/', { state: { enterFrom: 'left' } })}
@@ -299,13 +313,13 @@ export default function PublicBlog() {
                     : <CoverPlaceholder idx={0} title={featured.title} large />}
                 </div>
                 <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', marginBottom: 14, fontSize: 12 }}>
-                  <span style={{ background: 'var(--ink-0)', color: '#FAFAF7', padding: '3px 10px', borderRadius: 999, fontWeight: 600, letterSpacing: '0.04em' }}>
+                  <span style={{ background: 'var(--ink-0)', color: 'var(--paper)', padding: '3px 10px', borderRadius: 999, fontWeight: 600, letterSpacing: '0.04em' }}>
                     {featured.tags[0] ? featured.tags[0].toUpperCase() : 'FEATURED'}
                   </span>
-                  <span style={{ color: 'var(--ink-5)' }}>·</span>
-                  <span className="ut-mono" style={{ color: 'var(--ink-4)' }}>{formatDate(featured.created_at)}</span>
-                  <span style={{ color: 'var(--ink-5)' }}>·</span>
-                  <span style={{ color: 'var(--ink-4)' }}>{readMin(featured)}분</span>
+                  <span style={{ color: 'var(--ink-3)' }}>·</span>
+                  <span className="ut-mono" style={{ color: 'var(--ink-3)' }}>{formatDate(featured.created_at)}</span>
+                  <span style={{ color: 'var(--ink-3)' }}>·</span>
+                  <span style={{ color: 'var(--ink-3)' }}>{readMin(featured)}분</span>
                 </div>
                 <h2 className="ut-h1" style={{ color: 'var(--ink-0)', marginBottom: 14 }}>{featured.title}</h2>
                 {featured.excerpt && (
@@ -349,10 +363,10 @@ export default function PublicBlog() {
                       </div>
                       <div>
                         {p.tags[0] && (
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '0.08em', marginBottom: 4 }}>{p.tags[0].toUpperCase()}</div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', letterSpacing: '0.08em', marginBottom: 4 }}>{p.tags[0].toUpperCase()}</div>
                         )}
                         <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink-0)', lineHeight: 1.34, marginBottom: 4, letterSpacing: '-0.01em' }}>{p.title}</div>
-                        <div className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>{formatDate(p.created_at)} · {readMin(p)}분</div>
+                        <div className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{formatDate(p.created_at)} · {readMin(p)}분</div>
                       </div>
                     </article>
                   ))}
@@ -377,13 +391,13 @@ export default function PublicBlog() {
                           : <CoverPlaceholder idx={i + 4} title={p.title} />}
                       </div>
                       {p.tags[0] && (
-                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-4)', letterSpacing: '0.10em', marginBottom: 8 }}>{p.tags[0].toUpperCase()}</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', letterSpacing: '0.10em', marginBottom: 8 }}>{p.tags[0].toUpperCase()}</div>
                       )}
                       <h3 style={{ fontSize: 19, fontWeight: 700, color: 'var(--ink-0)', lineHeight: 1.32, marginBottom: 10, letterSpacing: '-0.018em' }}>{p.title}</h3>
                       {p.excerpt && (
                         <p className="ut-body-sm" style={{ color: 'var(--ink-3)', marginBottom: 12 }}>{p.excerpt}</p>
                       )}
-                      <div className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>{formatDate(p.created_at)} · {readMin(p)}분</div>
+                      <div className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>{formatDate(p.created_at)} · {readMin(p)}분</div>
                     </article>
                   ))}
                 </div>
@@ -399,7 +413,7 @@ export default function PublicBlog() {
         transform: selectedPost ? 'translateX(0)' : 'translateX(100%)',
         transition: SLIDE_TRANSITION,
         overflowY: 'auto',
-        background: '#FAFAF7',
+        background: 'var(--cream)',
         pointerEvents: selectedPost ? 'auto' : 'none',
       }}>
         {/* Header */}
@@ -408,12 +422,12 @@ export default function PublicBlog() {
           padding: '0 clamp(20px, 4vw, 48px)',
           height: 56,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          background: 'rgba(250,250,247,0.92)', backdropFilter: 'blur(12px)',
+          background: 'var(--pub-header-bg)', backdropFilter: 'blur(12px)',
           borderBottom: '1px solid var(--line)',
           gap: 12, boxSizing: 'border-box',
         }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <LogoMark size={24} />
+            <LogoMark size={24} variant={isDark ? 'ink' : 'paper'} />
             <Wordmark size={13} />
           </div>
           <div style={{ flex: 1 }} />

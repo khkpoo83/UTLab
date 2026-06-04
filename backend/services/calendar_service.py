@@ -305,6 +305,7 @@ async def full_sync(user_id: int, db: AsyncSession) -> int:
                     calendarId=c["id"],
                     updatedMin=far_future,
                     maxResults=1,
+                    singleEvents=True,   # incremental_sync와 동일 모드여야 syncToken 일관성 유지
                     showDeleted=False,
                 ).execute()
             )
@@ -423,6 +424,7 @@ async def _do_incremental_sync(user_id: int, db: AsyncSession, calendar_id: Opti
             params = {
                 "calendarId": target_cal,
                 "syncToken": sync_token,
+                "singleEvents": True,   # full_sync와 동일 모드 — 반복 일정을 인스턴스로 저장(마스터 중복 방지)
                 "showDeleted": True,
                 "maxResults": 250,
             }
@@ -446,6 +448,12 @@ async def _do_incremental_sync(user_id: int, db: AsyncSession, calendar_id: Opti
                             CalendarEvent.google_event_id == gid,
                         )
                     )
+                    # 연결된 InvestmentMark도 삭제
+                    try:
+                        from services.mark_sync import delete_mark_by_gcal_id
+                        await delete_mark_by_gcal_id(gid, db)
+                    except Exception:
+                        pass
                 else:
                     new_obj = _upsert_event_from_api(ev, user_id, target_cal)
                     if new_obj:
@@ -486,6 +494,15 @@ async def _do_incremental_sync(user_id: int, db: AsyncSession, calendar_id: Opti
 
     await db.commit()
     logger.info(f"Incremental sync complete for calendar {target_cal}, user {user_id}: {changed} changes")
+
+    # '투자' 캘린더에서 추가된 이벤트를 InvestmentMark로 동기화
+    if changed > 0:
+        try:
+            from services.mark_sync import sync_marks_from_gcal
+            await sync_marks_from_gcal(user_id, db)
+        except Exception as e:
+            logger.debug(f"InvestmentMark GCal sync skipped: {e}")
+
     return changed
 
 
@@ -819,11 +836,14 @@ async def create_event(user_id: int, db: AsyncSession, event_body: dict, target_
     service = gapi_build("calendar", "v3", credentials=creds, cache_discovery=False)
     created = service.events().insert(calendarId=calendar_id, body=event_body).execute()
 
-    event_obj = _upsert_event_from_api(created, user_id, calendar_id)
-    if event_obj:
-        db.add(event_obj)
-        await db.commit()
-        await db.refresh(event_obj)
+    # 반복(마스터) 이벤트는 로컬에 저장하지 않음 — 호출측 full_sync가 인스턴스로 펼쳐 저장
+    # (마스터 bare gid를 저장하면 인스턴스와 gid가 달라 중복됨)
+    if not created.get("recurrence"):
+        event_obj = _upsert_event_from_api(created, user_id, calendar_id)
+        if event_obj:
+            db.add(event_obj)
+            await db.commit()
+            await db.refresh(event_obj)
     return created
 
 
@@ -854,7 +874,8 @@ async def update_event(user_id: int, db: AsyncSession, google_event_id: str, eve
         )
     )
     ev = ev_result.scalar_one_or_none()
-    if ev:
+    # 수정 결과가 반복(마스터)이 되면 로컬 행은 건드리지 않음 — full_sync가 인스턴스로 정리
+    if ev and not updated.get("recurrence"):
         start, all_day = _parse_event_dt(updated.get("start", {}))
         end, _ = _parse_event_dt(updated.get("end", {}))
         ev.summary = updated.get("summary")
@@ -867,6 +888,219 @@ async def update_event(user_id: int, db: AsyncSession, google_event_id: str, eve
         ev.synced_at = datetime.utcnow()
         await db.commit()
     return updated
+
+
+# ── 반복 일정 범위(scope) 처리 ─────────────────────────────────────────────────
+
+def _master_id_from_row(ev_row: Optional[CalendarEvent], gid: str) -> str:
+    """인스턴스 row의 raw_json에서 recurringEventId(마스터 ID) 추출, 없으면 gid 그대로"""
+    if ev_row and ev_row.raw_json:
+        try:
+            r = json.loads(ev_row.raw_json)
+            if r.get("recurringEventId"):
+                return r["recurringEventId"]
+        except Exception:
+            pass
+    return gid
+
+
+def _fmt_until(start_dt: datetime, all_day: bool) -> str:
+    """이 인스턴스 직전까지로 시리즈를 자르기 위한 RRULE UNTIL 문자열"""
+    if all_day:
+        return (start_dt - timedelta(days=1)).strftime("%Y%m%d")
+    return (start_dt - timedelta(seconds=1)).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _apply_until(recurrence: Optional[list], until_str: str) -> list:
+    """RRULE에서 COUNT/UNTIL 제거 후 새 UNTIL 적용 (다른 라인 EXDATE 등은 보존)"""
+    out: list = []
+    has_rrule = False
+    for line in (recurrence or []):
+        if line.startswith("RRULE:"):
+            has_rrule = True
+            parts = [
+                p for p in line[len("RRULE:"):].split(";")
+                if p and not p.startswith("COUNT=") and not p.startswith("UNTIL=")
+            ]
+            parts.append(f"UNTIL={until_str}")
+            out.append("RRULE:" + ";".join(parts))
+        else:
+            out.append(line)
+    if not has_rrule:
+        out.append(f"RRULE:FREQ=DAILY;UNTIL={until_str}")
+    return out
+
+
+def _strip_count_until(recurrence: Optional[list]) -> list:
+    """새 시리즈용 RRULE에서 기존 종료조건(COUNT/UNTIL) 제거 (계속 반복으로)"""
+    out: list = []
+    for line in (recurrence or []):
+        if line.startswith("RRULE:"):
+            parts = [
+                p for p in line[len("RRULE:"):].split(";")
+                if p and not p.startswith("COUNT=") and not p.startswith("UNTIL=")
+            ]
+            out.append("RRULE:" + ";".join(parts))
+        else:
+            out.append(line)
+    return out
+
+
+async def update_event_scoped(
+    user_id: int, db: AsyncSession, google_event_id: str, event_body: dict, scope: str
+) -> dict:
+    """
+    반복 일정을 범위(scope)에 따라 수정.
+    scope: 'this'(이 일정만) | 'following'(이후 모든) | 'all'(모든)
+    event_body: recurrence 포함 가능한 Google 이벤트 body
+    """
+    from googleapiclient.discovery import build as gapi_build
+
+    ev_row = (await db.execute(
+        select(CalendarEvent).where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.google_event_id == google_event_id,
+        )
+    )).scalar_one_or_none()
+    if not ev_row:
+        raise ValueError("이벤트를 찾을 수 없습니다.")
+
+    calendar_id = ev_row.calendar_id or "primary"
+    recurrence = event_body.get("recurrence")
+    creds = await get_valid_credentials(user_id, db)
+    service = gapi_build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+    if scope == "this":
+        # 이 인스턴스만 — recurrence 변경 불가
+        body = {k: v for k, v in event_body.items() if k != "recurrence"}
+        result = await asyncio.to_thread(
+            lambda: service.events().patch(calendarId=calendar_id, eventId=google_event_id, body=body).execute()
+        )
+
+    elif scope == "all":
+        # 시리즈 전체 — 내용 + 반복규칙. 날짜/시간(start/end)은 앵커 이동 방지 위해 제외
+        master_id = _master_id_from_row(ev_row, google_event_id)
+        body = {k: v for k, v in event_body.items() if k not in ("start", "end")}
+        result = await asyncio.to_thread(
+            lambda: service.events().patch(calendarId=calendar_id, eventId=master_id, body=body).execute()
+        )
+
+    elif scope == "redefine":
+        # 단일 occurrence 반복(예: COUNT=1)을 마스터에 새 규칙으로 재정의 — start/end 포함 전체 적용
+        # (calendar_id는 인스턴스 행에서 정확히 해석됨)
+        master_id = _master_id_from_row(ev_row, google_event_id)
+        result = await asyncio.to_thread(
+            lambda: service.events().patch(calendarId=calendar_id, eventId=master_id, body=event_body).execute()
+        )
+
+    elif scope == "following":
+        # 이 인스턴스 직전까지 기존 시리즈 자르고, 이 인스턴스부터 새 시리즈 생성
+        master_id = _master_id_from_row(ev_row, google_event_id)
+        master = await asyncio.to_thread(
+            lambda: service.events().get(calendarId=calendar_id, eventId=master_id).execute()
+        )
+        master_recur = master.get("recurrence") or []
+        until = _fmt_until(ev_row.start_dt, bool(ev_row.all_day))
+        truncated = _apply_until(master_recur, until)
+        await asyncio.to_thread(
+            lambda: service.events().patch(calendarId=calendar_id, eventId=master_id, body={"recurrence": truncated}).execute()
+        )
+        # 새 시리즈 body — 종료조건 없으면 기존 규칙 계승
+        new_body = dict(event_body)
+        if not new_body.get("recurrence"):
+            new_body["recurrence"] = _strip_count_until(master_recur)
+        result = await asyncio.to_thread(
+            lambda: service.events().insert(calendarId=calendar_id, body=new_body).execute()
+        )
+    else:
+        raise ValueError(f"잘못된 scope: {scope}")
+
+    # 로컬 캐시는 호출측에서 full_sync로 갱신
+    return result
+
+
+async def delete_event_scoped(
+    user_id: int, db: AsyncSession, google_event_id: str, scope: str
+) -> None:
+    """반복 일정을 범위(scope)에 따라 삭제"""
+    from googleapiclient.discovery import build as gapi_build
+
+    ev_row = (await db.execute(
+        select(CalendarEvent).where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.google_event_id == google_event_id,
+        )
+    )).scalar_one_or_none()
+    if not ev_row:
+        raise ValueError("이벤트를 찾을 수 없습니다.")
+
+    calendar_id = ev_row.calendar_id or "primary"
+    creds = await get_valid_credentials(user_id, db)
+    service = gapi_build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+    if scope == "this":
+        await asyncio.to_thread(
+            lambda: service.events().delete(calendarId=calendar_id, eventId=google_event_id).execute()
+        )
+    elif scope == "all":
+        master_id = _master_id_from_row(ev_row, google_event_id)
+        await asyncio.to_thread(
+            lambda: service.events().delete(calendarId=calendar_id, eventId=master_id).execute()
+        )
+    elif scope == "following":
+        master_id = _master_id_from_row(ev_row, google_event_id)
+        master = await asyncio.to_thread(
+            lambda: service.events().get(calendarId=calendar_id, eventId=master_id).execute()
+        )
+        master_recur = master.get("recurrence") or []
+        until = _fmt_until(ev_row.start_dt, bool(ev_row.all_day))
+        truncated = _apply_until(master_recur, until)
+        await asyncio.to_thread(
+            lambda: service.events().patch(calendarId=calendar_id, eventId=master_id, body={"recurrence": truncated}).execute()
+        )
+    else:
+        raise ValueError(f"잘못된 scope: {scope}")
+    # 로컬 캐시는 호출측에서 full_sync로 갱신
+
+
+async def get_event_recurrence(user_id: int, db: AsyncSession, google_event_id: str) -> Optional[list]:
+    """
+    반복 일정의 RRULE 규칙 조회.
+    인스턴스 ID로 호출되면 raw_json의 recurringEventId로 마스터를 찾아 그 recurrence를 반환.
+    반복이 아니면 None.
+    """
+    from googleapiclient.discovery import build as gapi_build
+
+    ev_row = (await db.execute(
+        select(CalendarEvent).where(
+            CalendarEvent.user_id == user_id,
+            CalendarEvent.google_event_id == google_event_id,
+        )
+    )).scalar_one_or_none()
+    if not ev_row:
+        return None
+
+    calendar_id = ev_row.calendar_id or "primary"
+    master_id = google_event_id
+    # 인스턴스면 raw_json의 recurringEventId로 마스터 식별
+    if ev_row.raw_json:
+        try:
+            raw = json.loads(ev_row.raw_json)
+            if raw.get("recurringEventId"):
+                master_id = raw["recurringEventId"]
+        except Exception:
+            pass
+
+    creds = await get_valid_credentials(user_id, db)
+    service = gapi_build("calendar", "v3", credentials=creds, cache_discovery=False)
+    try:
+        master = await asyncio.to_thread(
+            lambda: service.events().get(calendarId=calendar_id, eventId=master_id).execute()
+        )
+    except Exception as e:
+        logger.warning(f"get_event_recurrence: master fetch failed for {master_id}: {e}")
+        return None
+    return master.get("recurrence")
 
 
 async def delete_event(user_id: int, db: AsyncSession, google_event_id: str) -> None:

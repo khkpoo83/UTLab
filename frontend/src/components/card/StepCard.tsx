@@ -17,7 +17,7 @@ export function StepCard({
 }: StepCardProps) {
   return (
     <div style={{
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       overflow: 'hidden',
@@ -58,7 +58,7 @@ export function StepCard({
       {(onPrev || onNext) && (
         <div style={{
           padding: '12px 22px',
-          background: 'var(--cream)',
+          background: 'var(--c-surface-subtle)',
           borderTop: '1px solid var(--line)',
           display: 'flex', justifyContent: 'space-between',
         }}>

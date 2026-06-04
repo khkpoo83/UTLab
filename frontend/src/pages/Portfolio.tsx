@@ -26,6 +26,7 @@ import ToggleChip from '../components/ToggleChip'
 import Sparkline from '../components/Sparkline'
 import HoldingDrawer from '../components/HoldingDrawer'
 import PortfolioHistoryChart from '../components/PortfolioHistoryChart'
+import { Segmented } from '../components/settings/Segmented'
 import PageTitle from '../components/PageTitle'
 
 function getMarketBadge(h: PortfolioItem): { market: string; marketClass: string; premarket: boolean } {
@@ -101,7 +102,7 @@ function WeightTreemap({ holdings, privacyMode }: { holdings: PortfolioItem[]; p
           const isUp = dayPct !== null && dayPct > 0
           const isDown = dayPct !== null && dayPct < 0
           const textColor = cellIsDark ? 'rgba(255,255,255,0.88)' : 'rgba(30,30,35,0.88)'
-          // 행이 너무 얇으면(< 40px) 이름 숨김 — 텍스트 겹침 방지 (9px이름+11px퍼센트+패딩 = ~36px 이상 필요)
+          // 이름 표시 조건: 너비 9% 초과 + 행 높이 40px 이상
           const showName = wPct > 9 && rowHeightPx >= 40
 
           return (
@@ -114,8 +115,12 @@ function WeightTreemap({ holdings, privacyMode }: { holdings: PortfolioItem[]; p
               padding: pad, borderRadius: 4, overflow: 'hidden',
               boxSizing: 'border-box',
             }}>
-              {/* 상단: 종목명(좌) + 등락 badge(우) */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, minHeight: 0 }}>
+              {/* 상단: 종목명(좌, 조건부) + 등락 badge(우측 상단 고정) */}
+              <div style={{
+                display: 'flex',
+                justifyContent: showName ? 'space-between' : 'flex-end',
+                alignItems: 'flex-start', gap: 2, minHeight: 0,
+              }}>
                 {showName && (
                   <div style={{
                     fontSize: wPct > 20 ? 11 : 9, fontWeight: 600, lineHeight: 1.2,
@@ -132,7 +137,7 @@ function WeightTreemap({ holdings, privacyMode }: { holdings: PortfolioItem[]; p
                   }} />
                 )}
               </div>
-              {/* 하단: % (좌) — mt-auto로 셀 아래로 밀기 */}
+              {/* 하단: 비중% — mt-auto로 셀 아래로 밀기 */}
               {wPct > 4 && (
                 <div className="ut-mono" style={{
                   fontSize: wPct > 18 ? 14 : wPct > 9 ? 11 : 9,
@@ -172,6 +177,7 @@ const PORTFOLIO_CARD_TITLES: Record<string, string> = {
   'portfolio-holdings': 'Holdings',
 }
 const PORTFOLIO_ORDER_KEY = 'portfolio_card_order'
+const AUTO_REFRESH_SEC = 60  // 자동갱신 주기(초) — 현재가 준실시간 갱신
 
 function loadPortfolioOrder(): string[] {
   try {
@@ -208,7 +214,7 @@ const Portfolio: React.FC = () => {
   }, [])
 
   const autoRefreshStartRef = useRef<number>(Date.now())
-  const [refreshCountdown, setRefreshCountdown] = useState(300)
+  const [refreshCountdown, setRefreshCountdown] = useState(AUTO_REFRESH_SEC)
   const fmtCountdown = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 
   const [privacyMode, setPrivacyMode] = useState(false)
@@ -224,6 +230,7 @@ const Portfolio: React.FC = () => {
   const [portfolioCardOrder, setPortfolioCardOrder] = useState(loadPortfolioOrder)
   const [activePortfolioCardId, setActivePortfolioCardId] = useState<string | null>(null)
   const [histPeriod, setHistPeriod] = useState<'7'|'30'|'90'|'180'|'365'>('30')
+  const [histView, setHistView] = useState<'pct'|'amount'>('pct')
   const portfolioSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
@@ -309,14 +316,15 @@ const Portfolio: React.FC = () => {
   const handleKisSync = useCallback(async () => {
     setKisSyncing(true)
     autoRefreshStartRef.current = Date.now()
-    setRefreshCountdown(300)
+    setRefreshCountdown(AUTO_REFRESH_SEC)
     try {
       await kisApi.sync()
     } catch {
       // sync 실패해도 loadData는 반드시 실행
     }
     try {
-      await loadData(true)
+      // sync가 KIS 잔고 캐시를 막 데웠으므로 force 불필요 (중복 KIS 호출 방지)
+      await loadData(false)
     } catch {
       // ignore
     } finally {
@@ -420,15 +428,15 @@ const Portfolio: React.FC = () => {
   }, [loadData])
 
   useEffect(() => {
-    if (!autoRefresh) { setRefreshCountdown(300); return }
+    if (!autoRefresh) { setRefreshCountdown(AUTO_REFRESH_SEC); return }
     autoRefreshStartRef.current = Date.now()
-    setRefreshCountdown(300)
+    setRefreshCountdown(AUTO_REFRESH_SEC)
     const interval = setInterval(() => {
       if (document.hidden) return
       autoRefreshStartRef.current = Date.now()
-      setRefreshCountdown(300)
+      setRefreshCountdown(AUTO_REFRESH_SEC)
       loadData()
-    }, 5 * 60 * 1000)
+    }, AUTO_REFRESH_SEC * 1000)
     return () => clearInterval(interval)
   }, [loadData, autoRefresh])
 
@@ -436,7 +444,7 @@ const Portfolio: React.FC = () => {
     if (!autoRefresh) return
     const tick = setInterval(() => {
       const elapsed = Math.floor((Date.now() - autoRefreshStartRef.current) / 1000)
-      setRefreshCountdown(Math.max(0, 300 - elapsed))
+      setRefreshCountdown(Math.max(0, AUTO_REFRESH_SEC - elapsed))
     }, 1000)
     return () => clearInterval(tick)
   }, [autoRefresh])
@@ -456,9 +464,6 @@ const Portfolio: React.FC = () => {
   const holdCost = useCallback((h: PortfolioItem) => h.avg_price * h.quantity, [])
 
   const pBlur = privacyMode ? 'blur-sm select-none' : ''
-  const maxWeight = useMemo(() =>
-    Math.max(...filteredHoldings.map(h => h.weight ?? 0), 1),
-  [filteredHoldings])
   const portfolioCols = useMemo((): DtColDef<PortfolioItem>[] => [
     {
       key: 'name', label: '종목명', width: 180, minWidth: 120,
@@ -529,7 +534,7 @@ const Portfolio: React.FC = () => {
     {
       key: 'weight', label: '비중', width: 120, type: 'pct-bar',
       getValue: (h) => h.weight ?? 0,
-      barMax: maxWeight,
+      barMax: 100,
     },
     {
       key: 'account', label: '계좌', width: 90, sortable: false, visible: false,
@@ -756,7 +761,7 @@ const Portfolio: React.FC = () => {
                             { label: '총 투자금', value: formatPrice(displaySummary.total_cost), suffix: undefined, tone: undefined as string | undefined, blurred: true },
                             { label: '예수금', value: displaySummary.deposit != null ? formatPrice(displaySummary.deposit) : '-', suffix: undefined, tone: undefined as string | undefined, blurred: true },
                             { label: '어제 대비', value: displaySummary.day_pnl != null ? formatPrice(displaySummary.day_pnl) : '-', suffix: displaySummary.day_pnl_pct != null ? formatPct(displaySummary.day_pnl_pct) : undefined, tone: (displaySummary.day_pnl ?? 0) >= 0 ? 'up' : 'down', blurred: true },
-                            { label: '종목 수', value: `${displaySummary.count}`, suffix: '종목', tone: undefined as string | undefined, blurred: false },
+                            { label: '총 수익금액', value: formatPrice(displaySummary.total_pnl), suffix: formatPct(displaySummary.total_pnl_pct), tone: ((displaySummary.total_pnl ?? 0) >= 0 ? 'up' : 'down') as string | undefined, blurred: true },
                           ].map((item) => (
                             <div key={item.label} style={{
                               padding: '12px 14px',
@@ -793,29 +798,35 @@ const Portfolio: React.FC = () => {
                       return (
                         <div style={{ padding: '14px 20px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                            <span className="ut-eyebrow">{`수익률 추이 ${acct ? `(${acct.name})` : '(전체)'}`}</span>
-                            <div style={{ display: 'inline-flex', gap: 2 }}>
-                              {(['7', '30', '90', '180', '365'] as const).map(v => (
-                                <button
-                                  key={v}
-                                  onClick={() => setHistPeriod(v)}
-                                  style={{
-                                    padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                                    fontSize: 11, fontWeight: 600,
-                                    background: histPeriod === v ? 'var(--ink-0)' : 'transparent',
-                                    color: histPeriod === v ? 'var(--paper)' : 'var(--ink-3)',
-                                    transition: 'all 0.12s ease',
-                                  }}
-                                >
-                                  {histLabels[v]}
-                                </button>
-                              ))}
+                            <span className="ut-eyebrow">{`${histView === 'amount' ? '금액 추이' : '수익률 추이'} ${acct ? `(${acct.name})` : '(전체)'}`}</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                              {/* 수익률 / 금액 보기 스위치 — 기간과 동일 레벨의 세그먼트 */}
+                              <Segmented
+                                value={histView}
+                                onChange={setHistView}
+                                options={[
+                                  { value: 'pct', label: '수익률' },
+                                  { value: 'amount', label: '금액' },
+                                ]}
+                              />
+                              {/* 기간 스위치 */}
+                              <Segmented
+                                value={histPeriod}
+                                onChange={setHistPeriod}
+                                options={(['7', '30', '90', '180', '365'] as const).map(v => ({
+                                  value: v, label: histLabels[v],
+                                }))}
+                              />
                             </div>
                           </div>
                           <PortfolioHistoryChart
                             accountNo={acct?.account_no}
                             todayPnlPct={acct ? kisAcct?.total_pnl_pct : displaySummary?.total_pnl_pct}
+                            todayValue={displaySummary?.total_value}
+                            todayCost={displaySummary?.total_cost}
+                            todayCash={displaySummary?.deposit}
                             period={parseInt(histPeriod) as 7|30|90|180|365}
+                            showSource={histView === 'amount'}
                           />
                         </div>
                       )

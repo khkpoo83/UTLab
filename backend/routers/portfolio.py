@@ -16,6 +16,7 @@ from services.stock_service import (
     get_chart_data,
     search_stocks,
     get_sparkline,
+    fetch_stock_fundamentals,
 )
 from services.news_service import get_ticker_news
 
@@ -82,6 +83,20 @@ async def get_portfolio_history(
     """포트폴리오 수익률 히스토리 (일별 스냅샷)"""
     from services.portfolio_snapshot_service import get_history
     return await get_history(days=days, account_no=account_no or 'TOTAL')
+
+
+@router.get("/net-deposits")
+async def get_net_deposits_today(
+    current_user: CurrentUser,
+    account_no: Optional[str] = Query(None),
+) -> dict:
+    """당일 누적 순입금 실시간 조회 (오늘 바 그래프용)"""
+    from datetime import datetime, timedelta, timezone
+    from services.deposit_service import get_cumulative_deposits
+    today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
+    acc = account_no or "TOTAL"
+    result = await get_cumulative_deposits(acc, [today])
+    return {"date": today, "net_deposits": result.get(today, 0.0)}
 
 
 @router.post("/history/snapshot")
@@ -427,6 +442,19 @@ async def get_holding_news(
     return await get_ticker_news(holding.ticker, name=holding.name)
 
 
+async def _resolve_yf_ticker(ticker: str) -> str:
+    """KIS 6자리 코드 → Yahoo ticker 매핑. StockMaster 우선, 없으면 .KS 기본."""
+    if "." in ticker:
+        return ticker  # 이미 접미사 있음
+    from models.database import AsyncSessionLocal, StockMaster
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(StockMaster).where(StockMaster.ticker.like(f"{ticker}.%")).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    return row.ticker if row else f"{ticker}.KS"
+
+
 @router.get("/by-ticker/{ticker}/chart")
 async def get_chart_by_ticker(
     current_user: CurrentUser,
@@ -434,19 +462,30 @@ async def get_chart_by_ticker(
     period: str = Query("3m", pattern="^(1d|1w|1m|3m|1y)$"),
 ) -> list[dict]:
     """KIS ticker 기반 차트 조회 (StockMaster에서 yf_ticker 매핑)"""
-    from sqlalchemy import or_
-    from models.database import AsyncSessionLocal, StockMaster
-    yf_ticker = ticker
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(StockMaster).where(StockMaster.ticker.like(f"{ticker}.%")).limit(1)
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            yf_ticker = row.ticker
-        else:
-            yf_ticker = f"{ticker}.KS"
-    return await get_chart_data(yf_ticker, period)
+    yf_ticker = await _resolve_yf_ticker(ticker)
+    data = await get_chart_data(yf_ticker, period)
+    # .KS로 빈 데이터면 코스닥(.KQ) 재시도 — StockMaster 미등록 종목 대응
+    if not data and yf_ticker.endswith(".KS"):
+        alt = yf_ticker[:-3] + ".KQ"
+        data = await get_chart_data(alt, period)
+    return data
+
+
+@router.get("/by-ticker/{ticker}/info")
+async def get_stock_info_by_ticker(
+    current_user: CurrentUser,
+    ticker: str,
+) -> dict:
+    """종목 기업 기초정보 (시총/PER/PBR/EPS/배당 등 주식평가 핵심 지표)"""
+    yf_ticker = await _resolve_yf_ticker(ticker)
+    info = await fetch_stock_fundamentals(yf_ticker)
+    has_data = any(info.get(k) is not None for k in ("market_cap", "per", "pbr", "eps"))
+    if not has_data and yf_ticker.endswith(".KS"):
+        alt = yf_ticker[:-3] + ".KQ"
+        alt_info = await fetch_stock_fundamentals(alt)
+        if any(alt_info.get(k) is not None for k in ("market_cap", "per", "pbr", "eps")):
+            info = alt_info
+    return info
 
 
 @router.get("/by-ticker/{ticker}/news")

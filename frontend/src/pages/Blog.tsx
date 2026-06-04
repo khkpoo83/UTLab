@@ -1,7 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil, Check, Trash2 } from 'lucide-react'
+import { Search, Plus, Globe, Lock, Cpu, Tag, X, Pencil, Check, Trash2, Type } from 'lucide-react'
 import { blogApi, settingsApi, BlogPost } from '../api/client'
+import { Card } from '../components/Card'
+import { Button } from '../components/settings/Button'
+import { FormInput, FormTextarea } from '../components/FormField'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -15,14 +18,18 @@ export default function Blog() {
   const [query, setQuery] = useState('')
   const [activeTag, setActiveTag] = useState('')
 
-  const [blogTitle, setBlogTitle] = useState('Notes from the U.T Lab4')
-  const [blogSubtitle, setBlogSubtitle] = useState('영화 · 책 · 음악 · 여행 · 코드 · 가끔 시장. 한 사람의 인덱스.')
-  const [editingTitle, setEditingTitle] = useState(false)
-  const [titleDraft, setTitleDraft] = useState('')
-  const [subtitleDraft, setSubtitleDraft] = useState('')
-  const [editingSubtitle, setEditingSubtitle] = useState(false)
-  const [savingTitle, setSavingTitle] = useState(false)
-  const titleInputRef = useRef<HTMLInputElement>(null)
+  // 사이트 텍스트 (랜딩 + 블로그)
+  const [text, setText] = useState({
+    site_hero_title: '한 사람의 인덱스',
+    site_hero_subtitle: '매일 들여다보면서 알게 된 것들.',
+    site_editor_note: '',
+    site_footer_copyright: 'U.T Lab4 — 한 사람의 인덱스',
+    blog_title: 'Notes from the U.T Lab4',
+    blog_subtitle: '영화 · 책 · 음악 · 여행 · 코드 · 가끔 시장. 한 사람의 인덱스.',
+  })
+  const [textDirty, setTextDirty] = useState(false)
+  const [textSaving, setTextSaving] = useState(false)
+  const [textSaved, setTextSaved] = useState(false)
 
   const allTags = Array.from(new Set(posts.flatMap(p => p.tags))).filter(Boolean)
 
@@ -47,8 +54,14 @@ export default function Blog() {
   useEffect(() => {
     settingsApi.get()
       .then(({ data }) => {
-        if (data.blog_title)    setBlogTitle(data.blog_title)
-        if (data.blog_subtitle) setBlogSubtitle(data.blog_subtitle)
+        setText(prev => ({
+          site_hero_title: data.site_hero_title ?? prev.site_hero_title,
+          site_hero_subtitle: data.site_hero_subtitle ?? prev.site_hero_subtitle,
+          site_editor_note: data.site_editor_note ?? prev.site_editor_note,
+          site_footer_copyright: data.site_footer_copyright ?? prev.site_footer_copyright,
+          blog_title: data.blog_title ?? prev.blog_title,
+          blog_subtitle: data.blog_subtitle ?? prev.blog_subtitle,
+        }))
       })
       .catch(() => {})
   }, [])
@@ -58,120 +71,89 @@ export default function Blog() {
     loadPosts()
   }
 
-  function startEditTitle() {
-    setTitleDraft(blogTitle)
-    setEditingTitle(true)
-    setTimeout(() => titleInputRef.current?.select(), 0)
+  const updateText = (patch: Partial<typeof text>) => {
+    setText(prev => ({ ...prev, ...patch }))
+    setTextDirty(true)
+    setTextSaved(false)
   }
 
-  async function saveTitle() {
-    const next = titleDraft.trim().replace(/\.$/, '')
-    if (!next || next === blogTitle) { setEditingTitle(false); return }
-    setSavingTitle(true)
+  async function saveText() {
+    setTextSaving(true)
     try {
-      await settingsApi.update({ blog_title: next })
-      setBlogTitle(next)
-    } catch (e) {
-      console.error('blog_title 저장 실패', e)
+      await settingsApi.update({
+        ...text,
+        site_hero_title: text.site_hero_title.replace(/\.$/, ''),
+        blog_title: text.blog_title.replace(/\.$/, ''),
+      })
+      setTextDirty(false)
+      setTextSaved(true)
+      setTimeout(() => setTextSaved(false), 3000)
+    } catch {
+      // ignore
     } finally {
-      setSavingTitle(false)
-      setEditingTitle(false)
+      setTextSaving(false)
     }
-  }
-
-  async function saveSubtitle() {
-    const next = subtitleDraft.trim()
-    if (next === blogSubtitle) { setEditingSubtitle(false); return }
-    try {
-      await settingsApi.update({ blog_subtitle: next })
-      setBlogSubtitle(next)
-    } catch (e) {
-      console.error('blog_subtitle 저장 실패', e)
-    } finally {
-      setEditingSubtitle(false)
-    }
-  }
-
-  function handleTitleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') saveTitle()
-    else if (e.key === 'Escape') setEditingTitle(false)
   }
 
   return (
     <div className="p-4 space-y-4 max-w-3xl mx-auto">
-      {/* 블로그 타이틀 편집 */}
-      <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-zinc-400 mb-1 tracking-widest uppercase">블로그 대표 제목</p>
-          {editingTitle ? (
-            <input
-              ref={titleInputRef}
-              value={titleDraft}
-              onChange={e => setTitleDraft(e.target.value)}
-              onKeyDown={handleTitleKeyDown}
-              className="w-full text-sm font-medium bg-transparent outline-none border-b border-accent text-zinc-800 dark:text-zinc-200 pb-0.5"
-              placeholder="블로그 제목 입력..."
-              autoFocus
+      {/* ── 사이트 텍스트 (랜딩 + 블로그 제목) ── */}
+      <Card collapsible id="blog-site-text" icon={<Type size={16} />} title="사이트 텍스트" defaultOpen={false}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormInput
+              label="메인 제목 (랜딩)"
+              hint="마침표(.)는 자동으로 붙습니다"
+              value={text.site_hero_title}
+              onChange={e => updateText({ site_hero_title: e.target.value.replace(/\.$/, '') })}
+              placeholder="한 사람의 인덱스"
             />
-          ) : (
-            <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200 truncate">{blogTitle}</p>
-          )}
-        </div>
-        {editingTitle ? (
-          <button
-            onClick={saveTitle}
-            disabled={savingTitle}
-            className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-accent text-white disabled:opacity-50 transition-opacity flex-shrink-0"
-          >
-            <Check size={11} /> {savingTitle ? '저장 중' : '저장'}
-          </button>
-        ) : (
-          <button
-            onClick={startEditTitle}
-            className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          >
-            <Pencil size={13} />
-          </button>
-        )}
-      </div>
-
-      {/* 블로그 소개문구 편집 */}
-      <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] text-zinc-400 mb-1 tracking-widest uppercase">소개문구 <span className="normal-case font-normal">(블로그 페이지 부제목 — 마침표는 자동으로 붙습니다)</span></p>
-          {editingSubtitle ? (
-            <input
-              value={subtitleDraft}
-              onChange={e => setSubtitleDraft(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') saveSubtitle(); else if (e.key === 'Escape') setEditingSubtitle(false) }}
-              className="w-full text-sm bg-transparent outline-none border-b border-accent text-zinc-800 dark:text-zinc-200 pb-0.5"
-              placeholder="소개문구 입력..."
-              autoFocus
+            <FormInput
+              label="메인 부제 (랜딩)"
+              value={text.site_hero_subtitle}
+              onChange={e => updateText({ site_hero_subtitle: e.target.value })}
+              placeholder="매일 들여다보면서 알게 된 것들."
             />
-          ) : (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{blogSubtitle || '소개문구를 입력하세요...'}</p>
-          )}
+            <FormInput
+              label="블로그 제목"
+              value={text.blog_title}
+              onChange={e => updateText({ blog_title: e.target.value })}
+              placeholder="Notes from the U.T Lab4"
+            />
+            <FormInput
+              label="블로그 부제"
+              value={text.blog_subtitle}
+              onChange={e => updateText({ blog_subtitle: e.target.value })}
+              placeholder="한 사람의 인덱스."
+            />
+          </div>
+          <FormTextarea
+            label="Editor's Note"
+            rows={3}
+            value={text.site_editor_note}
+            onChange={e => updateText({ site_editor_note: e.target.value })}
+            placeholder="메인 페이지 Editor's Note에 표시될 문구"
+          />
+          <FormInput
+            label="푸터 Copyright"
+            hint={`© ${new Date().getFullYear()} 가 자동으로 앞에 붙습니다`}
+            value={text.site_footer_copyright}
+            onChange={e => updateText({ site_footer_copyright: e.target.value })}
+            placeholder="U.T Lab4 — 한 사람의 인덱스"
+          />
+          <div className="flex items-center gap-3">
+            <Button onClick={saveText} loading={textSaving} loadingLabel="저장 중..." disabled={!textDirty} icon={<Check size={14} />}>
+              텍스트 저장
+            </Button>
+            {textSaved && <span className="text-xs text-accent font-medium">저장되었습니다.</span>}
+          </div>
         </div>
-        {editingSubtitle ? (
-          <button onClick={saveSubtitle} className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg bg-accent text-white flex-shrink-0">
-            <Check size={11} /> 저장
-          </button>
-        ) : (
-          <button onClick={() => { setSubtitleDraft(blogSubtitle); setEditingSubtitle(true) }} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors flex-shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300">
-            <Pencil size={13} />
-          </button>
-        )}
-      </div>
+      </Card>
 
       {/* 헤더 */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-200">블로그 관리</h1>
-        <button
-          onClick={() => navigate('/blog/new')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm rounded-lg hover:bg-accent/90 transition-colors"
-        >
-          <Plus size={14} /> 새 글
-        </button>
+        <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-200">블로그 글</h1>
+        <Button size="sm" icon={<Plus size={14} />} onClick={() => navigate('/blog/new')}>새 글</Button>
       </div>
 
       {/* 필터 바 */}
@@ -223,9 +205,7 @@ export default function Blog() {
       </div>
 
       {/* 게시 수 */}
-      {!loading && (
-        <p className="text-xs text-zinc-400">{posts.length}개의 글</p>
-      )}
+      {!loading && <p className="text-xs text-zinc-400">{posts.length}개의 글</p>}
 
       {loading && <div className="text-center py-12 text-zinc-400 text-sm">불러오는 중...</div>}
 
@@ -246,7 +226,6 @@ export default function Blog() {
               key={post.id}
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors group"
             >
-              {/* 상태 아이콘 */}
               <div className="flex-shrink-0">
                 {post.visibility === 'public'
                   ? <Globe size={13} className="text-green-500" />
@@ -254,11 +233,7 @@ export default function Blog() {
                 }
               </div>
 
-              {/* 제목 + 메타 */}
-              <div
-                className="flex-1 min-w-0 cursor-pointer"
-                onClick={() => navigate(`/blog/${post.id}`)}
-              >
+              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/blog/${post.id}`)}>
                 <div className="flex items-center gap-1.5">
                   <span className="font-medium text-sm text-zinc-800 dark:text-zinc-200 truncate">{post.title}</span>
                   {post.ai_generated && <Cpu size={10} className="text-purple-400 flex-shrink-0" />}
@@ -271,7 +246,6 @@ export default function Blog() {
                 </div>
               </div>
 
-              {/* 수정/삭제 버튼 */}
               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
                 <button
                   onClick={() => navigate(`/blog/${post.id}/edit`)}

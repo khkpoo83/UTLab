@@ -22,7 +22,7 @@ export function TabbedSectionCard({
 
   return (
     <div style={{
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       overflow: 'hidden',

@@ -12,7 +12,10 @@ import CalendarWidget from '../components/CalendarWidget'
 import PhotoWidget from '../components/PhotoWidget'
 import { Card } from '../components/Card'
 import { PageTitle } from '../components/PageTitle'
-import { formatPrice, formatPct, relativeTime } from '../utils/format'
+import { StackedCardGroup, type StackedRow } from '../components/card/StackedCardGroup'
+import { ListSectionCard } from '../components/card/ListSectionCard'
+import { SectionCard } from '../components/card/SectionCard'
+import { formatPrice, relativeTime } from '../utils/format'
 import { STRENGTH_CONFIG } from '../constants/stock'
 import {
   portfolioApi, kisApi, recommendApi, newsApi, diaryApi, settingsApi, calendarApi,
@@ -47,6 +50,12 @@ const PLANNER_MILESTONES = [
 const GRID_COLS  = 4
 const GRID_ROW_H = 180   // px per row unit
 const GRID_GAP   = 12    // px (gap-3)
+
+// 위젯 높이(h)에 들어가는 리스트 항목 수 계산 — 스크롤 없이 사이즈에 맞춤
+function fitCount(h: number, rowPx: number, headerPx = 62, footerPx = 0): number {
+  const avail = h * GRID_ROW_H + (h - 1) * GRID_GAP - headerPx - footerPx - 6 /* 여유 */
+  return Math.max(1, Math.floor(avail / rowPx))
+}
 
 interface WidgetCfg {
   id: string
@@ -775,194 +784,241 @@ function HomeContent() {
     const widgetTitle = w.customTitle ?? WIDGET_META.find(m => m.id === id)?.label ?? id
 
     switch (id) {
-      case 'portfolio':
-        return (
-          <Card icon={<Briefcase size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            right={!editMode ? (
-              <button onClick={e => { e.stopPropagation(); navigate('/portfolio') }}
-                className="text-2xs text-accent hover:underline flex items-center gap-0.5">
-                상세 <ChevronRight size={10} />
-              </button>
-            ) : undefined}
-            minH={minH} className="h-full"
-          >
-            {loading ? (
-              <div className="space-y-1.5">
-                <Skeleton className="h-6 w-36 rounded" />
-                <Skeleton className="h-4 w-24 rounded" />
-                <Skeleton className="h-3 w-28 rounded" />
+      case 'portfolio': {
+        if (loading) {
+          return (
+            <div style={{
+              background: 'var(--c-surface)', border: '1px solid var(--line)',
+              borderRadius: 'var(--r-md)', overflow: 'hidden', height: '100%',
+            }}>
+              <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--line)' }}>
+                <Skeleton className="h-2.5 w-20 rounded mb-2" />
+                <Skeleton className="h-5 w-40 rounded" />
               </div>
-            ) : itemCount === 0 ? (
-              <p className="text-xs text-zinc-400 py-1">보유 종목이 없습니다.</p>
-            ) : (
-              <div className="space-y-0.5">
-                <p className="text-xl tabular-nums text-zinc-900 dark:text-zinc-100">
-                  {formatPrice(summary.totalValue)}
-                </p>
-                <p className={`text-sm tabular-nums ${summary.pnl >= 0 ? 'text-up' : 'text-down'}`}>
-                  {formatPrice(summary.pnl)} ({formatPct(summary.pnlPct)})
-                </p>
-                <div className="flex items-center gap-2 text-xs text-zinc-500 mt-1">
-                  <span>오늘{' '}
-                    <span className={`tabular-nums ${summary.dayPnl >= 0 ? 'text-up' : 'text-down'}`}>
-                      {summary.dayPnl >= 0 ? '+' : ''}{Math.round(summary.dayPnl).toLocaleString('ko-KR')}원
-                    </span>
-                  </span>
-                  <span className="text-zinc-300 dark:text-zinc-700">·</span>
-                  <span className="text-zinc-400">{itemCount}개 종목</span>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{ padding: '14px 22px', borderBottom: i < 2 ? '1px solid var(--line-2)' : 'none' }}>
+                  <Skeleton className="h-2.5 w-16 rounded mb-2" />
+                  <Skeleton className="h-4 w-28 rounded" />
                 </div>
-              </div>
-            )}
-          </Card>
-        )
-
-      case 'news': {
-        const newsCount = w.h <= 1 ? 2 : w.h === 2 ? 5 : 8
-        const visibleNews = news.slice(0, newsCount)
+              ))}
+            </div>
+          )
+        }
+        const pfBase: StackedRow[] = itemCount === 0 ? [{ label: '안내', value: '보유 종목이 없습니다.' }] : [
+          {
+            label: '평가손익',
+            value: (summary.pnl >= 0 ? '+' : '') + formatPrice(summary.pnl),
+            trail: (summary.pnlPct >= 0 ? '+' : '') + summary.pnlPct.toFixed(2) + '%',
+            deltaTone: summary.pnl >= 0 ? 'up' : 'down',
+          },
+          {
+            label: '오늘 손익',
+            value: (summary.dayPnl >= 0 ? '+' : '') + Math.round(summary.dayPnl).toLocaleString('ko-KR') + '원',
+            deltaTone: summary.dayPnl >= 0 ? 'up' : 'down',
+          },
+          { label: '보유 종목', value: `${itemCount}개` },
+        ]
+        // 높이 티어: 작음=핵심 1행 / 기본=3지표 / 큼=+보유 상위 종목
+        let pfRows = pfBase
+        if (itemCount > 0) {
+          if (w.h <= 1) {
+            pfRows = pfBase.slice(0, 1)
+          } else if (w.h >= 3) {
+            const need = fitCount(w.h, 68, 62) - pfBase.length
+            if (need > 0) {
+              const holdings: StackedRow[] = kisAccounts
+                .flatMap(a => a.holdings)
+                .sort((x, y) => (y.current_value ?? 0) - (x.current_value ?? 0))
+                .slice(0, need)
+                .map(h => ({
+                  label: h.name,
+                  value: (h.pnl_pct >= 0 ? '+' : '') + h.pnl_pct.toFixed(2) + '%',
+                  trail: formatPrice(h.current_value),
+                  deltaTone: h.pnl_pct >= 0 ? 'up' : 'down',
+                }))
+              pfRows = [...pfBase, ...holdings]
+            }
+          }
+        }
         return (
-          <Card icon={<Newspaper size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            right={!editMode ? (
-              <button onClick={e => { e.stopPropagation(); navigate('/news') }}
-                className="text-2xs text-accent hover:underline flex items-center gap-0.5">
-                상세 <ChevronRight size={10} />
-              </button>
-            ) : undefined}
-            contentClassName="p-3 flex flex-col justify-center"
-            minH={minH} className="h-full"
-          >
-            {loading ? (
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800 -mx-3 -mb-3">
-                {Array.from({ length: newsCount }).map((_, i) => (
-                  <div key={i} className="px-3 py-2.5">
-                    <Skeleton className="h-4 w-full rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : news.length === 0 ? (
-              <p className="text-xs text-zinc-400 text-center">뉴스가 없습니다.</p>
-            ) : (
-              <div className="divide-y divide-zinc-100 dark:divide-zinc-800 -mx-3 -mb-3">
-                {visibleNews.map(item => (
-                  <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-accent/5 transition-colors">
-                    <p className="flex-1 text-xs text-zinc-700 dark:text-zinc-300 line-clamp-1">{item.title}</p>
-                    <div className="flex items-center gap-2 flex-shrink-0 text-2xs text-zinc-400 whitespace-nowrap">
-                      <span>{item.source ?? ''}</span>
-                      <span>{relativeTime(item.published_at)}</span>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
-          </Card>
+          <StackedCardGroup
+            header={{
+              eyebrow: widgetTitle,
+              title: itemCount === 0 ? '종목 없음' : formatPrice(summary.totalValue),
+              action: !editMode ? { label: '상세', onClick: () => navigate('/portfolio') } : undefined,
+            }}
+            rows={pfRows}
+            density={w.h <= 1 ? 'compact' : 'default'}
+          />
         )
       }
 
-      case 'recommend':
+      case 'news': {
+        const newsCount = fitCount(w.h, w.h <= 1 ? 34 : 38, w.h <= 1 ? 58 : 66, w.h <= 1 ? 36 : 40)
+        const visibleNews = news.slice(0, newsCount)
+        type NewsListItem = NewsItem | null
+        const newsItems: NewsListItem[] = loading
+          ? Array.from({ length: newsCount }, () => null)
+          : visibleNews
         return (
-          <Card icon={<Lightbulb size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            right={!editMode ? (
-              <button onClick={e => { e.stopPropagation(); navigate('/recommend') }}
-                className="text-2xs text-accent hover:underline flex items-center gap-0.5">
-                상세 <ChevronRight size={10} />
+          <ListSectionCard
+            header={{
+              eyebrow: widgetTitle,
+              title: '오늘의 뉴스',
+              meta: loading ? undefined : `${visibleNews.length}건`,
+            }}
+            items={newsItems}
+            renderItem={(item, i) => {
+              if (!item) {
+                return (
+                  <div style={{ padding: '10px 22px', borderBottom: '1px solid var(--line-2)' }}>
+                    <Skeleton className="h-4 w-full rounded" />
+                  </div>
+                )
+              }
+              const isLast = i === newsItems.length - 1
+              return (
+                <a href={item.url} target="_blank" rel="noopener noreferrer" style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  padding: w.h <= 1 ? '8px 18px' : '10px 22px',
+                  borderBottom: isLast ? 'none' : '1px solid var(--line-2)',
+                  textDecoration: 'none',
+                }} className="hover:bg-accent/5 transition-colors">
+                  <p style={{ flex: 1, fontSize: 13, color: 'var(--ink-1)', lineHeight: 1.4 }} className="line-clamp-1">
+                    {item.title}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-4)' }}>{item.source ?? ''}</span>
+                    <span style={{ fontSize: 11, color: 'var(--ink-5)' }}>{relativeTime(item.published_at)}</span>
+                  </div>
+                </a>
+              )
+            }}
+            footer={!editMode && !loading ? (
+              <button onClick={() => navigate('/news')} style={{
+                fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer',
+                background: 'none', border: 'none', padding: 0,
+              }}>
+                전체 뉴스 보기 →
               </button>
             ) : undefined}
-            minH={minH} className="h-full"
-          >
-            {loading ? (
-              <div className="space-y-2">
-                {[1,2,3].map(i => (
-                  <div key={i} className="flex items-center justify-between">
-                    <Skeleton className="h-4 w-24 rounded" />
-                    <Skeleton className="h-4 w-14 rounded" />
-                  </div>
-                ))}
-              </div>
-            ) : top3.length === 0 ? (
-              <p className="text-xs text-zinc-400 py-1">추천 데이터가 없습니다.</p>
-            ) : (
-              <div className="space-y-2">
-                {top3.map(item => {
-                  const strength  = item.strength ? STRENGTH_CONFIG[item.strength] : null
-                  const changeCls = (item.change_pct ?? 0) > 0 ? 'text-up' : (item.change_pct ?? 0) < 0 ? 'text-down' : ''
-                  return (
-                    <div key={item.ticker} className="flex items-center gap-2">
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs text-zinc-800 dark:text-zinc-200 truncate block">{item.name}</span>
-                        <span className="text-2xs text-zinc-400">{item.ticker}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-shrink-0 text-xs tabular-nums">
-                        {item.change_pct != null && (
-                          <span className={changeCls}>{(item.change_pct >= 0 ? '+' : '') + item.change_pct.toFixed(2) + '%'}</span>
-                        )}
-                        {strength && <span className={`text-xs ${strength.cls}`}>{strength.stars}</span>}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
+            density="compact"
+          />
         )
+      }
 
-      case 'planner':
+      case 'recommend': {
+        type RecListItem = RecommendItem | number
+        const recCount = fitCount(w.h, w.h <= 1 ? 46 : 55, w.h <= 1 ? 58 : 66, w.h <= 1 ? 40 : 44)
+        const recItems: RecListItem[] = loading ? [0, 1, 2] : top3.slice(0, recCount)
         return (
-          <Card icon={<CalendarClock size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            right={!editMode ? (
-              <button onClick={e => { e.stopPropagation(); navigate('/planner') }}
-                className="text-2xs text-accent hover:underline flex items-center gap-0.5">
-                상세 <ChevronRight size={10} />
-              </button>
-            ) : undefined}
-            minH={minH} className="h-full"
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 text-center min-w-[60px]">
-                <div className="text-2xl text-accent tabular-nums leading-none">D-{dYears}</div>
-                <div className="text-2xs text-zinc-400 mt-0.5 whitespace-nowrap">{retirementAge}세 · {retirementYear}년</div>
-              </div>
-              <div className="flex-1 space-y-1.5">
-                {upcomingMilestones.map(m => (
-                  <div key={m.year} className="flex items-center justify-between gap-1">
-                    <span className="text-2xs text-zinc-500 dark:text-zinc-400 truncate">{m.label}</span>
-                    <span className="tag tag-zinc flex-shrink-0">D-{m.year - PLANNER_CURRENT_YEAR}년</span>
+          <ListSectionCard
+            header={{
+              eyebrow: widgetTitle,
+              title: 'AI 추천',
+              meta: loading ? undefined : recItems.length > 0 ? `Top ${recItems.length}` : undefined,
+            }}
+            items={recItems}
+            renderItem={(item, i) => {
+              if (typeof item === 'number') {
+                return (
+                  <div style={{ padding: '10px 22px', borderBottom: '1px solid var(--line-2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <Skeleton className="h-3.5 w-24 rounded mb-1.5" />
+                      <Skeleton className="h-2.5 w-14 rounded" />
+                    </div>
+                    <Skeleton className="h-3.5 w-14 rounded" />
                   </div>
-                ))}
-              </div>
-            </div>
-          </Card>
+                )
+              }
+              const rec = item as RecommendItem
+              const strength = rec.strength ? STRENGTH_CONFIG[rec.strength] : null
+              const isUp   = (rec.change_pct ?? 0) > 0
+              const isDown = (rec.change_pct ?? 0) < 0
+              const isLast = i === recItems.length - 1
+              return (
+                <div style={{
+                  padding: w.h <= 1 ? '8px 22px' : '11px 22px',
+                  borderBottom: isLast ? 'none' : '1px solid var(--line-2)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <span className="ut-mono" style={{ fontSize: 10, color: 'var(--ink-4)', minWidth: 18, flexShrink: 0 }}>
+                    #{i + 1}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-0)' }} className="truncate">{rec.name}</div>
+                    <div className="ut-mono" style={{ fontSize: 10, color: 'var(--ink-4)', marginTop: 1 }}>{rec.ticker}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    {rec.change_pct != null && (
+                      <span className={`ut-mono ${isUp ? 'ut-up' : isDown ? 'ut-down' : ''}`} style={{ fontSize: 12 }}>
+                        {(rec.change_pct >= 0 ? '+' : '') + rec.change_pct.toFixed(2) + '%'}
+                      </span>
+                    )}
+                    {strength && <span style={{ fontSize: 12 }} className={strength.cls}>{strength.stars}</span>}
+                  </div>
+                </div>
+              )
+            }}
+            footer={!editMode && !loading ? (
+              top3.length === 0 ? (
+                <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>추천 데이터가 없습니다.</span>
+              ) : (
+                <button onClick={() => navigate('/recommend')} style={{
+                  fontSize: 12, color: 'var(--ink-4)', cursor: 'pointer',
+                  background: 'none', border: 'none', padding: 0,
+                }}>
+                  전체 추천 보기 →
+                </button>
+              )
+            ) : undefined}
+            density={w.h <= 1 ? 'compact' : 'default'}
+          />
         )
+      }
+
+      case 'planner': {
+        const plBase: StackedRow[] = [
+          { label: '목표 은퇴', value: `${retirementAge}세`, trail: `${retirementYear}년` },
+          ...upcomingMilestones.map(m => ({
+            label: m.label,
+            value: `D-${m.year - PLANNER_CURRENT_YEAR}년`,
+            trail: `${m.year}년 (${m.age}세)`,
+          })),
+        ]
+        // 높이 티어: 작음=D-은퇴 1행 / 그 이상=들어가는 만큼
+        const plRows = w.h <= 1 ? plBase.slice(0, 1) : plBase.slice(0, fitCount(w.h, 68, 62))
+        return (
+          <StackedCardGroup
+            header={{
+              eyebrow: widgetTitle,
+              title: `D-${dYears}년`,
+              action: !editMode ? { label: '플래너', onClick: () => navigate('/planner') } : undefined,
+            }}
+            rows={plRows}
+            density={w.h <= 1 ? 'compact' : 'default'}
+          />
+        )
+      }
 
       case 'diary': {
         const rd = diary?.raw_data
         const dailyPnl = rd?.true_daily_pnl
         const cumPnl = rd?.pnl
         const cumPnlPct = rd?.pnl_pct
-        const dailyCls = dailyPnl != null ? (dailyPnl >= 0 ? 'text-up' : 'text-down') : ''
-        const cumCls = cumPnl != null ? (cumPnl >= 0 ? 'text-up' : 'text-down') : ''
         const diaryDateLabel = diary
           ? (() => { const [, m, d] = diary.diary_date.split('-'); return `${parseInt(m)}월 ${parseInt(d)}일` })()
-          : null
+          : '투자 일기'
         const fmtKrw = (v: number) =>
           Math.abs(v) >= 100_000_000
             ? `${(v / 100_000_000).toFixed(2)}억원`
             : `${Math.round(v).toLocaleString('ko-KR')}원`
-        const dailyStr = dailyPnl != null
-          ? `${dailyPnl >= 0 ? '▲' : '▼'} ${fmtKrw(Math.abs(dailyPnl))} 전일 대비`
-          : null
-        const cumStr = cumPnl != null && cumPnlPct != null
-          ? `누적 ${cumPnl >= 0 ? '+' : ''}${fmtKrw(cumPnl)} (${cumPnlPct >= 0 ? '+' : ''}${cumPnlPct.toFixed(2)}%)`
-          : null
 
         return (
-          <Card icon={<BookOpen size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            minH={minH} className="h-full flex flex-col"
-            contentClassName="p-4 flex-1 min-h-0 overflow-y-auto"
+          <SectionCard
+            eyebrow={widgetTitle}
+            title={diaryDateLabel}
+            density={w.h <= 1 ? 'compact' : 'default'}
           >
             {loading ? (
               <div className="space-y-1.5">
@@ -971,33 +1027,34 @@ function HomeContent() {
                 <Skeleton className="h-3 w-4/6 rounded" />
               </div>
             ) : !diary ? (
-              <p className="text-xs text-zinc-400 py-1 text-center">
+              <p style={{ fontSize: 12, color: 'var(--ink-4)', textAlign: 'center', padding: '8px 0' }}>
                 아직 일기가 없습니다.<br />
-                <span className="text-2xs">장이 있는 날 새벽에 자동으로 작성됩니다.</span>
+                <span style={{ fontSize: 11 }}>장이 있는 날 새벽에 자동으로 작성됩니다.</span>
               </p>
             ) : (
-              <div className="space-y-1.5">
-                {/* 날짜 + 수익률 헤더 */}
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  {diaryDateLabel && (
-                    <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-100 leading-tight shrink-0">
-                      {diaryDateLabel}
-                    </h3>
-                  )}
-                  {cumStr && (
-                    <span className={`text-xs font-semibold tabular-nums ${cumCls}`}>{cumStr}</span>
-                  )}
-                </div>
-                {/* 전일 대비 변동 (상승/하락만 — '수익/손실' 표현 배제) */}
-                {dailyStr != null && (
-                  <p className={`text-2xs tabular-nums ${dailyCls}`}>{dailyStr}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {(cumPnl != null || dailyPnl != null) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', alignItems: 'baseline' }}>
+                    {cumPnl != null && cumPnlPct != null && (
+                      <span className={`ut-mono ${cumPnl >= 0 ? 'ut-up' : 'ut-down'}`} style={{ fontSize: 12, fontWeight: 600 }}>
+                        누적 {cumPnl >= 0 ? '+' : ''}{fmtKrw(cumPnl)} ({cumPnlPct >= 0 ? '+' : ''}{cumPnlPct.toFixed(2)}%)
+                      </span>
+                    )}
+                    {dailyPnl != null && (
+                      <span className={`ut-mono ${dailyPnl >= 0 ? 'ut-up' : 'ut-down'}`} style={{ fontSize: 11, opacity: 0.8 }}>
+                        {dailyPnl >= 0 ? '▲' : '▼'} {fmtKrw(Math.abs(dailyPnl))} 전일 대비
+                      </span>
+                    )}
+                  </div>
                 )}
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                <p className="ut-body-sm" style={{
+                  lineHeight: 1.65, whiteSpace: 'pre-wrap',
+                }}>
                   {diary.content}
                 </p>
               </div>
             )}
-          </Card>
+          </SectionCard>
         )
       }
 
@@ -1010,9 +1067,10 @@ function HomeContent() {
             <div className="grid grid-cols-4 gap-2">
               {NAV_CARDS.map(card => (
                 <button key={card.to} onClick={() => navigate(card.to)}
-                  className="flex flex-col items-center gap-1.5 py-3 border border-zinc-200 dark:border-zinc-700 rounded-xl surface hover:border-zinc-300 dark:hover:border-zinc-600 hover:bg-accent/5 transition-colors">
-                  <span className="text-zinc-400 dark:text-zinc-500">{card.icon}</span>
-                  <span className="text-2xs text-zinc-500 dark:text-zinc-400">{card.label}</span>
+                  className="flex flex-col items-center gap-1.5 py-3 hover:bg-accent/5 transition-colors"
+                  style={{ border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', background: 'var(--c-surface)' }}>
+                  <span style={{ color: 'var(--ink-4)' }}>{card.icon}</span>
+                  <span style={{ fontSize: 11, color: 'var(--ink-3)', fontWeight: 600 }}>{card.label}</span>
                 </button>
               ))}
             </div>
@@ -1042,54 +1100,61 @@ function HomeContent() {
         )
 
       case 'calendar-events': {
-        const nowIso    = new Date().toISOString()
-        const showCount = w.h <= 1 ? 2 : w.h === 2 ? 5 : 8
-        const showDetails = w.h >= 2
+        const nowIso = new Date().toISOString()
+        const showCount = fitCount(w.h, w.h <= 1 ? 50 : 54, w.h <= 1 ? 58 : 66)
         const upcoming = [...upcomingEvents]
           .filter(ev => ev.start_dt && ev.start_dt >= nowIso)
           .sort((a, b) => (a.start_dt ?? '').localeCompare(b.start_dt ?? ''))
           .slice(0, showCount)
 
         return (
-          <Card icon={<CalendarClock size={14} />} title={widgetTitle}
-            dragHandle={editMode ? <Move size={13} className="text-accent/60" /> : undefined}
-            contentClassName="p-3 flex flex-col justify-center"
-            minH={minH} className="h-full"
-          >
-            {upcoming.length === 0 ? (
-              <p className="text-xs text-zinc-400 text-center">
+          <ListSectionCard
+            header={{
+              eyebrow: widgetTitle,
+              title: '다가오는 일정',
+              meta: upcoming.length > 0 ? `${upcoming.length}건` : undefined,
+            }}
+            items={upcoming}
+            renderItem={(ev, i) => {
+              const d = new Date(ev.start_dt! + 'Z')
+              const kstD = new Date(d.getTime() + 9 * 3600 * 1000)
+              const dateStr = ev.all_day
+                ? `${kstD.getUTCMonth()+1}월 ${kstD.getUTCDate()}일`
+                : `${kstD.getUTCMonth()+1}/${kstD.getUTCDate()} ${String(kstD.getUTCHours()).padStart(2,'0')}:${String(kstD.getUTCMinutes()).padStart(2,'0')}`
+              const isToday = kstD.toDateString() === new Date(new Date().getTime() + 9*3600*1000).toDateString()
+              const isLast = i === upcoming.length - 1
+              return (
+                <div key={ev.id} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: w.h <= 1 ? '8px 18px' : '10px 22px',
+                  borderBottom: isLast ? 'none' : '1px solid var(--line-2)',
+                }}>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: '50%', marginTop: 5, flexShrink: 0,
+                    background: isToday ? 'var(--up)' : 'var(--dot)',
+                  }} />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 13, color: 'var(--ink-1)', lineHeight: 1.3 }} className="truncate">
+                      {ev.summary ?? '(제목 없음)'}
+                    </p>
+                    <p className="ut-mono" style={{
+                      fontSize: 11, marginTop: 2,
+                      color: isToday ? 'var(--up)' : 'var(--ink-4)',
+                      fontWeight: isToday ? 600 : 400,
+                    }}>
+                      {dateStr}{isToday ? ' · 오늘' : ''}
+                    </p>
+                  </div>
+                </div>
+              )
+            }}
+            footer={upcoming.length === 0 ? (
+              <span style={{ fontSize: 12, color: 'var(--ink-4)' }}>
                 {upcomingEvents.length === 0 ? '연동된 일정이 없습니다' : '예정된 일정이 없습니다'}
-              </p>
-            ) : (
-              <div className="space-y-2 overflow-hidden">
-                {upcoming.map(ev => {
-                  const d    = new Date(ev.start_dt! + 'Z')
-                  const kstD = new Date(d.getTime() + 9 * 3600 * 1000)
-                  const dateStr = ev.all_day
-                    ? `${kstD.getUTCMonth()+1}월 ${kstD.getUTCDate()}일`
-                    : `${kstD.getUTCMonth()+1}/${kstD.getUTCDate()} ${String(kstD.getUTCHours()).padStart(2,'0')}:${String(kstD.getUTCMinutes()).padStart(2,'0')}`
-                  const isToday = kstD.toDateString() === new Date(new Date().getTime() + 9*3600*1000).toDateString()
-                  return (
-                    <div key={ev.id} className="flex items-start gap-2.5">
-                      <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${isToday ? 'bg-up' : 'bg-accent'}`} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-tight truncate">{ev.summary ?? '(제목 없음)'}</p>
-                        <p className={`text-2xs mt-0.5 tabular-nums ${isToday ? 'text-up font-medium' : 'text-zinc-400'}`}>
-                          {dateStr}{isToday ? ' · 오늘' : ''}
-                        </p>
-                        {showDetails && ev.location && (
-                          <p className="text-2xs mt-0.5 text-zinc-400 truncate">📍 {ev.location}</p>
-                        )}
-                        {showDetails && ev.description && (
-                          <p className="text-2xs mt-0.5 text-zinc-400 line-clamp-1">{ev.description}</p>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Card>
+              </span>
+            ) : undefined}
+            density={w.h <= 1 ? 'compact' : 'default'}
+          />
         )
       }
 

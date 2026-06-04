@@ -1,11 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import {
-  Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper, AlertCircle,
+  Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper,
   User, Lock, Check, X, Calendar, RefreshCw, Unlink, ExternalLink, Wifi, WifiOff,
-  PanelLeft, PanelTop, RectangleHorizontal, CloudSun,
+  PanelLeft, PanelTop, RectangleHorizontal, Scroll, Layers, Plug, Plus,
 } from 'lucide-react'
 import { NavModeContext } from '../contexts'
-import apiClient, { settingsApi, profileApi, authApi, calendarApi, UserProfile, AiUsageStats, CalendarStatus } from '../api/client'
+import { settingsApi, profileApi, authApi, calendarApi, investmentMarksApi, UserProfile, AiUsageStats, CalendarStatus } from '../api/client'
 import { Card } from '../components/Card'
 import ProgressBar from '../components/ProgressBar'
 import {
@@ -27,6 +27,15 @@ import {
   applyUiRadius, getUiRadius, UiRadius, getCardOpacity, applyCardOpacity,
   applyDotColor, getDotColor,
 } from '../utils/settings-utils'
+import { Button } from '../components/settings/Button'
+import { OptionTile, OptionGrid } from '../components/settings/OptionTile'
+import { Toggle } from '../components/settings/Toggle'
+import { RangeField } from '../components/settings/RangeField'
+import { SettingRow } from '../components/settings/SettingRow'
+import { Segmented } from '../components/settings/Segmented'
+import { SwatchRow } from '../components/settings/Swatch'
+import { SettingsLayout } from '../components/settings/SettingsLayout'
+import type { SettingsTab, SettingsSection } from '../components/settings/SettingsLayout'
 
 // Re-export for backward compat (외부에서 Settings를 직접 import하는 경우 대비)
 export type { PnlColorConfig, UiRadius }
@@ -55,62 +64,37 @@ const PROFILE_ICON_LIST: { id: string; label: string }[] = [
 function ProfileIconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const resolved = resolveProfileIcon(value)
   return (
-    <div className="grid grid-cols-6 gap-2">
+    <OptionGrid cols={6}>
       {PROFILE_ICON_LIST.map(({ id, label }) => (
-        <button
+        <OptionTile
           key={id}
+          active={resolved === id}
           onClick={() => onChange(id)}
           title={label}
-          className={`flex flex-col items-center gap-1 py-2.5 rounded-xl border-2 transition-all ${
-            resolved === id
-              ? 'border-accent bg-zinc-50 dark:bg-zinc-800'
-              : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 bg-white dark:bg-zinc-900'
-          }`}
-          style={resolved === id ? { borderColor: 'var(--c-accent)' } : {}}
-        >
-          <img src={`/profile-icons/${id}.png`} width={36} height={36} alt="" style={{ objectFit: 'contain' }} />
-          <span className="text-2xs text-zinc-500 dark:text-zinc-400 leading-none">{label}</span>
-        </button>
+          preview={<img src={`/profile-icons/${id}.png`} width={36} height={36} alt="" style={{ objectFit: 'contain' }} />}
+          label={label}
+        />
       ))}
-    </div>
+    </OptionGrid>
   )
 }
 
-
 // ── 로고 아이콘 피커 ──────────────────────────────────────────────────────────
 
-function LogoIconPicker({
-  svgValue,
-  onSvg,
-}: {
-  svgValue: LogoAnyStyle
-  onSvg: (s: LogoAnyStyle) => void
-}) {
+function LogoIconPicker({ svgValue, onSvg }: { svgValue: LogoAnyStyle; onSvg: (s: LogoAnyStyle) => void }) {
   return (
-    <div className="space-y-4">
-      <p className="text-2xs text-zinc-400">로고 아이콘을 선택합니다.</p>
-      <div className="grid grid-cols-5 gap-2">
-        {NEW_LOGO_STYLES.map(s => {
-          const active = svgValue === s.id
-          return (
-            <button
-              key={s.id}
-              onClick={() => onSvg(s.id)}
-              className={`flex flex-col items-center gap-2 py-3 px-1 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-                active ? 'border-2' : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-              }`}
-              style={active ? { borderColor: 'var(--c-accent)' } : {}}
-            >
-              <s.Component size={44} />
-              <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 text-center leading-tight">
-                {s.label}<br />
-                <span className="text-zinc-400 dark:text-zinc-500 font-normal">{s.desc}</span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <OptionGrid cols={5}>
+      {NEW_LOGO_STYLES.map(s => (
+        <OptionTile
+          key={s.id}
+          active={svgValue === s.id}
+          onClick={() => onSvg(s.id)}
+          title={s.desc}
+          preview={<s.Component size={38} />}
+          label={s.label}
+        />
+      ))}
+    </OptionGrid>
   )
 }
 
@@ -127,7 +111,9 @@ const PNL_PRESETS = [
 function PnlColorPicker({ value, onChange }: { value: PnlColorConfig; onChange: (c: PnlColorConfig) => void }) {
   const isCustom = value.preset === 'custom'
 
-  const selectPreset = (p: typeof PNL_PRESETS[number]) => {
+  const selectPreset = (id: string) => {
+    const p = PNL_PRESETS.find(x => x.id === id)
+    if (!p) return
     if (p.id === 'custom') {
       onChange({ ...value, preset: 'custom' })
     } else {
@@ -136,45 +122,19 @@ function PnlColorPicker({ value, onChange }: { value: PnlColorConfig; onChange: 
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-2xs text-zinc-400">상승/하락 표시 색상을 변경합니다. 저장 후 적용됩니다.</p>
-
-      {/* 프리셋 */}
-      <div className="flex flex-wrap gap-2">
-        {PNL_PRESETS.map(p => {
-          const active = value.preset === p.id
-          return (
-            <button
-              key={p.id}
-              onClick={() => selectPreset(p)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                active
-                  ? 'border-2 bg-zinc-50 dark:bg-zinc-800'
-                  : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-              }`}
-              style={active ? { borderColor: p.id !== 'custom' ? p.upLight : '#71717a' } : {}}
-            >
-              {p.id !== 'custom' && (
-                <span className="flex gap-1">
-                  <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: p.upLight }} />
-                  <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: p.downLight }} />
-                </span>
-              )}
-              <span className="text-zinc-700 dark:text-zinc-300">{p.label}</span>
-            </button>
-          )
-        })}
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <Segmented
+          value={value.preset}
+          onChange={selectPreset}
+          options={PNL_PRESETS.map(p => ({ value: p.id, label: p.label }))}
+        />
+        <span className="flex items-center gap-1.5 text-sm font-semibold tabular-nums">
+          <span style={{ color: value.upLight }}>▲3.45%</span>
+          <span style={{ color: value.downLight }}>▼2.10%</span>
+        </span>
       </div>
 
-      {/* 미리보기 */}
-      <div className="flex items-center gap-4 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
-        <span className="text-xs text-zinc-500">미리보기</span>
-        <span className="text-sm font-semibold tabular-nums" style={{ color: value.upLight }}>▲ 3.45%</span>
-        <span className="text-sm font-semibold tabular-nums" style={{ color: value.downLight }}>▼ 2.10%</span>
-        <span className="text-2xs text-zinc-400">(라이트 기준)</span>
-      </div>
-
-      {/* 직접 선택 — custom 프리셋일 때만 표시 */}
       {isCustom && (
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -212,13 +172,13 @@ const BG_TYPES: { id: BgType; label: string }[] = [
   { id: 'cross',    label: '크로스' },
 ]
 
-const GRADIENT_DIRS: { dir: GradientDir; label: string; symbol: string }[] = [
-  { dir: '90deg',  label: '→',  symbol: '→' },
-  { dir: '135deg', label: '↘',  symbol: '↘' },
-  { dir: '180deg', label: '↓',  symbol: '↓' },
-  { dir: '225deg', label: '↙',  symbol: '↙' },
-  { dir: '45deg',  label: '↗',  symbol: '↗' },
-  { dir: '0deg',   label: '↑',  symbol: '↑' },
+const GRADIENT_DIRS: { dir: GradientDir; symbol: string }[] = [
+  { dir: '90deg',  symbol: '→' },
+  { dir: '135deg', symbol: '↘' },
+  { dir: '180deg', symbol: '↓' },
+  { dir: '225deg', symbol: '↙' },
+  { dir: '45deg',  symbol: '↗' },
+  { dir: '0deg',   symbol: '↑' },
 ]
 
 function BgPreviewSwatch({ cfg, size = 40 }: { cfg: BgConfig; size?: number }) {
@@ -272,83 +232,40 @@ function BackgroundPicker({ value, onChange }: { value: BgConfig; onChange: (cfg
 
   return (
     <div className="space-y-4">
-      <p className="text-2xs text-zinc-400">저장 후 적용됩니다.</p>
-
       {/* 유형 선택 */}
       <div>
-        <label className="text-xs text-zinc-500 block mb-2">배경 유형</label>
-        <div className="flex gap-2 flex-wrap">
+        <OptionGrid>
           {BG_TYPES.map(bt => (
-            <button
+            <OptionTile
               key={bt.id}
+              active={value.type === bt.id}
               onClick={() => update({ type: bt.id })}
-              className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all bg-white dark:bg-zinc-900 ${
-                value.type === bt.id
-                  ? 'border-2 bg-zinc-50 dark:bg-zinc-800'
-                  : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-              }`}
-              style={value.type === bt.id ? { borderColor: 'var(--c-accent)' } : {}}
-            >
-              <BgPreviewSwatch cfg={{ ...value, type: bt.id }} size={32} />
-              <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400">{bt.label}</span>
-            </button>
+              preview={<BgPreviewSwatch cfg={{ ...value, type: bt.id }} size={32} />}
+              label={bt.label}
+            />
           ))}
-        </div>
+        </OptionGrid>
       </div>
 
       {/* 단색 옵션 */}
       {value.type === 'solid' && (
         <div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl">
-          <ColorInput
-            label="배경 색상"
-            value={value.solidColor || '#f8fafc'}
-            onChange={v => update({ solidColor: v })}
-          />
-          <div className="mt-2">
-            <label className="text-xs text-zinc-500 block mb-1.5">미리보기</label>
-            <BgPreviewSwatch cfg={value} size={80} />
-          </div>
+          <ColorInput label="배경 색상" value={value.solidColor || '#f8fafc'} onChange={v => update({ solidColor: v })} />
         </div>
       )}
 
       {/* 그라디언트 옵션 */}
       {value.type === 'gradient' && (
         <div className="space-y-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-xl">
-          <ColorInput
-            label="시작 색상"
-            value={value.gradientFrom || '#e0f2fe'}
-            onChange={v => update({ gradientFrom: v })}
+          <ColorInput label="시작 색상" value={value.gradientFrom || '#e0f2fe'} onChange={v => update({ gradientFrom: v })} />
+          <ColorInput label="종료 색상" value={value.gradientTo || '#fdf4ff'} onChange={v => update({ gradientTo: v })} />
+          <Segmented<GradientDir>
+            value={value.gradientDir ?? '135deg'}
+            onChange={d => update({ gradientDir: d })}
+            options={GRADIENT_DIRS.map(gd => ({ value: gd.dir, label: gd.symbol }))}
           />
-          <ColorInput
-            label="종료 색상"
-            value={value.gradientTo || '#fdf4ff'}
-            onChange={v => update({ gradientTo: v })}
-          />
-          <div>
-            <label className="text-xs text-zinc-500 block mb-2">방향</label>
-            <div className="flex gap-2">
-              {GRADIENT_DIRS.map(gd => (
-                <button
-                  key={gd.dir}
-                  onClick={() => update({ gradientDir: gd.dir })}
-                  className={`w-9 h-9 rounded-lg border text-sm font-bold transition-all ${
-                    value.gradientDir === gd.dir
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300 dark:hover:border-zinc-600'
-                  }`}
-                >
-                  {gd.symbol}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 block mb-1.5">미리보기</label>
-            <BgPreviewSwatch cfg={value} size={80} />
-          </div>
         </div>
       )}
-
 
       {isPattern && (
         <div className="space-y-3">
@@ -364,22 +281,8 @@ function BackgroundPicker({ value, onChange }: { value: BgConfig; onChange: (cfg
               <span className="text-xs text-zinc-400 font-mono">{value.patternColor}</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-zinc-500 w-20 flex-shrink-0">크기</label>
-            <input type="range" min={10} max={60} step={2} value={value.size}
-              onChange={e => update({ size: Number(e.target.value) })} className="flex-1" />
-            <span className="text-xs text-zinc-400 w-10 text-right">{value.size}px</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <label className="text-xs text-zinc-500 w-20 flex-shrink-0">불투명도</label>
-            <input type="range" min={5} max={100} step={5} value={value.opacity}
-              onChange={e => update({ opacity: Number(e.target.value) })} className="flex-1" />
-            <span className="text-xs text-zinc-400 w-10 text-right">{value.opacity}%</span>
-          </div>
-          <div>
-            <label className="text-xs text-zinc-500 block mb-1.5">미리보기</label>
-            <BgPreviewSwatch cfg={value} size={80} />
-          </div>
+          <RangeField label="크기" min={10} max={60} step={2} value={value.size} onChange={v => update({ size: v })} display={`${value.size}px`} labelWidth={80} />
+          <RangeField label="불투명도" min={5} max={100} step={5} value={value.opacity} onChange={v => update({ opacity: v })} display={`${value.opacity}%`} labelWidth={80} />
         </div>
       )}
     </div>
@@ -537,177 +440,194 @@ const RADIUS_OPTIONS: { id: UiRadius; label: string; value: string; desc: string
 ]
 
 function RadiusPicker({ value, onChange }: { value: UiRadius; onChange: (r: UiRadius) => void }) {
-  const handleChange = (r: UiRadius) => {
-    applyUiRadius(r)
-    onChange(r)
-  }
-
   return (
-    <div className="flex gap-2">
-      {RADIUS_OPTIONS.map(opt => {
-        const active = value === opt.id
-        const previewR = opt.value === '0rem' ? '0px' : opt.value
-        return (
-          <button
-            key={opt.id}
-            onClick={() => handleChange(opt.id)}
-            className={`flex-1 flex flex-col items-center gap-2 py-3 border-2 transition-all ${
-              active
-                ? 'border-accent bg-accent/5'
-                : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-            }`}
-            style={{
-              borderRadius: opt.value,
-              ...(active ? { borderColor: 'var(--c-accent)' } : {}),
-            }}
-            title={opt.desc}
-          >
-            {/* 미리보기 사각형 */}
-            <div
-              className={`w-8 h-8 border-2 ${active ? 'border-accent bg-accent/10' : 'border-zinc-300 dark:border-zinc-600'}`}
-              style={{ borderRadius: previewR }}
-            />
-            <div className="text-center">
-              <div className={`text-xs font-medium ${active ? 'text-accent' : 'text-zinc-600 dark:text-zinc-400'}`}>
-                {opt.label}
-              </div>
-              <div className="text-[10px] text-zinc-400">{opt.desc}</div>
-            </div>
-          </button>
-        )
-      })}
-    </div>
+    <Segmented
+      value={value}
+      onChange={r => { applyUiRadius(r); onChange(r) }}
+      options={RADIUS_OPTIONS.map(o => ({ value: o.id, label: o.label }))}
+    />
   )
 }
 
 // ── 메뉴 방식 선택기 ──────────────────────────────────────────────────────────
 
-function NavModePicker() {
-  const { navMode, setNavMode } = useContext(NavModeContext)
-
-  const options: { id: 'top' | 'sidebar'; label: string; desc: string; Icon: React.ElementType }[] = [
-    { id: 'top',     label: '상단 메뉴',   desc: '그룹 탭 + 서브탭 방식', Icon: PanelTop  },
-    { id: 'sidebar', label: '좌측 사이드바', desc: '모던 사이드 네비게이션', Icon: PanelLeft },
-  ]
-
-  const handleChange = (mode: 'top' | 'sidebar') => {
-    setNavMode(mode)
-    apiClient.put('/api/settings', { settings: { ui_nav_mode: mode } }).catch(() => {})
-    window.dispatchEvent(new CustomEvent('navModeChange', { detail: { mode } }))
-  }
-
+function NavModePicker({ value, onChange }: { value: 'top' | 'sidebar'; onChange: (mode: 'top' | 'sidebar') => void }) {
   return (
-    <div className="flex gap-3">
-      {options.map(opt => (
-        <button
-          key={opt.id}
-          onClick={() => handleChange(opt.id)}
-          className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${
-            navMode === opt.id
-              ? 'border-accent bg-accent/5'
-              : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-          }`}
-          style={navMode === opt.id ? { borderColor: 'var(--c-accent)' } : {}}
-        >
-          <opt.Icon size={22} className={navMode === opt.id ? 'text-accent' : 'text-zinc-400'} />
-          <div className="text-center">
-            <div className={`text-sm font-medium ${navMode === opt.id ? 'text-accent' : 'text-zinc-700 dark:text-zinc-200'}`}>
-              {opt.label}
-            </div>
-            <div className="text-xs text-zinc-400 mt-0.5">{opt.desc}</div>
-          </div>
-        </button>
-      ))}
-    </div>
+    <Segmented
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'top',     label: '상단 메뉴',   icon: <PanelTop size={14} /> },
+        { value: 'sidebar', label: '좌측 사이드바', icon: <PanelLeft size={14} /> },
+      ]}
+    />
   )
 }
 
 // ── 오버레이 스타일 픽커 ──────────────────────────────────────────────────────
 
 function OverlayStylePicker({ value, onChange }: { value: OverlayStyle; onChange: (s: OverlayStyle) => void }) {
-  const PREVIEWS: Record<OverlayStyle, { bg: string; label: string }> = {
-    both:    { bg: 'rgba(0,0,0,0.5)',     label: '반투명 + 블러' },
-    dim:     { bg: 'rgba(0,0,0,0.5)',     label: '반투명 음영' },
-    blur:    { bg: 'rgba(0,0,0,0.15)',    label: '밝은 + 블러' },
-    frosted: { bg: 'rgba(200,200,200,0.3)', label: '프로스트' },
-    none:    { bg: 'transparent',         label: '없음' },
-  }
-
   return (
-    <div className="space-y-3">
-      <p className="text-2xs text-zinc-400">모달·슬라이드 패널 열릴 때 배경 처리 방식입니다.</p>
-      <div className="flex gap-2 flex-wrap">
-        {OVERLAY_OPTIONS.map(opt => {
-          const active = value === opt.id
-          const prev = PREVIEWS[opt.id]
-          return (
-            <button
-              key={opt.id}
-              onClick={() => onChange(opt.id)}
-              className={`flex flex-col items-center gap-2 px-3 py-3 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 ${
-                active
-                  ? 'bg-zinc-50 dark:bg-zinc-800'
-                  : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-              }`}
-              style={active ? { borderColor: 'var(--c-accent)' } : {}}
-            >
-              {/* 미리보기 */}
-              <div className="w-10 h-8 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-200 to-pink-200" />
-                <div className="absolute inset-0" style={{ background: prev.bg }} />
-              </div>
-              <span className={`text-xs font-medium ${active ? 'text-accent' : 'text-zinc-600 dark:text-zinc-400'}`}>{opt.label}</span>
-              <span className="text-[10px] text-zinc-400">{opt.desc}</span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
+    <Segmented<OverlayStyle>
+      value={value}
+      onChange={onChange}
+      options={OVERLAY_OPTIONS.map(o => ({ value: o.id, label: o.label }))}
+    />
   )
 }
 
 // ── 날씨 아이콘 스타일 피커 ───────────────────────────────────────────────────
 
-// 미리보기에 사용할 WMO 코드: 맑음/구름조금/비/눈
-const ICON_PREVIEW_CODES = [0, 2, 61, 71]
-
-function WeatherIconStylePicker() {
-  const [active, setActive] = useState<WeatherIconStyle>(getWeatherIconStyle)
-
+function WeatherIconStylePicker({ value, onChange }: { value: WeatherIconStyle; onChange: (id: WeatherIconStyle) => void }) {
   function handleSelect(id: WeatherIconStyle) {
     saveWeatherIconStyle(id)
-    setActive(id)
+    onChange(id)
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-2xs text-zinc-400">날씨 위젯 아이콘 스타일을 선택합니다. 즉시 적용됩니다.</p>
-      <div className="grid grid-cols-3 gap-2">
-        {WEATHER_ICON_STYLES.map(style => (
-          <button
-            key={style.id}
-            onClick={() => handleSelect(style.id)}
-            className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 ${
-              active === style.id
-                ? 'bg-zinc-50 dark:bg-zinc-800'
-                : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-            }`}
-            style={active === style.id ? { borderColor: 'var(--c-accent)' } : {}}
-          >
-            <div className="flex gap-1.5 items-center justify-center">
-              {ICON_PREVIEW_CODES.map(code => (
-                <WeatherBadge key={code} code={code} size={26} iconStyle={style.id} />
-              ))}
-            </div>
-            <span className={`text-xs font-medium leading-tight ${active === style.id ? 'text-accent' : 'text-zinc-700 dark:text-zinc-300'}`}>
-              {style.label}
-            </span>
-            <span className="text-[10px] text-zinc-400 leading-tight text-center">{style.desc}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <OptionGrid>
+      {WEATHER_ICON_STYLES.map(style => (
+        <OptionTile
+          key={style.id}
+          row
+          active={value === style.id}
+          onClick={() => handleSelect(style.id)}
+          title={style.desc}
+          preview={<WeatherBadge code={0} size={18} iconStyle={style.id} />}
+          label={style.label}
+        />
+      ))}
+    </OptionGrid>
   )
+}
+
+// ── 메모 색상 모드 픽커 ───────────────────────────────────────────────────────
+
+function MemoColorPicker({ value, onChange }: { value: 'pastel' | 'theme'; onChange: (m: 'pastel' | 'theme') => void }) {
+  return (
+    <Segmented<'pastel' | 'theme'>
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: 'pastel', label: '파스텔' },
+        { value: 'theme',  label: '테마 색상' },
+      ]}
+    />
+  )
+}
+
+// ── 포인트 색상 픽커 ──────────────────────────────────────────────────────────
+
+const DOT_COLORS = [
+  { label: '앰버',     hex: '#F59E0B' },
+  { label: '오렌지',   hex: '#F97316' },
+  { label: '옐로우',   hex: '#EAB308' },
+  { label: '라임',     hex: '#84CC16' },
+  { label: '에메랄드', hex: '#10B981' },
+  { label: '스카이',   hex: '#0EA5E9' },
+  { label: '바이올렛', hex: '#8B5CF6' },
+  { label: '로즈',     hex: '#F43F5E' },
+]
+
+function DotColorPicker({ value, onChange }: { value: string; onChange: (hex: string) => void }) {
+  return (
+    <SwatchRow value={value} colors={DOT_COLORS.map(c => ({ label: c.label, hex: c.hex }))} onChange={onChange} />
+  )
+}
+
+// ── 푸터 배경 픽커 ────────────────────────────────────────────────────────────
+
+const FOOTER_BG_OPTIONS = [
+  {
+    id: 'particle', label: '파티클', desc: '떨어지는 입자',
+    preview: (
+      <svg viewBox="0 0 60 44" className="w-full mb-1" style={{ height: 40 }}>
+        {[[12,8],[28,14],[44,6],[8,26],[36,30],[52,20],[20,38],[48,38]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r={1.5} fill="currentColor" opacity={0.4+i*0.05}/>
+        ))}
+        {[[16,18],[32,22],[50,12]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r={1} fill="currentColor" opacity={0.25}/>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: 'prism', label: '프리즘', desc: '크리스탈 패턴',
+    preview: (
+      <svg viewBox="0 0 60 44" className="w-full mb-1" style={{ height: 40 }}>
+        {[[30,2,58,22,30,42],[30,2,30,42,2,22],[2,22,30,42,30,22],[30,22,58,22,30,42]].map((pts,i)=>(
+          <polygon key={i} points={pts.reduce((a,v,j)=>j%2?a+','+v:a+(a?' ':'')+v,'')}
+            fill="currentColor" opacity={0.06+i*0.06} stroke="currentColor" strokeWidth={0.6} strokeOpacity={0.2}/>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: 'wire', label: '와이어', desc: '기하학적 선',
+    preview: (
+      <svg viewBox="0 0 60 44" className="w-full mb-1" style={{ height: 40 }}>
+        <polygon points="30,3 52,16 52,31 30,44 8,31 8,16" fill="none" stroke="currentColor" strokeWidth={1} strokeOpacity={0.35}/>
+        <polygon points="30,10 44,22 30,34 16,22" fill="none" stroke="currentColor" strokeWidth={0.8} strokeOpacity={0.5}/>
+        <line x1="8" y1="16" x2="52" y2="31" stroke="currentColor" strokeWidth={0.6} strokeOpacity={0.2}/>
+        <line x1="52" y1="16" x2="8" y2="31" stroke="currentColor" strokeWidth={0.6} strokeOpacity={0.2}/>
+        {[[30,3],[52,16],[52,31],[30,44],[8,31],[8,16],[30,22]].map(([x,y],i)=>(
+          <circle key={i} cx={x} cy={y} r={1.4} fill="currentColor" opacity={0.55}/>
+        ))}
+      </svg>
+    ),
+  },
+]
+
+// ── 마퀴 표시형태/위치 미리보기 ───────────────────────────────────────────────
+
+const MARQUEE_TYPES = [
+  {
+    id: 'triple', label: '3단 (대·중·소)',
+    preview: (
+      <div className="space-y-1 w-full px-2">
+        <div className="h-3 rounded" style={{ background: 'currentColor', opacity: 0.8 }} />
+        <div className="h-2 rounded" style={{ background: 'currentColor', opacity: 0.5 }} />
+        <div className="h-1.5 rounded" style={{ background: 'currentColor', opacity: 0.3 }} />
+      </div>
+    ),
+  },
+  {
+    id: 'single', label: '한 줄 (소형)',
+    preview: (
+      <div className="w-full px-2 flex items-center" style={{ height: 28 }}>
+        <div className="h-1.5 rounded w-full" style={{ background: 'currentColor', opacity: 0.5 }} />
+      </div>
+    ),
+  },
+]
+
+const MARQUEE_POSITIONS = [
+  {
+    id: 'top', label: '상단 (제목 아래)',
+    preview: (
+      <div className="w-full px-2 space-y-1" style={{ height: 36 }}>
+        <div className="h-1.5 rounded w-3/4" style={{ background: 'currentColor', opacity: 0.7 }} />
+        <div className="h-1 rounded w-1/2" style={{ background: 'currentColor', opacity: 0.4 }} />
+      </div>
+    ),
+  },
+  {
+    id: 'bottom', label: '하단 (에디터노트 위)',
+    preview: (
+      <div className="w-full px-2 flex flex-col justify-end" style={{ height: 36 }}>
+        <div className="h-1 rounded w-1/2 mb-0.5" style={{ background: 'currentColor', opacity: 0.4 }} />
+        <div className="h-1.5 rounded w-3/4" style={{ background: 'currentColor', opacity: 0.7 }} />
+      </div>
+    ),
+  },
+]
+
+function marqueeSpeedLabel(s: number): string {
+  if (s <= 30) return '매우 빠름'
+  if (s <= 50) return '빠름'
+  if (s <= 75) return '보통'
+  if (s <= 100) return '느림'
+  return '매우 느림'
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -722,7 +642,10 @@ const Settings: React.FC = () => {
   const dragState = useRef<{ active: boolean; day: number; hour: number; setTo: boolean } | null>(null)
   const aiPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // 시각 설정 — 저장 전까지 pending 상태, 적용되지 않음
+  const { navMode, setNavMode } = useContext(NavModeContext)
+
+  // 시각 설정 — 저장 전까지 pending 상태
+  const [pendingNavMode, setPendingNavMode] = useState<'top' | 'sidebar'>(navMode)
   const [pendingLogoIcon, setPendingLogoIcon] = useState<LogoAnyStyle>(getLogoIconStyle)
   const [bgEditMode, setBgEditMode] = useState<'light' | 'dark'>(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
@@ -735,6 +658,11 @@ const Settings: React.FC = () => {
   const [pendingOverlay, setPendingOverlay] = useState<OverlayStyle>(loadOverlayStyle)
   const [pendingCardOpacity, setPendingCardOpacity] = useState<number>(getCardOpacity)
   const [pendingDotColor, setPendingDotColor] = useState<string>(getDotColor)
+  const [pendingWeatherIcon, setPendingWeatherIcon] = useState<WeatherIconStyle>(getWeatherIconStyle)
+  const [pendingMemoColorMode, setPendingMemoColorMode] = useState<'pastel' | 'theme'>('pastel')
+
+  // 마퀴 키워드 입력
+  const [newKw, setNewKw] = useState('')
 
   // 프로필 상태
   const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -754,18 +682,30 @@ const Settings: React.FC = () => {
   const [calLoading, setCalLoading] = useState(false)
   const [calMsg, setCalMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  // 서버 설정 반영 (초기 로드 + 되돌리기 공용)
+  const applyFromData = (data: Record<string, any>) => {
+    setSettings(data)
+    if (data.ui_radius) { setPendingRadius(data.ui_radius as UiRadius); applyUiRadius(data.ui_radius as UiRadius) }
+    if (data.ui_overlay_style) { setPendingOverlay(data.ui_overlay_style as OverlayStyle); applyOverlayStyle(data.ui_overlay_style as OverlayStyle) }
+    if (data.ui_card_opacity != null) { setPendingCardOpacity(data.ui_card_opacity as number); applyCardOpacity(data.ui_card_opacity as number) }
+    if (data.ui_dot_color) { setPendingDotColor(data.ui_dot_color as string); applyDotColor(data.ui_dot_color as string) }
+    if (data.ui_weather_icon_style) { setPendingWeatherIcon(data.ui_weather_icon_style as WeatherIconStyle); saveWeatherIconStyle(data.ui_weather_icon_style as WeatherIconStyle) }
+    if (data.ui_nav_mode) setPendingNavMode(data.ui_nav_mode as 'top' | 'sidebar')
+    if (data.memo_color_mode) setPendingMemoColorMode(data.memo_color_mode as 'pastel' | 'theme')
+    // pending 전용(저장 시에만 적용)은 마지막 저장값(localStorage)에서 리셋
+    setPendingLogoIcon(getLogoIconStyle())
+    setPendingPnlColor(loadPnlColorConfig())
+    setPendingBgLight(loadBgConfig('light'))
+    setPendingBgDark(loadBgConfig('dark'))
+  }
+
   useEffect(() => {
     settingsApi.get().then(({ data }) => {
-      setSettings(data)
-      if (data.ui_radius) setPendingRadius(data.ui_radius as UiRadius)
-      if (data.ui_overlay_style) setPendingOverlay(data.ui_overlay_style as OverlayStyle)
-      if (data.ui_card_opacity != null) setPendingCardOpacity(data.ui_card_opacity as number)
-      if (data.ui_dot_color) { setPendingDotColor(data.ui_dot_color as string); applyDotColor(data.ui_dot_color as string) }
+      applyFromData(data)
       setLoading(false)
     }).catch(() => setLoading(false))
 
     profileApi.get().then(p => setProfile(p)).catch(() => {})
-
     calendarApi.status().then(s => setCalStatus(s)).catch(() => {})
 
     const fetchAiUsage = () => {
@@ -795,7 +735,6 @@ const Settings: React.FC = () => {
         monthly_income_만: profile.monthly_income_만,
       })
       setProfile(updated)
-      // 헤더 아이콘 갱신을 위해 localStorage에 캐시
       localStorage.setItem('profileIcon', updated.profile_icon)
       window.dispatchEvent(new Event('profileIconChange'))
       setProfileDirty(false)
@@ -886,6 +825,23 @@ const Settings: React.FC = () => {
     }
   }
 
+  const handleSyncUnsyncedMarks = async () => {
+    setCalLoading(true)
+    setCalMsg(null)
+    try {
+      const res = await investmentMarksApi.syncUnsynced()
+      if (res.error) {
+        setCalMsg({ ok: false, text: res.error })
+      } else {
+        setCalMsg({ ok: true, text: `마커 동기화 완료: ${res.synced}건 성공${res.failed ? `, ${res.failed}건 실패` : ''}` })
+      }
+    } catch {
+      setCalMsg({ ok: false, text: '마커 동기화 중 오류가 발생했습니다.' })
+    } finally {
+      setCalLoading(false)
+    }
+  }
+
   const update = (key: string, value: any) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
     setDirty(true)
@@ -904,22 +860,36 @@ const Settings: React.FC = () => {
   const updateCardOpacity = (v: number) => { applyCardOpacity(v); setPendingCardOpacity(v); setDirty(true); setSaved(false) }
   const updateDotColor = (hex: string) => { applyDotColor(hex); setPendingDotColor(hex); setDirty(true); setSaved(false) }
 
+  // 마퀴 키워드
+  const marqueeItems: string[] = settings.site_marquee_items ?? []
+  const addKeyword = () => {
+    const kw = newKw.trim().toUpperCase()
+    if (!kw || marqueeItems.includes(kw)) { setNewKw(''); return }
+    update('site_marquee_items', [...marqueeItems, kw])
+    setNewKw('')
+  }
+  const removeKeyword = (i: number) => update('site_marquee_items', marqueeItems.filter((_, idx) => idx !== i))
+
   const handleSave = async () => {
     setSaving(true)
     try {
-      // 시스템 설정 + UI 설정 한 번에 저장 (DB에 동기화)
       const { data } = await settingsApi.update({
         ...settings,
+        ui_nav_mode: pendingNavMode,
         ui_logo_icon: pendingLogoIcon,
         ui_pnl_color_config: pendingPnlColor,
-        ui_bg_config: pendingBg,
+        ui_bg_config: pendingBgLight,
+        ui_bg_config_dark: pendingBgDark,
         ui_radius: pendingRadius,
         ui_overlay_style: pendingOverlay,
         ui_card_opacity: pendingCardOpacity,
         ui_dot_color: pendingDotColor,
+        ui_weather_icon_style: pendingWeatherIcon,
+        memo_color_mode: pendingMemoColorMode,
       })
       setSettings(data)
-      // 시각 설정 일괄 적용 (localStorage + DOM)
+      setNavMode(pendingNavMode)
+      window.dispatchEvent(new CustomEvent('navModeChange', { detail: { mode: pendingNavMode } }))
       setLogoIconStyle(pendingLogoIcon)
       saveBgConfig(pendingBgLight, 'light')
       saveBgConfig(pendingBgDark, 'dark')
@@ -930,6 +900,7 @@ const Settings: React.FC = () => {
       applyOverlayStyle(pendingOverlay)
       applyCardOpacity(pendingCardOpacity)
       applyDotColor(pendingDotColor)
+      saveWeatherIconStyle(pendingWeatherIcon)
       setDirty(false)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
@@ -940,534 +911,448 @@ const Settings: React.FC = () => {
     }
   }
 
+  const handleRevert = () => {
+    settingsApi.get().then(({ data }) => {
+      applyFromData(data)
+      setDirty(false)
+      setSaved(false)
+    }).catch(() => {})
+  }
+
   if (loading) return <div className="py-8 text-center text-sm text-zinc-400">설정 로딩 중...</div>
 
   const newsSchedule: Schedule = settings.news_schedule ?? {}
 
-  return (
-    <div className="w-full space-y-6">
+  const TABS: SettingsTab[] = [
+    { id: 'account',     label: '계정',          Icon: User },
+    { id: 'appearance',  label: '외관',          Icon: Palette },
+    { id: 'data',        label: '자동화·데이터', Icon: Database },
+    { id: 'integration', label: '연동',          Icon: Plug },
+  ]
 
-      <PageTitle sub="preferences" title="Settings" />
-
-      {/* ── 내 프로필 ────────────────────────────────────────────── */}
-      <Card collapsible id="settings-profile" icon={<User size={16} />} title="내 프로필" defaultOpen>
-        {profile && (
-          <div className="space-y-5">
-            {/* 아이콘 + 이름 요약 */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-accent select-none">
-                {getProfileIconNode(profile.profile_icon || 'user', 26)}
+  const sections: SettingsSection[] = [
+    // ── 계정 ────────────────────────────────────────────────
+    {
+      id: 'settings-profile', tab: 'account', title: '내 프로필',
+      keywords: ['프로필', '이름', '직업', '생년월일', '은퇴', '소득', '아이콘', 'profile'],
+      element: (
+        <Card collapsible id="settings-profile" icon={<User size={16} />} title="내 프로필" defaultOpen>
+          {profile && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-accent select-none">
+                  {getProfileIconNode(profile.profile_icon || 'user', 26)}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{profile.display_name || '이름 미설정'}</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    {profile.age != null ? `만 ${profile.age}세` : '생년월일 미설정'}
+                    {profile.job ? ` · ${profile.job}` : ''}
+                  </p>
+                </div>
               </div>
+
               <div>
-                <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                  {profile.display_name || '이름 미설정'}
-                </p>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {profile.age != null ? `만 ${profile.age}세` : '생년월일 미설정'}
-                  {profile.job ? ` · ${profile.job}` : ''}
-                </p>
+                <label className="text-xs text-zinc-500 block mb-2">프로필 아이콘</label>
+                <ProfileIconPicker value={profile.profile_icon || '👤'} onChange={icon => updateProfile({ profile_icon: icon })} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormInput label="이름 (표시명)" type="text" placeholder="홍길동" value={profile.display_name ?? ''} onChange={e => updateProfile({ display_name: e.target.value || null })} />
+                <FormInput label="직업" type="text" placeholder="직장인, 자영업, 프리랜서..." value={profile.job ?? ''} onChange={e => updateProfile({ job: e.target.value || null })} />
+                <FormInput label="생년월일" type="date" value={profile.birth_date ?? ''} onChange={e => updateProfile({ birth_date: e.target.value || null })} hint={profile.age != null ? `만 ${profile.age}세` : undefined} />
+                <FormInput label="목표 은퇴 나이" type="number" min={40} max={80} value={profile.retire_age ?? 60} onChange={e => updateProfile({ retire_age: parseInt(e.target.value) })} />
+                <FormInput label="월 소득 (만원)" type="number" min={0} step={10} placeholder="500" value={profile.monthly_income_만 ?? ''} onChange={e => updateProfile({ monthly_income_만: e.target.value ? parseInt(e.target.value) : null })} />
+              </div>
+
+              <div className="notice notice-accent text-2xs">생년월일·은퇴 나이는 은퇴 플래너에서 자동으로 불러옵니다.</div>
+
+              <div className="flex items-center gap-3">
+                <Button onClick={handleProfileSave} loading={profileSaving} loadingLabel="저장 중..." disabled={!profileDirty}>프로필 저장</Button>
+                {profileSaved && <span className="flex items-center gap-1 text-xs text-accent font-medium"><Check size={12} /> 저장되었습니다.</span>}
               </div>
             </div>
-
-            {/* 아이콘 선택 */}
-            <div>
-              <label className="text-xs text-zinc-500 block mb-2">프로필 아이콘</label>
-              <ProfileIconPicker
-                value={profile.profile_icon || '👤'}
-                onChange={icon => updateProfile({ profile_icon: icon })}
-              />
-            </div>
-
-            {/* 기본 정보 */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormInput
-                label="이름 (표시명)"
-                type="text"
-                placeholder="홍길동"
-                value={profile.display_name ?? ''}
-                onChange={e => updateProfile({ display_name: e.target.value || null })}
-              />
-              <FormInput
-                label="직업"
-                type="text"
-                placeholder="직장인, 자영업, 프리랜서..."
-                value={profile.job ?? ''}
-                onChange={e => updateProfile({ job: e.target.value || null })}
-              />
-              <FormInput
-                label="생년월일"
-                type="date"
-                value={profile.birth_date ?? ''}
-                onChange={e => updateProfile({ birth_date: e.target.value || null })}
-                hint={profile.age != null ? `만 ${profile.age}세` : undefined}
-              />
-              <FormInput
-                label="목표 은퇴 나이"
-                type="number"
-                min={40} max={80}
-                value={profile.retire_age ?? 60}
-                onChange={e => updateProfile({ retire_age: parseInt(e.target.value) })}
-              />
-              <FormInput
-                label="월 소득 (만원)"
-                type="number"
-                min={0} step={10}
-                placeholder="500"
-                value={profile.monthly_income_만 ?? ''}
-                onChange={e => updateProfile({ monthly_income_만: e.target.value ? parseInt(e.target.value) : null })}
-              />
-            </div>
-
-            <div className="notice notice-accent text-2xs">
-              생년월일·은퇴 나이는 은퇴 플래너에서 자동으로 불러옵니다.
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleProfileSave}
-                disabled={profileSaving || !profileDirty}
-                className="px-5 py-2 text-white text-sm font-medium rounded-lg bg-accent hover:opacity-85 transition-all disabled:opacity-50"
-              >
-                {profileSaving ? '저장 중...' : '프로필 저장'}
-              </button>
-              {profileSaved && (
-                <span className="flex items-center gap-1 text-xs text-accent font-medium">
-                  <Check size={12} /> 저장되었습니다.
-                </span>
-              )}
-            </div>
+          )}
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-password', tab: 'account', title: '비밀번호 변경',
+      keywords: ['비밀번호', '패스워드', '보안', 'password'],
+      element: (
+        <Card collapsible id="settings-password" icon={<Lock size={16} />} title="비밀번호 변경" defaultOpen={false}>
+          <div className="space-y-4 max-w-sm">
+            <FormInput label="현재 비밀번호" type="password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)} />
+            <FormInput label="새 비밀번호 (6자 이상)" type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} />
+            <FormInput label="새 비밀번호 확인" type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} />
+            {pwMsg && (
+              <div className={`flex items-center gap-1.5 text-xs font-medium ${pwMsg.ok ? 'text-accent' : 'text-red-500'}`}>
+                {pwMsg.ok ? <Check size={13} /> : <X size={13} />}
+                {pwMsg.text}
+              </div>
+            )}
+            <Button onClick={handleChangePassword} loading={pwSaving} loadingLabel="변경 중..." disabled={!pwCurrent || !pwNew || !pwConfirm}>비밀번호 변경</Button>
           </div>
-        )}
-      </Card>
+        </Card>
+      ),
+    },
 
-      {/* ── 비밀번호 변경 ─────────────────────────────────────────── */}
-      <Card collapsible id="settings-password" icon={<Lock size={16} />} title="비밀번호 변경" defaultOpen={false}>
-        <div className="space-y-4 max-w-sm">
-          <FormInput
-            label="현재 비밀번호"
-            type="password"
-            value={pwCurrent}
-            onChange={e => setPwCurrent(e.target.value)}
-          />
-          <FormInput
-            label="새 비밀번호 (6자 이상)"
-            type="password"
-            value={pwNew}
-            onChange={e => setPwNew(e.target.value)}
-          />
-          <FormInput
-            label="새 비밀번호 확인"
-            type="password"
-            value={pwConfirm}
-            onChange={e => setPwConfirm(e.target.value)}
-          />
-          {pwMsg && (
-            <div className={`flex items-center gap-1.5 text-xs font-medium ${pwMsg.ok ? 'text-accent' : 'text-red-500'}`}>
-              {pwMsg.ok ? <Check size={13} /> : <X size={13} />}
-              {pwMsg.text}
-            </div>
-          )}
-          <button
-            onClick={handleChangePassword}
-            disabled={pwSaving || !pwCurrent || !pwNew || !pwConfirm}
-            className="px-5 py-2 text-white text-sm font-medium rounded-lg bg-accent hover:opacity-85 transition-all disabled:opacity-50"
-          >
-            {pwSaving ? '변경 중...' : '비밀번호 변경'}
-          </button>
-        </div>
-      </Card>
-
-      {/* ── Google 캘린더 연동 ───────────────────────────────────── */}
-      <Card collapsible id="settings-calendar" icon={<Calendar size={16} />} title="Google 캘린더 연동" defaultOpen={false}>
-        <div className="space-y-4">
-          {/* 연결 상태 표시 */}
-          {calStatus?.connected ? (
-            <>
-              <div className="flex items-center gap-2">
-                <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-amber-500' : 'text-green-500'}`} />
-                <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{calStatus.google_email}</span>
-                <span className={`tag text-xs ${calStatus.needs_reconnect ? 'tag-amber' : 'tag-tonal'}`}>
-                  {calStatus.needs_reconnect ? '재연결 필요' : '연결됨'}
-                </span>
-              </div>
-              {calStatus.needs_reconnect && (
-                <div className="notice notice-amber text-xs">
-                  Google 토큰이 만료되었습니다. 아래 버튼으로 다시 연결하면 일정 동기화가 재개됩니다.
-                </div>
-              )}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">동기화 일정</p>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{calStatus.event_count}개</p>
-                </div>
-                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">Push 알림</p>
-                  <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'}`}>
-                    {calStatus.push_enabled ? '활성' : '폴링'}
-                  </p>
-                </div>
-                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">채널 만료</p>
-                  <p className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 leading-tight">
-                    {calStatus.channel_expires
-                      ? new Date(calStatus.channel_expires).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
-                      : '—'}
-                  </p>
-                </div>
-              </div>
-              {!calStatus.push_enabled && (
-                <div className="notice notice-amber text-xs">
-                  Push 알림 채널이 비활성 상태입니다. GOOGLE_WEBHOOK_BASE_URL 환경변수가 설정되어 있으면
-                  "채널 등록" 버튼을 눌러 재등록하세요. 현재는 30분마다 폴링으로 동기화됩니다.
-                </div>
-              )}
-              <div className="flex items-center gap-2 flex-wrap">
-                {calStatus.needs_reconnect ? (
-                  <button
-                    onClick={handleCalConnect}
-                    disabled={calLoading}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:opacity-85 disabled:opacity-50 transition-all"
-                  >
-                    <ExternalLink size={13} />
-                    {calLoading ? '연결 중...' : 'Google 재연결'}
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      onClick={handleCalSync}
-                      disabled={calLoading}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:opacity-85 disabled:opacity-50 transition-all"
-                    >
-                      <RefreshCw size={13} className={calLoading ? 'animate-spin' : ''} />
-                      전체 동기화
-                    </button>
-                    <button
-                      onClick={handleCalRegisterWatch}
-                      disabled={calLoading}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-zinc-300 dark:border-zinc-600 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-all bg-white dark:bg-zinc-900"
-                    >
-                      <Wifi size={13} />
-                      {calStatus.push_enabled ? 'Push 채널 갱신' : 'Push 채널 등록'}
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={handleCalDisconnect}
-                  disabled={calLoading}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50 transition-all bg-white dark:bg-zinc-900"
-                >
-                  <Unlink size={13} />
-                  연결 해제
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 text-zinc-400">
-                <WifiOff size={14} />
-                <span className="text-sm">Google Calendar가 연결되지 않았습니다.</span>
-              </div>
-              <div className="notice notice-zinc text-xs space-y-1">
-                <p>연결하면 다른 기기에서 등록한 일정이 플래너에 자동으로 반영됩니다.</p>
-                <p>서버에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 환경변수가 필요합니다.</p>
-              </div>
-              <button
-                onClick={handleCalConnect}
-                disabled={calLoading}
-                className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium rounded-lg bg-accent text-white hover:opacity-85 disabled:opacity-50 transition-all"
-              >
-                <ExternalLink size={13} />
-                {calLoading ? '연결 중...' : 'Google 계정으로 연결'}
-              </button>
-            </>
-          )}
-          {calMsg && (
-            <div className={`flex items-center gap-1.5 text-xs font-medium ${calMsg.ok ? 'text-accent' : 'text-red-500'}`}>
-              {calMsg.ok ? <Check size={13} /> : <X size={13} />}
-              {calMsg.text}
-            </div>
-          )}
-          <p className="text-2xs text-zinc-400">
-            연결 후 Push 알림으로 다른 기기 변경사항이 수 초 내 플래너에 반영됩니다.
-          </p>
-        </div>
-      </Card>
-
-      {/* 미저장 변경사항 안내 */}
-      {dirty && (
-        <div className="notice notice-amber flex items-center gap-2">
-          <AlertCircle size={14} className="flex-shrink-0" />
-          <span>저장되지 않은 변경사항이 있습니다. 저장 버튼을 눌러야 적용됩니다.</span>
-        </div>
-      )}
-
-      {/* 조회 인터벌 */}
-      <Card collapsible id="settings-interval" icon={<Clock size={16} />} title="조회 인터벌">
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput
-            label="주식 조회 주기 (분)"
-            type="number" min={5} max={60} step={5}
-            value={settings.stock_interval_minutes ?? 15}
-            onChange={(e) => update('stock_interval_minutes', parseInt(e.target.value))}
-          />
-          <FormInput
-            label="뉴스 조회 주기 (시간)"
-            type="number" min={1} max={24} step={1}
-            value={settings.news_interval_hours ?? 1}
-            onChange={(e) => update('news_interval_hours', parseInt(e.target.value))}
-          />
-        </div>
-      </Card>
-
-      {/* 뉴스 조회 스케줄 */}
-      <Card collapsible id="settings-news-schedule" icon={<CalendarDays size={16} />} title="뉴스 조회 스케줄" defaultOpen={false}>
-        <div className="space-y-3">
-          <p className="text-2xs text-zinc-400">활성화된 요일/시간대에만 뉴스를 자동 수집합니다.</p>
-          <ScheduleGrid
-            label="뉴스 조회 활성 시간"
-            scheduleKey="news_schedule"
-            schedule={newsSchedule}
-            onChange={update}
-            dragState={dragState}
-          />
-        </div>
-      </Card>
-
-      {/* AI 서머리 설정 */}
-      <Card collapsible id="settings-ai-summary" icon={<Sparkles size={16} />} title="AI 서머리 설정">
-        <div className="grid grid-cols-3 gap-4">
-          <FormInput
-            label="요약 시작 시간 (시)"
-            type="number" min={0} max={23}
-            value={settings.ai_summary_start_hour ?? 8}
-            onChange={(e) => update('ai_summary_start_hour', parseInt(e.target.value))}
-          />
-          <FormInput
-            label="요약 종료 시간 (시)"
-            type="number" min={0} max={23}
-            value={settings.ai_summary_end_hour ?? 22}
-            onChange={(e) => update('ai_summary_end_hour', parseInt(e.target.value))}
-          />
-          <FormInput
-            label="회당 최대 요약 건수"
-            type="number" min={1} max={50}
-            value={settings.ai_summary_max_items ?? 20}
-            onChange={(e) => update('ai_summary_max_items', parseInt(e.target.value))}
-          />
-        </div>
-      </Card>
-
-      {/* Gemini AI 사용량 */}
-      <Card
-        collapsible
-        id="settings-ai-usage"
-        icon={<TrendingUp size={16} />}
-        title="Gemini AI 사용량"
-        right={aiUsage && <span className="text-2xs text-zinc-400">{aiUsage.model}</span>}
-      >
-        {aiUsage ? (
+    // ── 외관 ────────────────────────────────────────────────
+    {
+      id: 'settings-colors', tab: 'appearance', group: '테마 색상', title: '색상',
+      keywords: ['색상', '등락', '상승', '하락', '빨강', '파랑', 'pnl', '포인트', '강조', 'dot'],
+      element: (
+        <Card collapsible id="settings-colors" icon={<Palette size={16} />} title="색상" defaultOpen>
           <div className="space-y-3">
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-zinc-500">일 요청 (RPD)</span>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  {aiUsage.rpd_used} / {aiUsage.rpd_limit}
-                  <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpd_remaining})</span>
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, (aiUsage.rpd_used / aiUsage.rpd_limit) * 100)}
-                height="md"
-              />
+              <p className="text-xs text-zinc-500 mb-1.5">등락 색상</p>
+              <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-zinc-500">현재 분당 요청 (RPM)</span>
-                <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  {aiUsage.rpm_used} / {aiUsage.rpm_limit}
-                  <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpm_remaining})</span>
-                </span>
-              </div>
-              <ProgressBar
-                value={Math.min(100, (aiUsage.rpm_used / aiUsage.rpm_limit) * 100)}
-                height="md"
-              />
+              <p className="text-xs text-zinc-500 mb-1.5">포인트 색상</p>
+              <DotColorPicker value={pendingDotColor} onChange={updateDotColor} />
             </div>
-            <div className="grid grid-cols-3 gap-3 pt-1">
-              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                <p className="text-2xs text-zinc-400 mb-0.5">입력 토큰 (오늘)</p>
-                <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_in_today.toLocaleString()}</p>
-              </div>
-              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                <p className="text-2xs text-zinc-400 mb-0.5">출력 토큰 (오늘)</p>
-                <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_out_today.toLocaleString()}</p>
-              </div>
-              <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                <p className="text-2xs text-zinc-400 mb-0.5">누적 실패</p>
-                <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-red-500' : 'text-zinc-700 dark:text-zinc-300'}`}>
-                  {aiUsage.failed_total}
-                </p>
-              </div>
-            </div>
-            <p className="text-2xs text-zinc-400">무료 티어 기준 · 일 요청은 자정에 초기화 · 10초마다 갱신</p>
           </div>
-        ) : (
-          <p className="text-xs text-zinc-400">로딩 중...</p>
-        )}
-      </Card>
-
-      {/* 데이터 보관 */}
-      <Card collapsible id="settings-retention" icon={<Database size={16} />} title="데이터 보관">
-        <div className="max-w-xs">
-          <FormInput
-            label="뉴스 보관 기간 (일)"
-            type="number" min={7} max={365}
-            value={settings.news_retention_days ?? 30}
-            onChange={(e) => update('news_retention_days', parseInt(e.target.value))}
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-layout', tab: 'appearance', group: '레이아웃 & 카드', title: '레이아웃',
+      keywords: ['메뉴', '네비게이션', '사이드바', '상단', 'nav', '카드', '둥글기', '모서리', '투명도', 'radius', 'opacity'],
+      element: (
+        <Card collapsible id="settings-layout" icon={<RectangleHorizontal size={16} />} title="레이아웃" defaultOpen>
+          <div className="space-y-3">
+            <SettingRow title="메뉴 방식" control={<NavModePicker value={pendingNavMode} onChange={mode => { setPendingNavMode(mode); setDirty(true); setSaved(false) }} />} />
+            <SettingRow title="모서리 둥글기" control={<RadiusPicker value={pendingRadius} onChange={updateRadius} />} />
+            <RangeField label="카드 투명도" min={0.1} max={1} step={0.05} value={pendingCardOpacity} onChange={updateCardOpacity} display={`${Math.round(pendingCardOpacity * 100)}%`} labelWidth={80} />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-overlay', tab: 'appearance', group: '효과', title: '모달·슬라이드 배경 처리',
+      keywords: ['모달', '오버레이', '블러', '슬라이드', 'overlay'],
+      element: (
+        <Card collapsible id="settings-overlay" icon={<Shapes size={16} />} title="모달·슬라이드 배경 처리" defaultOpen={false}>
+          <OverlayStylePicker value={pendingOverlay} onChange={updateOverlay} />
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-background', tab: 'appearance', group: '효과', title: '배경 무늬',
+      keywords: ['배경', '무늬', '패턴', '그라디언트', '도트', '격자', 'background'],
+      element: (
+        <Card collapsible id="settings-background" icon={<Wallpaper size={16} />} title="배경 무늬" defaultOpen={false} contentClassName="px-6 py-5 space-y-3">
+          <Segmented<'light' | 'dark'>
+            value={bgEditMode}
+            onChange={m => setBgEditMode(m)}
+            options={[
+              { value: 'light', label: '라이트 모드' },
+              { value: 'dark',  label: '다크 모드' },
+            ]}
           />
-        </div>
-      </Card>
-
-      {/* 메뉴 방식 */}
-      <Card collapsible id="settings-nav" icon={<PanelLeft size={16} />} title="메뉴 방식">
-        <NavModePicker />
-      </Card>
-
-      {/* 카드 스타일 */}
-      <Card collapsible id="settings-card-style" icon={<RectangleHorizontal size={16} />} title="카드 스타일">
-        <div className="space-y-6">
-          {/* 모서리 둥글기 */}
-          <div>
-            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-3">모서리 둥글기</p>
-            <RadiusPicker value={pendingRadius} onChange={updateRadius} />
+          <BackgroundPicker value={pendingBg} onChange={updateBg} />
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-branding', tab: 'appearance', group: '브랜딩 & 위젯', title: '로고 · 날씨 · 메모',
+      keywords: ['로고', '아이콘', 'logo', '날씨', 'weather', '위젯', '메모', '포스트잇', 'memo'],
+      element: (
+        <Card collapsible id="settings-branding" icon={<Shapes size={16} />} title="로고 · 날씨 · 메모" defaultOpen={false}>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-zinc-500 mb-1.5">로고 아이콘</p>
+              <LogoIconPicker svgValue={pendingLogoIcon} onSvg={updateLogoIcon} />
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500 mb-1.5">날씨 아이콘</p>
+              <WeatherIconStylePicker value={pendingWeatherIcon} onChange={icon => { setPendingWeatherIcon(icon); setDirty(true); setSaved(false) }} />
+            </div>
+            <SettingRow title="메모 색상" control={<MemoColorPicker value={pendingMemoColorMode} onChange={m => { setPendingMemoColorMode(m); setDirty(true); setSaved(false) }} />} />
           </div>
-          {/* 카드 투명도 */}
-          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5 space-y-3">
-            <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">카드 투명도</p>
-            <p className="text-2xs text-zinc-400">카드 배경 투명도 조절 — 배경 무늬/색상과 조합할 때 활용하세요. 즉시 적용됩니다.</p>
-            <div className="flex items-center gap-3">
-              <label className="text-xs text-zinc-500 w-16 flex-shrink-0">투명도</label>
-              <input
-                type="range" min={0.1} max={1} step={0.05}
-                value={pendingCardOpacity}
-                onChange={e => updateCardOpacity(parseFloat(e.target.value))}
-                className="flex-1"
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-marquee', tab: 'appearance', group: '랜딩페이지', title: '마퀴 설정',
+      keywords: ['마퀴', '흐르는', '텍스트', '키워드', '랜딩', 'marquee'],
+      element: (
+        <Card collapsible id="settings-marquee" icon={<Scroll size={16} />} title="마퀴 설정" defaultOpen={false}>
+          <div className="space-y-5">
+            <SettingRow
+              title="마퀴 표시"
+              desc="랜딩페이지 흐르는 텍스트 표시 여부"
+              control={<Toggle checked={settings.site_marquee_enabled ?? true} onChange={v => update('site_marquee_enabled', v)} />}
+            />
+
+            <div>
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">마퀴 키워드</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {marqueeItems.length === 0 && <span className="text-2xs text-zinc-400">키워드가 없습니다.</span>}
+                {marqueeItems.map((kw, i) => (
+                  <span key={i} className="tag tag-tonal flex items-center gap-1">
+                    {kw}
+                    <button onClick={() => removeKeyword(i)} className="hover:text-red-500"><X size={11} /></button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <FormInput
+                  value={newKw}
+                  onChange={e => setNewKw(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKeyword() } }}
+                  placeholder="키워드 입력 후 추가"
+                  wrapperClassName="flex-1"
+                />
+                <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={addKeyword}>추가</Button>
+              </div>
+            </div>
+
+            <div className="flex gap-6 flex-wrap">
+              <div>
+                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">표시 형태</p>
+                <Segmented value={settings.site_marquee_type ?? 'triple'} onChange={v => update('site_marquee_type', v)}
+                  options={MARQUEE_TYPES.map(o => ({ value: o.id, label: o.label }))} />
+              </div>
+              <div>
+                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">표시 위치</p>
+                <Segmented value={settings.site_marquee_position ?? 'top'} onChange={v => update('site_marquee_position', v)}
+                  options={MARQUEE_POSITIONS.map(o => ({ value: o.id, label: o.label }))} />
+              </div>
+            </div>
+
+            <RangeField
+              label="스크롤 속도"
+              min={20} max={140} step={5}
+              value={settings.site_marquee_speed ?? 60}
+              onChange={v => update('site_marquee_speed', v)}
+              display={`${marqueeSpeedLabel(settings.site_marquee_speed ?? 60)}`}
+              labelWidth={72}
+            />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-footer-bg', tab: 'appearance', group: '랜딩페이지', title: '푸터 배경',
+      keywords: ['푸터', '배경', 'cta', '랜딩', 'footer', '파티클', '프리즘'],
+      element: (
+        <Card collapsible id="settings-footer-bg" icon={<Layers size={16} />} title="푸터 배경" defaultOpen={false}>
+          <OptionGrid cols={3}>
+            {FOOTER_BG_OPTIONS.map(opt => (
+              <OptionTile
+                key={opt.id}
+                active={(settings.site_footer_bg ?? 'particle') === opt.id}
+                onClick={() => update('site_footer_bg', opt.id)}
+                preview={opt.preview}
+                label={opt.label}
               />
-              <span className="text-xs text-zinc-400 w-10 text-right">{Math.round(pendingCardOpacity * 100)}%</span>
+            ))}
+          </OptionGrid>
+        </Card>
+      ),
+    },
+
+    // ── 자동화·데이터 ───────────────────────────────────────
+    {
+      id: 'settings-interval', tab: 'data', title: '조회 인터벌',
+      keywords: ['인터벌', '주기', '주식', '뉴스', '조회', 'interval'],
+      element: (
+        <Card collapsible id="settings-interval" icon={<Clock size={16} />} title="조회 인터벌">
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput label="주식 조회 주기 (분)" type="number" min={5} max={60} step={5} value={settings.stock_interval_minutes ?? 15} onChange={(e) => update('stock_interval_minutes', parseInt(e.target.value))} />
+            <FormInput label="뉴스 조회 주기 (시간)" type="number" min={1} max={24} step={1} value={settings.news_interval_hours ?? 1} onChange={(e) => update('news_interval_hours', parseInt(e.target.value))} />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-news-schedule', tab: 'data', title: '뉴스 조회 스케줄',
+      keywords: ['뉴스', '스케줄', '시간대', '요일', 'schedule'],
+      element: (
+        <Card collapsible id="settings-news-schedule" icon={<CalendarDays size={16} />} title="뉴스 조회 스케줄" defaultOpen={false}>
+          <div className="space-y-3">
+            <p className="text-2xs text-zinc-400">활성화된 요일/시간대에만 뉴스를 자동 수집합니다.</p>
+            <ScheduleGrid label="뉴스 조회 활성 시간" scheduleKey="news_schedule" schedule={newsSchedule} onChange={update} dragState={dragState} />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-ai-summary', tab: 'data', title: 'AI 서머리 설정',
+      keywords: ['ai', '서머리', '요약', 'gemini', '시간'],
+      element: (
+        <Card collapsible id="settings-ai-summary" icon={<Sparkles size={16} />} title="AI 서머리 설정">
+          <div className="grid grid-cols-3 gap-4">
+            <FormInput label="요약 시작 시간 (시)" type="number" min={0} max={23} value={settings.ai_summary_start_hour ?? 8} onChange={(e) => update('ai_summary_start_hour', parseInt(e.target.value))} />
+            <FormInput label="요약 종료 시간 (시)" type="number" min={0} max={23} value={settings.ai_summary_end_hour ?? 22} onChange={(e) => update('ai_summary_end_hour', parseInt(e.target.value))} />
+            <FormInput label="회당 최대 요약 건수" type="number" min={1} max={50} value={settings.ai_summary_max_items ?? 20} onChange={(e) => update('ai_summary_max_items', parseInt(e.target.value))} />
+          </div>
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-ai-usage', tab: 'data', title: 'Gemini AI 사용량',
+      keywords: ['ai', '사용량', '토큰', 'rpd', 'rpm', 'gemini'],
+      element: (
+        <Card collapsible id="settings-ai-usage" icon={<TrendingUp size={16} />} title="Gemini AI 사용량" right={aiUsage && <span className="text-2xs text-zinc-400">{aiUsage.model}</span>}>
+          {aiUsage ? (
+            <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-zinc-500">일 요청 (RPD)</span>
+                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    {aiUsage.rpd_used} / {aiUsage.rpd_limit}
+                    <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpd_remaining})</span>
+                  </span>
+                </div>
+                <ProgressBar value={Math.min(100, (aiUsage.rpd_used / aiUsage.rpd_limit) * 100)} height="md" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-zinc-500">현재 분당 요청 (RPM)</span>
+                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                    {aiUsage.rpm_used} / {aiUsage.rpm_limit}
+                    <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpm_remaining})</span>
+                  </span>
+                </div>
+                <ProgressBar value={Math.min(100, (aiUsage.rpm_used / aiUsage.rpm_limit) * 100)} height="md" />
+              </div>
+              <div className="grid grid-cols-3 gap-3 pt-1">
+                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                  <p className="text-2xs text-zinc-400 mb-0.5">입력 토큰 (오늘)</p>
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_in_today.toLocaleString()}</p>
+                </div>
+                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                  <p className="text-2xs text-zinc-400 mb-0.5">출력 토큰 (오늘)</p>
+                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_out_today.toLocaleString()}</p>
+                </div>
+                <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                  <p className="text-2xs text-zinc-400 mb-0.5">누적 실패</p>
+                  <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-red-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{aiUsage.failed_total}</p>
+                </div>
+              </div>
+              <p className="text-2xs text-zinc-400">무료 티어 기준 · 일 요청은 자정에 초기화 · 10초마다 갱신</p>
             </div>
-            {/* 미리보기 */}
-            <div
-              className="rounded-xl border p-3 text-xs text-zinc-600 dark:text-zinc-400"
-              style={{
-                backgroundColor: `rgb(255 255 255 / ${pendingCardOpacity})`,
-                borderColor: `rgb(228 228 231 / ${Math.max(pendingCardOpacity, 0.3)})`,
-              }}
-            >
-              카드 배경 미리보기 (라이트 기준)
-            </div>
+          ) : (
+            <p className="text-xs text-zinc-400">로딩 중...</p>
+          )}
+        </Card>
+      ),
+    },
+    {
+      id: 'settings-retention', tab: 'data', title: '데이터 보관',
+      keywords: ['데이터', '보관', '뉴스', '기간', 'retention'],
+      element: (
+        <Card collapsible id="settings-retention" icon={<Database size={16} />} title="데이터 보관">
+          <div className="max-w-xs">
+            <FormInput label="뉴스 보관 기간 (일)" type="number" min={7} max={365} value={settings.news_retention_days ?? 30} onChange={(e) => update('news_retention_days', parseInt(e.target.value))} />
           </div>
-        </div>
-      </Card>
+        </Card>
+      ),
+    },
 
-      {/* 오버레이 스타일 */}
-      <Card collapsible id="settings-overlay" icon={<Shapes size={16} />} title="모달·슬라이드 배경 처리" defaultOpen={false}>
-        <OverlayStylePicker value={pendingOverlay} onChange={updateOverlay} />
-      </Card>
-
-      {/* 날씨 아이콘 스타일 */}
-      <Card collapsible id="settings-weather-icon" icon={<CloudSun size={16} />} title="날씨 아이콘 스타일" defaultOpen={false}>
-        <WeatherIconStylePicker />
-      </Card>
-
-      {/* 등락 색상 */}
-      <Card collapsible id="settings-pnl-color" icon={<Palette size={16} />} title="등락 색상">
-        <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
-      </Card>
-
-      {/* 포인트 색상 */}
-      <Card collapsible id="settings-dot-color" icon={<Palette size={16} />} title="포인트 색상">
-        <div className="space-y-4">
-          <p className="text-2xs text-zinc-400">강조 포인트(·) 색상을 변경합니다. 저장 후 적용됩니다.</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: '앰버',     hex: '#F59E0B' },
-              { label: '오렌지',   hex: '#F97316' },
-              { label: '옐로우',   hex: '#EAB308' },
-              { label: '라임',     hex: '#84CC16' },
-              { label: '에메랄드', hex: '#10B981' },
-              { label: '스카이',   hex: '#0EA5E9' },
-              { label: '바이올렛', hex: '#8B5CF6' },
-              { label: '로즈',     hex: '#F43F5E' },
-            ].map(({ label, hex }) => {
-              const active = pendingDotColor === hex
-              return (
-                <button
-                  key={hex}
-                  onClick={() => updateDotColor(hex)}
-                  title={label}
-                  className={`flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 ${
-                    active
-                      ? 'bg-zinc-50 dark:bg-zinc-800'
-                      : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
-                  }`}
-                  style={active ? { borderColor: hex } : {}}
-                >
-                  <div className="w-6 h-6 rounded-full border-2 border-white shadow-sm" style={{ backgroundColor: hex }} />
-                  <span className="text-2xs font-medium text-zinc-600 dark:text-zinc-400">{label}</span>
-                </button>
-              )
-            })}
+    // ── 연동 ────────────────────────────────────────────────
+    {
+      id: 'settings-calendar', tab: 'integration', title: 'Google 캘린더 연동',
+      keywords: ['구글', '캘린더', '연동', '동기화', 'google', 'calendar', 'sync'],
+      element: (
+        <Card collapsible id="settings-calendar" icon={<Calendar size={16} />} title="Google 캘린더 연동" defaultOpen>
+          <div className="space-y-4">
+            {calStatus?.connected ? (
+              <>
+                <div className="flex items-center gap-2">
+                  <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-amber-500' : 'text-green-500'}`} />
+                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{calStatus.google_email}</span>
+                  <span className={`tag text-xs ${calStatus.needs_reconnect ? 'tag-amber' : 'tag-tonal'}`}>
+                    {calStatus.needs_reconnect ? '재연결 필요' : '연결됨'}
+                  </span>
+                </div>
+                {calStatus.needs_reconnect && (
+                  <div className="notice notice-amber text-xs">Google 토큰이 만료되었습니다. 아래 버튼으로 다시 연결하면 일정 동기화가 재개됩니다.</div>
+                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                    <p className="text-2xs text-zinc-400 mb-0.5">동기화 일정</p>
+                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{calStatus.event_count}개</p>
+                  </div>
+                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                    <p className="text-2xs text-zinc-400 mb-0.5">Push 알림</p>
+                    <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
+                  </div>
+                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
+                    <p className="text-2xs text-zinc-400 mb-0.5">채널 만료</p>
+                    <p className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 leading-tight">
+                      {calStatus.channel_expires ? new Date(calStatus.channel_expires).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '—'}
+                    </p>
+                  </div>
+                </div>
+                {!calStatus.push_enabled && (
+                  <div className="notice notice-amber text-xs">
+                    Push 알림 채널이 비활성 상태입니다. GOOGLE_WEBHOOK_BASE_URL 환경변수가 설정되어 있으면 "채널 등록" 버튼을 눌러 재등록하세요. 현재는 30분마다 폴링으로 동기화됩니다.
+                  </div>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {calStatus.needs_reconnect ? (
+                    <Button onClick={handleCalConnect} loading={calLoading} loadingLabel="연결 중..." icon={<ExternalLink size={13} />}>Google 재연결</Button>
+                  ) : (
+                    <>
+                      <Button onClick={handleCalSync} disabled={calLoading} icon={<RefreshCw size={13} className={calLoading ? 'animate-spin' : ''} />}>전체 동기화</Button>
+                      <Button variant="secondary" onClick={handleCalRegisterWatch} disabled={calLoading} icon={<Wifi size={13} />}>{calStatus.push_enabled ? 'Push 채널 갱신' : 'Push 채널 등록'}</Button>
+                      <Button variant="secondary" onClick={handleSyncUnsyncedMarks} disabled={calLoading} icon={<RefreshCw size={13} />} title="차트 마커 중 GCal 미동기화된 항목을 재시도합니다">마커 동기화</Button>
+                    </>
+                  )}
+                  <Button variant="danger" onClick={handleCalDisconnect} disabled={calLoading} icon={<Unlink size={13} />}>연결 해제</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 text-zinc-400">
+                  <WifiOff size={14} />
+                  <span className="text-sm">Google Calendar가 연결되지 않았습니다.</span>
+                </div>
+                <div className="notice notice-zinc text-xs space-y-1">
+                  <p>연결하면 다른 기기에서 등록한 일정이 플래너에 자동으로 반영됩니다.</p>
+                  <p>서버에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 환경변수가 필요합니다.</p>
+                </div>
+                <Button onClick={handleCalConnect} loading={calLoading} loadingLabel="연결 중..." icon={<ExternalLink size={13} />}>Google 계정으로 연결</Button>
+              </>
+            )}
+            {calMsg && (
+              <div className={`flex items-center gap-1.5 text-xs font-medium ${calMsg.ok ? 'text-accent' : 'text-red-500'}`}>
+                {calMsg.ok ? <Check size={13} /> : <X size={13} />}
+                {calMsg.text}
+              </div>
+            )}
+            <p className="text-2xs text-zinc-400">연결 후 Push 알림으로 다른 기기 변경사항이 수 초 내 플래너에 반영됩니다.</p>
           </div>
-          {/* 미리보기 */}
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800 rounded-lg">
-            <span className="text-xs text-zinc-500">미리보기</span>
-            <span className="ut-eyebrow" style={{ color: 'var(--ink-4)' }}>
-              SETTINGS<span style={{ color: pendingDotColor, fontSize: '1.4em' }}>.</span>
-            </span>
-          </div>
-        </div>
-      </Card>
+        </Card>
+      ),
+    },
+  ]
 
-      {/* 배경 무늬 */}
-      <Card collapsible id="settings-background" icon={<Wallpaper size={16} />} title="배경 무늬">
-        <div className="flex gap-1 px-4 pt-3">
-          {(['light', 'dark'] as const).map(m => (
-            <button
-              key={m}
-              onClick={() => setBgEditMode(m)}
-              className={`chip text-xs ${bgEditMode === m ? 'chip-active' : ''}`}
-            >
-              {m === 'light' ? '라이트 모드' : '다크 모드'}
-            </button>
-          ))}
-        </div>
-        <BackgroundPicker value={pendingBg} onChange={updateBg} />
-      </Card>
-
-      {/* 로고 아이콘 */}
-      <Card collapsible id="settings-logo-icon" icon={<Shapes size={16} />} title="로고 아이콘">
-        <LogoIconPicker
-          svgValue={pendingLogoIcon}
-          onSvg={updateLogoIcon}
-        />
-      </Card>
-
-
-      <div className="flex items-center gap-3 pb-8">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`px-6 py-2.5 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-60 ${
-            dirty
-              ? 'bg-accent hover:opacity-85 shadow-md'
-              : 'bg-accent hover:opacity-85'
-          }`}
-        >
-          {saving ? '저장 중...' : dirty ? '저장하기' : '설정 저장'}
-        </button>
-        {saved && <span className="text-xs text-accent font-medium">저장되었습니다.</span>}
-        {dirty && !saving && <span className="text-xs text-amber-500">미저장 변경사항 있음</span>}
+  return (
+    <div className="w-full pb-24">
+      <PageTitle sub="preferences" title="Settings" />
+      <div className="mt-4">
+        <SettingsLayout tabs={TABS} sections={sections} />
       </div>
+
+      {/* 스티키 저장 바 — 미저장 변경사항이 있을 때만 등장 */}
+      {(dirty || saved) && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur border border-zinc-200 dark:border-zinc-700 shadow-lg">
+          {saved ? (
+            <span className="flex items-center gap-1.5 text-sm text-accent font-medium px-1"><Check size={14} /> 저장되었습니다.</span>
+          ) : (
+            <>
+              <span className="text-xs text-amber-500 font-medium whitespace-nowrap pl-1">미저장 변경사항</span>
+              <Button variant="ghost" size="sm" onClick={handleRevert} disabled={saving}>되돌리기</Button>
+              <Button size="sm" onClick={handleSave} loading={saving} loadingLabel="저장 중...">저장하기</Button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

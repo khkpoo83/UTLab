@@ -24,6 +24,121 @@
     />
   </head>
   <body>
+    <!-- 모든 시각 설정 즉시 적용 — React 로드 전 실행으로 FOUC 방지 -->
+    <script>
+      (function () {
+        // ── 0. 초기 로드 시 트랜지션 비활성화 (FOUC 방지) ──────────────────
+        var _noTrans = document.createElement('style');
+        _noTrans.textContent = '*,*::before,*::after{transition:none!important;animation-duration:0.001s!important;}';
+        document.head.appendChild(_noTrans);
+
+        // ── 1. 다크모드 ────────────────────────────────────────────────────
+        // 공개 페이지(/  /public/*  /spatial)는 별도 키 pub_theme 사용
+        var isPublicPath = location.pathname === '/' || location.pathname.startsWith('/public/') || location.pathname === '/spatial';
+        var saved = localStorage.getItem(isPublicPath ? 'pub_theme' : 'theme');
+        var dark = false;
+        if (saved === 'dark') {
+          dark = true;
+          document.documentElement.classList.add('dark');
+        } else if (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          dark = true;
+          document.documentElement.classList.add('dark');
+        }
+
+        // ── 2. 시즌 테마 ───────────────────────────────────────────────────
+        try {
+          var season = localStorage.getItem('season');
+          if (season && season !== 'default') document.documentElement.setAttribute('data-season', season);
+        } catch (e) {}
+
+        // ── 3. 배경 ────────────────────────────────────────────────────────
+        try {
+          var bgRaw = localStorage.getItem(dark ? 'bgConfig_dark' : 'bgConfig');
+          if (bgRaw) {
+            var bg = JSON.parse(bgRaw);
+            var type = bg.type || 'none';
+            var body = document.body;
+            if (type === 'solid') {
+              body.style.backgroundColor = bg.solidColor || '#f8fafc';
+            } else if (type === 'gradient') {
+              var fixed = bg.bgFixed !== false;
+              body.style.backgroundImage = 'linear-gradient(' + (bg.gradientDir || '135deg') + ',' + (bg.gradientFrom || '#e0f2fe') + ',' + (bg.gradientTo || '#fdf4ff') + ')';
+              if (fixed) { body.style.backgroundAttachment = 'fixed'; body.style.backgroundSize = '100% 100vh'; }
+            } else if (type !== 'none') {
+              var s = bg.size || 24;
+              var c = (bg.patternColor || '#e4e4e7').replace('#', '');
+              var pc = 'rgba(' + parseInt(c.slice(0,2),16) + ',' + parseInt(c.slice(2,4),16) + ',' + parseInt(c.slice(4,6),16) + ',' + ((bg.opacity != null ? bg.opacity : 60)/100).toFixed(2) + ')';
+              body.style.backgroundAttachment = bg.bgFixed !== false ? 'fixed' : '';
+              if (type === 'dot') {
+                body.style.backgroundImage = 'radial-gradient(' + pc + ' 1.5px,transparent 1.5px)';
+                body.style.backgroundSize = s + 'px ' + s + 'px';
+              } else if (type === 'grid') {
+                body.style.backgroundImage = 'linear-gradient(to right,' + pc + ' 1px,transparent 1px),linear-gradient(to bottom,' + pc + ' 1px,transparent 1px)';
+                body.style.backgroundSize = s + 'px ' + s + 'px';
+              } else if (type === 'line') {
+                body.style.backgroundImage = 'repeating-linear-gradient(0deg,transparent,transparent calc(' + s + 'px - 1px),' + pc + ' calc(' + s + 'px - 1px),' + pc + ' ' + s + 'px)';
+              } else if (type === 'diagonal') {
+                body.style.backgroundImage = 'repeating-linear-gradient(-45deg,transparent,transparent calc(' + s + 'px - 1px),' + pc + ' calc(' + s + 'px - 1px),' + pc + ' ' + s + 'px)';
+              } else if (type === 'cross') {
+                body.style.backgroundImage = 'repeating-linear-gradient(0deg,transparent,transparent calc(' + s + 'px - 1px),' + pc + ' calc(' + s + 'px - 1px),' + pc + ' ' + s + 'px),repeating-linear-gradient(90deg,transparent,transparent calc(' + s + 'px - 1px),' + pc + ' calc(' + s + 'px - 1px),' + pc + ' ' + s + 'px)';
+              }
+            }
+          }
+        } catch (e) {}
+
+        // ── 4. UI 라디우스 ─────────────────────────────────────────────────
+        try {
+          var r = localStorage.getItem('ui_radius') || 'lg';
+          var rv  = { none:'0rem',   sm:'0.25rem', md:'0.5rem',  lg:'0.75rem', xl:'1.25rem' };
+          var crv = { none:'0px',    sm:'4px',     md:'8px',     lg:'14px',    xl:'20px'    };
+          document.documentElement.style.setProperty('--ui-radius', rv[r]  || rv.lg);
+          document.documentElement.style.setProperty('--r-md',      crv[r] || crv.lg);
+        } catch (e) {}
+
+        // ── 5. 오버레이 스타일 ─────────────────────────────────────────────
+        try {
+          document.documentElement.setAttribute('data-overlay', localStorage.getItem('overlay_style') || 'both');
+        } catch (e) {}
+
+        // ── 6. 카드 불투명도 ───────────────────────────────────────────────
+        try {
+          var co = localStorage.getItem('card_opacity');
+          if (co) document.documentElement.style.setProperty('--card-opacity', co);
+        } catch (e) {}
+
+        // ── 7. 포인트 색상 ─────────────────────────────────────────────────
+        try {
+          var dot = localStorage.getItem('dot_color');
+          if (dot) document.documentElement.style.setProperty('--dot', dot);
+        } catch (e) {}
+
+        // ── 8. 손익 색상 ───────────────────────────────────────────────────
+        try {
+          var pnlRaw = localStorage.getItem('pnl_color_config');
+          if (pnlRaw) {
+            var pnl = JSON.parse(pnlRaw);
+            var up   = dark ? pnl.upDark   : pnl.upLight;
+            var down = dark ? pnl.downDark : pnl.downLight;
+            var el   = document.documentElement;
+            el.style.setProperty('--c-up',   up);
+            el.style.setProperty('--c-down', down);
+            el.style.setProperty('--up',     up);
+            el.style.setProperty('--down',   down);
+            el.setAttribute('data-pnl-up-light',   pnl.upLight);
+            el.setAttribute('data-pnl-down-light', pnl.downLight);
+            el.setAttribute('data-pnl-up-dark',    pnl.upDark);
+            el.setAttribute('data-pnl-down-dark',  pnl.downDark);
+          }
+        } catch (e) {}
+
+        // ── 9. 트랜지션 복원 (2프레임 후: 첫 페인트 이후 전환 효과 정상화) ──
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            if (_noTrans.parentNode) _noTrans.parentNode.removeChild(_noTrans);
+          });
+        });
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

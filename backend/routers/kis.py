@@ -22,6 +22,11 @@ router = APIRouter(prefix="/kis", tags=["kis"])
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
+# 전일종가·스파크라인 enrichment 캐시 (일 단위 변동 데이터 → 잦은 잔고 갱신 시 Yahoo 재호출 방지)
+# ticker(6자리) -> (ts, prev_close, sparkline)
+_ENRICH_CACHE: dict[str, tuple[float, "float | None", list]] = {}
+_ENRICH_TTL = 900.0  # 15분
+
 
 @router.get("/accounts")
 async def list_accounts(current_user: CurrentUser) -> list[dict]:
@@ -235,17 +240,34 @@ async def get_kis_portfolio(
         except Exception:
             return yf_ticker, None
 
-    # Yahoo HTTP 비동기 병렬 + sparkline 동시 실행
-    yf_tickers_list = [_yf(t) for t in unique_tickers]
-    async with httpx.AsyncClient() as _client:
-        prev_close_results, sparklines = await asyncio.gather(
-            asyncio.gather(*[_fetch_prev_close_one(_client, yft) for yft in yf_tickers_list]),
-            asyncio.gather(*[get_sparkline(_yf(t)) for t in unique_tickers], return_exceptions=True),
-        )
-    # yf_ticker → prev_close 매핑 후 code 기준으로 변환
-    yft_to_prev = {yft: pc for yft, pc in prev_close_results if pc is not None}
-    prev_close_map = {t: yft_to_prev.get(_yf(t)) for t in unique_tickers}
-    sparkline_map = {t: (s if isinstance(s, list) else []) for t, s in zip(unique_tickers, sparklines)}
+    # 전일종가·스파크라인: 캐시 우선 (일 단위 데이터) → stale 종목만 Yahoo 재조회.
+    # force=True(Sync) 시에는 전체 재조회.
+    import time as _time
+    _now = _time.time()
+    prev_close_map: dict[str, float | None] = {}
+    sparkline_map: dict[str, list] = {}
+    stale: list[str] = []
+    for t in unique_tickers:
+        ent = _ENRICH_CACHE.get(t)
+        if not force and ent and (_now - ent[0]) < _ENRICH_TTL:
+            prev_close_map[t] = ent[1]
+            sparkline_map[t] = ent[2]
+        else:
+            stale.append(t)
+
+    if stale:
+        async with httpx.AsyncClient() as _client:
+            prev_close_results, sparklines = await asyncio.gather(
+                asyncio.gather(*[_fetch_prev_close_one(_client, _yf(t)) for t in stale]),
+                asyncio.gather(*[get_sparkline(_yf(t)) for t in stale], return_exceptions=True),
+            )
+        yft_to_prev = {yft: pc for yft, pc in prev_close_results if pc is not None}
+        for t, s in zip(stale, sparklines):
+            pc = yft_to_prev.get(_yf(t))
+            spark = s if isinstance(s, list) else []
+            prev_close_map[t] = pc
+            sparkline_map[t] = spark
+            _ENRICH_CACHE[t] = (_now, pc, spark)
 
     result_accounts = []
     for b in valid:
@@ -306,6 +328,86 @@ async def get_kis_portfolio(
         })
 
     return result_accounts
+
+
+@router.get("/deposit-history")
+async def get_deposit_history(
+    current_user: CurrentUser,
+    account_no: str = "TOTAL",
+) -> list[dict]:
+    """계좌별 입출금 내역 조회 (DB에서)"""
+    from sqlalchemy import select
+    from models.database import DepositEvent, AsyncSessionLocal
+    async with AsyncSessionLocal() as session:
+        if account_no == "TOTAL":
+            q = await session.execute(
+                select(DepositEvent).order_by(DepositEvent.date.desc()).limit(500)
+            )
+        else:
+            q = await session.execute(
+                select(DepositEvent)
+                .where(DepositEvent.account_no == account_no)
+                .order_by(DepositEvent.date.desc())
+                .limit(500)
+            )
+        rows = q.scalars().all()
+    return [
+        {
+            "id": r.id,
+            "account_no": r.account_no,
+            "date": r.date,
+            "amount": r.amount,
+            "remark": r.remark,
+            "balance_after": r.balance_after,
+        }
+        for r in rows
+    ]
+
+
+@router.get("/transactions")
+async def get_stock_transactions(
+    current_user: CurrentUser,
+    ticker: str = Query(..., description="종목코드 6자리"),
+    account_no: str | None = Query(None, description="미지정 시 전체 계좌 검색"),
+    days: int = Query(364, ge=1, le=364),  # KIS kt00015는 조회기간 1년 미만만 허용
+) -> list[dict]:
+    """종목별 거래내역(매수/매도 체결) 조회 — 최근 N일(최대 364)."""
+    try:
+        svc = get_kis_service()
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="KIS 서비스 미설정")
+
+    from datetime import datetime, timedelta
+    code = ticker.split(".")[0]
+    end = datetime.now()
+    start = end - timedelta(days=days)
+    start_s, end_s = start.strftime("%Y%m%d"), end.strftime("%Y%m%d")
+
+    accounts = [account_no] if account_no else [a["account_no"] for a in svc.get_account_list()]
+    all_tx: list[dict] = []
+    for acc in accounts:
+        try:
+            tx = await svc.fetch_stock_transactions(acc, code, start_s, end_s)
+            for t in tx:
+                t["account_no"] = acc
+            all_tx.extend(tx)
+        except Exception as e:
+            logger.warning(f"거래내역 조회 실패 ({acc}/{code}): {e}")
+    all_tx.sort(key=lambda x: x["date"], reverse=True)
+    return all_tx
+
+
+@router.post("/deposit-history/sync")
+async def sync_deposit_history_endpoint(current_user: CurrentUser) -> dict:
+    """입출금 내역 수동 동기화 (kt00015)"""
+    try:
+        from services.deposit_service import sync_all_deposit_history
+        results = await sync_all_deposit_history()
+        total = sum(results.values())
+        return {"synced": total, "by_account": results}
+    except Exception as e:
+        logger.error(f"deposit sync 실패: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @router.post("/sync")

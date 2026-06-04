@@ -175,6 +175,19 @@ export interface PortfolioHistoryPoint {
   pnl: number         // 미실현 손익
   pnl_pct: number
   realized_pnl: number  // 누적 실현 손익
+  net_deposits: number  // 앵커 이후 누적 순입금 (0 = 앵커 이전 or 입출금 내역 없음)
+  cash_balance: number  // 예수금
+  equity: number        // 평가자산 = total_value + cash_balance
+  unrealized_pnl: number // 미실현 손익 (= total_value - total_cost)
+}
+
+export interface DepositEventItem {
+  id: number
+  account_no: string
+  date: string
+  amount: number       // 양수=입금, 음수=출금
+  remark: string | null
+  balance_after: number | null
 }
 
 // Portfolio Analysis types
@@ -208,6 +221,10 @@ export const portfolioApi = {
         ...(days && { days }),
         ...(accountNo && { account_no: accountNo }),
       },
+    }),
+  todayNetDeposits: (accountNo?: string) =>
+    retryGet<{ date: string; net_deposits: number }>('/api/portfolio/net-deposits', {
+      params: { ...(accountNo && { account_no: accountNo }) },
     }),
   analysis: () => retryGet<PortfolioAnalysisGroup[]>('/api/portfolio/analysis').then(r => r.data),
   refreshAnalysis: () => apiClient.post<{ message: string; count: number }>('/api/portfolio/analysis/refresh').then(r => r.data),
@@ -246,6 +263,37 @@ export const portfolioApi = {
     retryGet<ChartPoint[]>(`/api/portfolio/by-ticker/${ticker}/chart?period=${period}`),
   newsByTicker: (ticker: string, name?: string) =>
     retryGet<NewsItem[]>(`/api/portfolio/by-ticker/${ticker}/news${name ? `?name=${encodeURIComponent(name)}` : ''}`),
+  infoByTicker: (ticker: string) =>
+    retryGet<StockFundamentals>(`/api/portfolio/by-ticker/${ticker}/info`),
+}
+
+export interface StockFundamentals {
+  name: string | null
+  currency: string | null
+  market_cap: number | null
+  market_cap_display: string | null
+  per: number | null
+  forward_per: number | null
+  pbr: number | null
+  eps: number | null
+  bps: number | null
+  dividend_yield: number | null
+  roe: number | null
+  week52_high: number | null
+  week52_low: number | null
+  sector: string | null
+  industry: string | null
+  summary: string | null
+}
+
+export interface StockTransaction {
+  date: string
+  type: string          // "매수" | "매도"
+  quantity: number
+  price: number
+  amount: number
+  remark: string
+  account_no?: string
 }
 
 // News types
@@ -576,6 +624,17 @@ export const kisApi = {
 
   updateColors: (colors: Record<string, string>): Promise<Record<string, string>> =>
     apiClient.put('/api/kis/colors', colors).then(r => r.data),
+
+  getDepositHistory: (accountNo = 'TOTAL'): Promise<DepositEventItem[]> =>
+    retryGet<DepositEventItem[]>('/api/kis/deposit-history', { params: { account_no: accountNo } }).then(r => r.data),
+
+  getTransactions: (ticker: string, accountNo?: string): Promise<StockTransaction[]> =>
+    retryGet<StockTransaction[]>('/api/kis/transactions', {
+      params: { ticker, ...(accountNo && { account_no: accountNo }) },
+    }).then(r => r.data),
+
+  syncDepositHistory: (): Promise<{ synced: number; by_account: Record<string, number> }> =>
+    apiClient.post('/api/kis/deposit-history/sync').then(r => r.data),
 }
 
 // ─── Planner OCR API ──────────────────────────────────────────────────────────
@@ -742,12 +801,13 @@ export const calendarApi = {
   createEvent: (data: {
     summary: string; description?: string; location?: string
     start: string; end: string; all_day?: boolean; color_id?: string
+    calendar_id?: string; recurrence?: string[]
   }): Promise<{ google_event_id: string; html_link: string }> =>
     apiClient.post('/api/calendar/events', data).then(r => r.data),
 
   updateEvent: (googleEventId: string, data: {
     summary?: string; description?: string; location?: string
-    start?: string; end?: string; color_id?: string
+    start?: string; end?: string; color_id?: string; recurrence?: string[]
   }): Promise<{ google_event_id: string; updated: boolean }> =>
     apiClient.patch(`/api/calendar/events/${googleEventId}`, data).then(r => r.data),
 
@@ -854,6 +914,62 @@ export const blogApi = {
   publicList: (params?: { limit?: number; offset?: number }) =>
     apiClient.get<BlogPost[]>('/api/public/blog', { params }),
   publicGet: (id: number) => apiClient.get<BlogPost>(`/api/public/blog/${id}`),
+}
+
+// ── 투자 이벤트 마커 ───────────────────────────────────────────────────────────
+
+export interface InvestmentMark {
+  id: number
+  date: string              // "YYYY-MM-DD"
+  title: string
+  google_event_id: string | null
+  google_calendar_id: string | null
+  created_at: string
+}
+
+export const investmentMarksApi = {
+  list: (params?: { from_date?: string; to_date?: string }): Promise<InvestmentMark[]> =>
+    apiClient.get<InvestmentMark[]>('/api/portfolio/marks', { params }).then(r => r.data),
+
+  create: (data: { date: string; title: string }): Promise<InvestmentMark> =>
+    apiClient.post<InvestmentMark>('/api/portfolio/marks', data).then(r => r.data),
+
+  delete: (id: number): Promise<void> =>
+    apiClient.delete(`/api/portfolio/marks/${id}`).then(() => undefined),
+
+  syncGcal: (): Promise<{ synced: number }> =>
+    apiClient.post<{ synced: number }>('/api/portfolio/marks/sync-gcal').then(r => r.data),
+
+  syncUnsynced: (): Promise<{ synced: number; failed: number; error?: string }> =>
+    apiClient.post<{ synced: number; failed: number; error?: string }>('/api/portfolio/marks/sync-unsynced').then(r => r.data),
+}
+
+// ── 메모(포스트잇) ─────────────────────────────────────────────────────────────
+
+export interface Memo {
+  id: number
+  title: string
+  body: string | null
+  color: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const memoApi = {
+  list: (q?: string): Promise<Memo[]> =>
+    apiClient.get<Memo[]>('/api/memos', { params: q ? { q } : undefined }).then(r => r.data),
+
+  get: (id: number): Promise<Memo> =>
+    apiClient.get<Memo>(`/api/memos/${id}`).then(r => r.data),
+
+  create: (data: { title: string; body?: string; color?: string }): Promise<Memo> =>
+    apiClient.post<Memo>('/api/memos', data).then(r => r.data),
+
+  update: (id: number, data: { title?: string; body?: string; color?: string }): Promise<Memo> =>
+    apiClient.put<Memo>(`/api/memos/${id}`, data).then(r => r.data),
+
+  delete: (id: number): Promise<void> =>
+    apiClient.delete(`/api/memos/${id}`).then(() => undefined),
 }
 
 export const plannerApi = {

@@ -20,7 +20,7 @@ export function RecommendationCard({
     <div style={{
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       padding: '22px 24px',
       position: 'relative',
     }}>
@@ -57,7 +57,7 @@ export function RecommendationCard({
       {/* current / target / gap 지표 */}
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 14,
-        padding: '10px 14px', background: 'var(--cream)',
+        padding: '10px 14px', background: 'var(--c-surface-subtle)',
         borderRadius: 8, marginBottom: 18,
       }}>
         {[

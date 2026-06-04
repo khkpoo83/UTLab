@@ -43,8 +43,10 @@ function EventTooltip({ events, anchorRect }: { events: CalendarEventItem[]; anc
   const content = (
     <div
       ref={ref}
-      className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-2.5 min-w-[160px] max-w-[220px] pointer-events-none"
-      style={pos ? { left: pos.left, top: pos.top, opacity: 1 } : { left: 0, top: 0, opacity: 0 }}
+      className="fixed z-[9999] rounded-xl shadow-xl p-2.5 min-w-[160px] max-w-[220px] pointer-events-none"
+      style={pos
+        ? { left: pos.left, top: pos.top, opacity: 1, background: 'var(--c-surface)', border: '1px solid var(--line)' }
+        : { left: 0, top: 0, opacity: 0, background: 'var(--c-surface)', border: '1px solid var(--line)' }}
     >
       <div className="space-y-1.5">
         {events.slice(0, 5).map(ev => {
@@ -57,16 +59,16 @@ function EventTooltip({ events, anchorRect }: { events: CalendarEventItem[]; anc
             <div key={ev.id} className="flex items-start gap-1.5 min-w-0">
               <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 bg-accent" />
               <div className="min-w-0">
-                <p className="text-xs text-zinc-700 dark:text-zinc-200 leading-tight truncate">
+                <p className="text-xs leading-tight truncate" style={{ color: 'var(--ink-1)' }}>
                   {ev.summary ?? '(제목 없음)'}
                 </p>
-                {timeStr && <p className="text-2xs text-zinc-400 tabular-nums">{timeStr}</p>}
+                {timeStr && <p className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>{timeStr}</p>}
               </div>
             </div>
           )
         })}
         {events.length > 5 && (
-          <p className="text-2xs text-zinc-400 pl-3">+{events.length - 5}개 더</p>
+          <p className="text-2xs pl-3" style={{ color: 'var(--ink-4)' }}>+{events.length - 5}개 더</p>
         )}
       </div>
     </div>
@@ -99,9 +101,13 @@ function CalGrid({
     <div className="flex flex-col h-full">
       <div className="grid grid-cols-7 mb-0.5">
         {DOW_NAMES.map((d, i) => (
-          <div key={d} className={`text-center font-semibold ${compact ? 'text-2xs py-0.5' : 'text-xs py-1'} ${
-            i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-zinc-400 dark:text-zinc-500'
-          }`}>{d}</div>
+          <div
+            key={d}
+            className={`text-center font-semibold ${compact ? 'text-2xs py-0.5' : 'text-xs py-1'} ${
+              i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : ''
+            }`}
+            style={i !== 0 && i !== 6 ? { color: 'var(--ink-4)' } : undefined}
+          >{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 flex-1 content-between">
@@ -127,8 +133,9 @@ function CalGrid({
                   isSelected ? 'bg-accent/20 text-accent dark:bg-accent/30 font-semibold' :
                   dow === 0  ? 'text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' :
                   dow === 6  ? 'text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' :
-                               'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                               'hover:bg-zinc-100 dark:hover:bg-zinc-800'
                 }`}
+                style={!isToday && !isSelected && dow !== 0 && dow !== 6 ? { color: 'var(--ink-1)' } : undefined}
               >{day}</button>
               {hasEvent && (
                 <div className={`w-1 h-1 rounded-full mt-0.5 ${isToday ? 'bg-white/70' : 'bg-accent/60'}`} />
@@ -154,11 +161,11 @@ function DateEvents({
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      <p className="text-2xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 shrink-0">
+      <p className="text-2xs font-semibold mb-2 shrink-0" style={{ color: 'var(--ink-4)' }}>
         {m}월 {d}일 일정
       </p>
       {events.length === 0 ? (
-        <p className="text-xs text-zinc-400 text-center py-3">일정 없음</p>
+        <p className="text-xs text-center py-3" style={{ color: 'var(--ink-4)' }}>일정 없음</p>
       ) : (
         <div className="space-y-2.5 overflow-y-auto flex-1 min-h-0 pr-0.5">
           {events.map(ev => {
@@ -170,15 +177,15 @@ function DateEvents({
               <div key={ev.id} className="flex items-start gap-2">
                 <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 bg-accent" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-tight truncate">
+                  <p className="text-xs leading-tight truncate" style={{ color: 'var(--ink-1)' }}>
                     {ev.summary ?? '(제목 없음)'}
                   </p>
-                  <p className="text-2xs text-zinc-400 mt-0.5 tabular-nums">{timeStr}</p>
+                  <p className="text-2xs mt-0.5 tabular-nums" style={{ color: 'var(--ink-4)' }}>{timeStr}</p>
                   {showDetails && ev.location && (
-                    <p className="text-2xs text-zinc-400 mt-0.5 truncate">📍 {ev.location}</p>
+                    <p className="text-2xs mt-0.5 truncate" style={{ color: 'var(--ink-4)' }}>📍 {ev.location}</p>
                   )}
                   {showDetails && ev.description && (
-                    <p className="text-2xs text-zinc-400 mt-0.5 line-clamp-1">{ev.description}</p>
+                    <p className="text-2xs mt-0.5 line-clamp-1" style={{ color: 'var(--ink-4)' }}>{ev.description}</p>
                   )}
                 </div>
               </div>
@@ -200,10 +207,18 @@ export default function CalendarWidget({
   const today    = new Date()
   const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`
 
-  const [calMonth,     setCalMonth]     = useState({ year: today.getFullYear(), month: today.getMonth() })
-  const [selectedDate, setSelectedDate] = useState(todayStr)
-  const [calEvents,    setCalEvents]    = useState<CalendarEventItem[]>([])
-  const [flatTooltip,  setFlatTooltip]  = useState<{ events: CalendarEventItem[]; rect: DOMRect } | null>(null)
+  const [calMonth,       setCalMonth]       = useState({ year: today.getFullYear(), month: today.getMonth() })
+  const [selectedDate,   setSelectedDate]   = useState(todayStr)
+  const [calEvents,      setCalEvents]      = useState<CalendarEventItem[]>([])
+  const [flatTooltip,    setFlatTooltip]    = useState<{ events: CalendarEventItem[]; rect: DOMRect } | null>(null)
+  const [needsReconnect, setNeedsReconnect] = useState(false)
+
+  // 마운트 시 캘린더 연결 상태 확인
+  useEffect(() => {
+    calendarApi.status().then(s => {
+      if (s.connected && s.needs_reconnect) setNeedsReconnect(true)
+    }).catch(() => {})
+  }, [])
 
   const { year, month } = calMonth
 
@@ -256,13 +271,15 @@ export default function CalendarWidget({
   const MonthHeader = ({ xs = false }: { xs?: boolean }) => (
     <div className="flex items-center justify-between shrink-0">
       <button onClick={prevMonth}
-        className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        style={{ color: 'var(--ink-4)' }}
       ><ChevronLeft size={xs ? 12 : 14} /></button>
-      <span className={`${xs ? 'text-xs' : 'text-sm'} font-semibold text-zinc-800 dark:text-zinc-100`}>
+      <span className={`${xs ? 'text-xs' : 'text-sm'} font-semibold`} style={{ color: 'var(--ink-0)' }}>
         {year}년 {MONTH_NAMES[month]}
       </span>
       <button onClick={nextMonth}
-        className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+        style={{ color: 'var(--ink-4)' }}
       ><ChevronRight size={xs ? 12 : 14} /></button>
     </div>
   )
@@ -285,13 +302,20 @@ export default function CalendarWidget({
       className="h-full flex flex-col"
       contentClassName="p-3 flex-1 min-h-0 overflow-hidden"
     >
+      {/* ── 토큰 만료 배너 ── */}
+      {needsReconnect && (
+        <div className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-lg text-2xs bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50">
+          <span className="flex-1">Google 캘린더 재연결이 필요합니다</span>
+          <a href="/settings" className="font-semibold underline whitespace-nowrap">설정 이동</a>
+        </div>
+      )}
       {/* ── tiny: 1×1 ── */}
       {layout === 'tiny' && (
         <div className="flex flex-col items-center justify-center h-full gap-1">
-          <span className="text-3xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">
+          <span className="text-3xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>
             {today.getDate()}
           </span>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">{MONTH_NAMES[today.getMonth()]}</span>
+          <span className="text-xs" style={{ color: 'var(--ink-4)' }}>{MONTH_NAMES[today.getMonth()]}</span>
           {selectedEvents.length > 0 && (
             <span className="tag tag-tonal text-2xs">{selectedEvents.length}개 일정</span>
           )}
@@ -303,16 +327,18 @@ export default function CalendarWidget({
         <div className="flex items-center gap-2 h-full overflow-hidden">
           <div className="flex items-center gap-0.5 shrink-0">
             <button onClick={prevMonth}
-              className="p-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+              className="p-0.5 rounded transition-colors"
+              style={{ color: 'var(--ink-4)' }}
             ><ChevronLeft size={12} /></button>
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200 whitespace-nowrap">
+            <span className="text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--ink-1)' }}>
               {year}년 {MONTH_NAMES[month]}
             </span>
             <button onClick={nextMonth}
-              className="p-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+              className="p-0.5 rounded transition-colors"
+              style={{ color: 'var(--ink-4)' }}
             ><ChevronRight size={12} /></button>
           </div>
-          <div className="h-8 w-px bg-zinc-200 dark:bg-zinc-700 shrink-0" />
+          <div className="h-8 w-px shrink-0" style={{ background: 'var(--line)' }} />
           <div className="flex flex-1 min-w-0 overflow-hidden">
             {weekDays.map(({ date, dateStr, dow }) => {
               const isToday    = dateStr === todayStr
@@ -327,7 +353,10 @@ export default function CalendarWidget({
                   onMouseEnter={hasEv ? e => setFlatTooltip({ events: dayEvs, rect: e.currentTarget.getBoundingClientRect() }) : undefined}
                   onMouseLeave={hasEv ? () => setFlatTooltip(null) : undefined}
                 >
-                  <span className={`text-2xs ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : 'text-zinc-400'}`}>
+                  <span
+                    className={`text-2xs ${dow === 0 ? 'text-red-400' : dow === 6 ? 'text-blue-400' : ''}`}
+                    style={dow !== 0 && dow !== 6 ? { color: 'var(--ink-4)' } : undefined}
+                  >
                     {DOW_NAMES[dow]}
                   </span>
                   <button
@@ -337,8 +366,9 @@ export default function CalendarWidget({
                       isSelected ? 'bg-accent/20 text-accent font-semibold' :
                       dow === 0  ? 'text-red-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' :
                       dow === 6  ? 'text-blue-400 hover:bg-zinc-100 dark:hover:bg-zinc-800' :
-                                   'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                   'hover:bg-zinc-100 dark:hover:bg-zinc-800'
                     }`}
+                    style={!isToday && !isSelected && dow !== 0 && dow !== 6 ? { color: 'var(--ink-1)' } : undefined}
                   >{date.getDate()}</button>
                   {hasEv && <div className={`w-1 h-1 rounded-full ${isToday ? 'bg-white/70' : 'bg-accent/60'}`} />}
                 </div>
@@ -361,7 +391,7 @@ export default function CalendarWidget({
             />
           </div>
           {h >= 3 && (
-            <div className="flex-1 min-h-0 border-t border-zinc-100 dark:border-zinc-800 pt-2">
+            <div className="flex-1 min-h-0 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
               <DateEvents events={selectedEvents} selectedDate={selectedDate} showDetails={false} />
             </div>
           )}
@@ -381,7 +411,7 @@ export default function CalendarWidget({
               />
             </div>
           </div>
-          <div className="flex-1 min-w-0 border-l border-zinc-100 dark:border-zinc-800 pl-3 overflow-hidden">
+          <div className="flex-1 min-w-0 border-l pl-3 overflow-hidden" style={{ borderColor: 'var(--line)' }}>
             <DateEvents events={selectedEvents} selectedDate={selectedDate} showDetails={h >= 3} />
           </div>
         </div>
@@ -400,7 +430,7 @@ export default function CalendarWidget({
               />
             </div>
           </div>
-          <div className="flex-1 min-w-0 border-l border-zinc-100 dark:border-zinc-800 pl-3 overflow-hidden">
+          <div className="flex-1 min-w-0 border-l pl-3 overflow-hidden" style={{ borderColor: 'var(--line)' }}>
             <DateEvents events={selectedEvents} selectedDate={selectedDate} showDetails />
           </div>
         </div>
@@ -419,7 +449,7 @@ export default function CalendarWidget({
               />
             </div>
           </div>
-          <div className="flex-1 min-w-0 border-l border-zinc-100 dark:border-zinc-800 pl-4 overflow-hidden">
+          <div className="flex-1 min-w-0 border-l pl-4 overflow-hidden" style={{ borderColor: 'var(--line)' }}>
             <DateEvents events={selectedEvents} selectedDate={selectedDate} showDetails />
           </div>
         </div>

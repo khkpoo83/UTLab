@@ -81,10 +81,10 @@ async def lifespan(app: FastAPI):
 
     # KIS API 초기화
     kis_tar_path = os.getenv("KIS_TAR_PATH", "")
-    kis_base_url = os.getenv("KIS_BASE_URL", "https://openapi.kiwoom.com")
+    kis_base_url = os.getenv("KIS_BASE_URL", "https://api.kiwoom.com")  # 실서버. 모의투자는 mockapi.kiwoom.com
     kis_account_map = os.getenv("KIS_ACCOUNT_MAP", "")
     kis_product_code = os.getenv("KIS_DEFAULT_PRODUCT_CODE", "01")
-    kis_cache_ttl = int(os.getenv("KIS_CACHE_TTL", "300"))
+    kis_cache_ttl = int(os.getenv("KIS_CACHE_TTL", "45"))
     if kis_tar_path and kis_account_map:
         try:
             from services.kis_service import configure as configure_kis
@@ -235,6 +235,8 @@ from routers import calendar as calendar_router
 from routers import diary as diary_router
 from routers import photos as photos_router
 from routers import blog as blog_router
+from routers import investment_marks as marks_router
+from routers import memo as memo_router
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
@@ -250,6 +252,8 @@ app.include_router(calendar_router.router, prefix="/api")
 app.include_router(diary_router.router, prefix="/api")
 app.include_router(photos_router.router)
 app.include_router(blog_router.router)
+app.include_router(marks_router.router, prefix="/api")
+app.include_router(memo_router.router, prefix="/api")
 
 
 @app.get("/api/health")

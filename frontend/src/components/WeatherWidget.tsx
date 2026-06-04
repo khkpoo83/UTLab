@@ -252,10 +252,10 @@ function DayCol({ d, i, isSelected, onSelect, compact, iconStyle }: {
         onSelect ? 'cursor-pointer select-none' : ''
       } ${isSelected ? 'bg-accent/8 dark:bg-accent/12' : onSelect ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' : ''}`}
     >
-      <span className="text-2xs text-zinc-500 dark:text-zinc-400 font-medium truncate w-full text-center">{dayName}</span>
+      <span className="text-2xs font-medium truncate w-full text-center" style={{ color: 'var(--ink-3)' }}>{dayName}</span>
       <WeatherBadge code={d.wmoCode} size={compact ? 20 : 28} iconStyle={iconStyle} />
-      <span className="text-2xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums">{d.tempMax}°</span>
-      <span className="text-2xs text-zinc-400 tabular-nums">{d.tempMin}°</span>
+      <span className="text-2xs font-semibold tabular-nums" style={{ color: 'var(--ink-1)' }}>{d.tempMax}°</span>
+      <span className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
     </div>
   )
 }
@@ -269,12 +269,12 @@ function FlatDayItem({ d, i, iconStyle }: { d: DayForecast; i: number; iconStyle
       <WeatherBadge code={d.wmoCode} size={44} iconStyle={iconStyle} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between gap-1">
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 truncate">{dayName}</span>
-          <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200 shrink-0">{d.tempMax}°</span>
+          <span className="text-xs font-semibold truncate" style={{ color: 'var(--ink-1)' }}>{dayName}</span>
+          <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--ink-0)' }}>{d.tempMax}°</span>
         </div>
         <div className="flex items-center justify-between mt-px gap-1">
           <span className="text-2xs text-blue-500 dark:text-blue-400 tabular-nums">💧{d.precipProbMax}%</span>
-          <span className="text-2xs text-zinc-400 tabular-nums shrink-0">{d.tempMin}°</span>
+          <span className="text-2xs tabular-nums shrink-0" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
         </div>
       </div>
     </div>
@@ -300,12 +300,12 @@ function NarrowDayItem({ d, i, isSelected, onSelect, compact, iconStyle }: {
       <WeatherBadge code={d.wmoCode} size={compact ? 28 : 40} iconStyle={iconStyle} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between">
-          <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{dayName}</span>
-          <span className="text-xs font-bold tabular-nums text-zinc-800 dark:text-zinc-200">{d.tempMax}°</span>
+          <span className="text-xs font-semibold" style={{ color: 'var(--ink-1)' }}>{dayName}</span>
+          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--ink-0)' }}>{d.tempMax}°</span>
         </div>
         <div className="flex items-center justify-between mt-px">
           <span className="text-2xs text-blue-500 dark:text-blue-400 tabular-nums">💧{d.precipProbMax}%</span>
-          <span className="text-2xs text-zinc-400 tabular-nums">{d.tempMin}°</span>
+          <span className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
         </div>
       </div>
     </div>
@@ -328,14 +328,14 @@ function DayRow({ d, i, isSelected, onSelect, rangeMin, rangeSpan, compact, icon
         onSelect ? 'cursor-pointer' : ''
       } ${isSelected ? 'bg-accent/8 dark:bg-accent/12' : onSelect ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' : ''} ${py}`}
     >
-      <span className="text-2xs text-zinc-500 dark:text-zinc-400 font-medium w-7 shrink-0">{dayName}</span>
+      <span className="text-2xs font-medium w-7 shrink-0" style={{ color: 'var(--ink-3)' }}>{dayName}</span>
       <WeatherBadge code={d.wmoCode} size={24} iconStyle={iconStyle} />
       <span className="text-2xs text-blue-500 dark:text-blue-400 w-7 text-right shrink-0 tabular-nums">{d.precipProbMax}%</span>
-      <span className="text-2xs text-zinc-400 tabular-nums w-6 text-right shrink-0">{d.tempMin}°</span>
-      <div className="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-700 relative overflow-hidden mx-0.5">
+      <span className="text-2xs tabular-nums w-6 text-right shrink-0" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
+      <div className="flex-1 h-1.5 rounded-full relative overflow-hidden mx-0.5" style={{ background: 'var(--mist)' }}>
         <div className="absolute top-0 h-full rounded-full bg-accent" style={{ left: `${barLeft}%`, width: `${barWidth}%` }} />
       </div>
-      <span className="text-2xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums w-6 shrink-0">{d.tempMax}°</span>
+      <span className="text-2xs font-semibold tabular-nums w-6 shrink-0" style={{ color: 'var(--ink-1)' }}>{d.tempMax}°</span>
     </div>
   )
 }
@@ -387,8 +387,8 @@ function HourlyChart({ hourly, dayLabel }: {
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex items-center justify-between mb-1 shrink-0">
-        <span className="text-2xs text-zinc-400">{dayLabel} 시간별</span>
-        <div className="flex items-center gap-2.5 text-2xs text-zinc-400">
+        <span className="text-2xs" style={{ color: 'var(--ink-4)' }}>{dayLabel} 시간별</span>
+        <div className="flex items-center gap-2.5 text-2xs" style={{ color: 'var(--ink-4)' }}>
           <span className="flex items-center gap-1">
             <span className="inline-block w-3 h-0.5 rounded" style={{ background: tempColor }} />
             온도
@@ -438,9 +438,9 @@ function HourlyChart({ hourly, dayLabel }: {
               labelFormatter={l => `${parseInt(l as string, 10)}시`}
               contentStyle={{
                 fontSize: 10, borderRadius: 6, padding: '3px 8px',
-                backgroundColor: isDark ? '#27272a' : '#fff',
-                border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`,
-                color: isDark ? '#e4e4e7' : '#27272a',
+                backgroundColor: 'var(--c-surface)',
+                border: '1px solid var(--line)',
+                color: 'var(--ink-0)',
               }}
             />
             {/* precip 먼저 렌더 → temp 선이 위에 표시됨 */}
@@ -609,14 +609,14 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
       className="h-full flex flex-col"
       contentClassName="p-3 flex-1 min-h-0 overflow-hidden"
       right={
-        <button onClick={handleRefresh} className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+        <button onClick={handleRefresh} className="p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors" style={{ color: 'var(--ink-4)' }}>
           <RefreshCw size={11} className={refreshing ? 'animate-spin' : ''} />
         </button>
       }
     >
       {loading && <div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 border-accent/30 border-t-accent rounded-full animate-spin" /></div>}
       {error && !cache && (
-        <div className="flex flex-col items-center justify-center gap-2 py-6 text-zinc-400">
+        <div className="flex flex-col items-center justify-center gap-2 py-6" style={{ color: 'var(--ink-4)' }}>
           <p className="text-xs">날씨를 불러올 수 없습니다</p>
           <button onClick={handleRefresh} className="text-2xs underline opacity-70 hover:opacity-100">재시도</button>
         </div>
@@ -629,10 +629,10 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
             <div className="flex items-center gap-2.5 h-full">
               <WeatherBadge code={wmo} isNight={isNight} size={64} iconStyle={iconStyle} />
               <div className="flex flex-col gap-0.5 min-w-0">
-                <div className="text-3xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">{cache.temp}°</div>
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">{wmoLabel(wmo)}</div>
-                <div className="text-2xs text-zinc-400 tabular-nums">↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
-                <div className="flex gap-2 text-2xs text-zinc-400 tabular-nums">
+                <div className="text-3xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>{cache.temp}°</div>
+                <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
+                <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
+                <div className="flex gap-2 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
                   <span>💧{cache.humidity}%</span>
                   <span>🌧{cache.precipitation}㎜</span>
                 </div>
@@ -646,11 +646,11 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
               <div className="flex items-center gap-2 overflow-hidden" style={{ width: 96, flexShrink: 0 }}>
                 <WeatherBadge code={wmo} isNight={isNight} size={44} iconStyle={iconStyle} />
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <div className="text-xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">{cache.temp}°</div>
-                  <div className="text-2xs text-zinc-500 dark:text-zinc-400 truncate">{wmoLabel(wmo)}</div>
+                  <div className="text-xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>{cache.temp}°</div>
+                  <div className="text-2xs truncate" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
                 </div>
               </div>
-              <div className="h-10 w-px bg-zinc-200 dark:bg-zinc-700" style={{ flexShrink: 0 }} />
+              <div className="h-10 w-px" style={{ flexShrink: 0, background: 'var(--line)' }} />
               <div className="flex flex-1 min-w-0 overflow-hidden">
                 {cache.daily.slice(1, 1 + dayCount).map((d, i) =>
                   w >= 3
@@ -676,19 +676,20 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
               >
                 <WeatherBadge code={wmo} isNight={isNight} size={h <= 2 ? 44 : 60} iconStyle={iconStyle} />
                 <div>
-                  <div className={`${h <= 2 ? 'text-xl' : 'text-2xl'} font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none`}>
+                  <div className={`${h <= 2 ? 'text-xl' : 'text-2xl'} font-thin tabular-nums leading-none`} style={{ color: 'var(--ink-0)' }}>
                     {cache.temp}°
                   </div>
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">{wmoLabel(wmo)}</div>
-                  <div className="text-2xs text-zinc-400 tabular-nums">↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
+                  <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
+                  <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
                   {h >= 3 && (
-                    <div className="text-2xs text-zinc-400 tabular-nums">💧{cache.humidity}% · 🌧{cache.precipitation}㎜</div>
+                    <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>💧{cache.humidity}% · 🌧{cache.precipitation}㎜</div>
                   )}
                 </div>
               </div>
-              <div className={`flex flex-col border-t border-zinc-100 dark:border-zinc-800 pt-1 overflow-hidden ${
-                showHourly ? 'shrink-0' : 'flex-1'
-              } ${!showHourly && h >= 3 ? 'justify-between' : ''}`}>
+              <div
+                className={`flex flex-col border-t pt-1 overflow-hidden ${showHourly ? 'shrink-0' : 'flex-1'} ${!showHourly && h >= 3 ? 'justify-between' : ''}`}
+                style={{ borderColor: 'var(--line)' }}
+              >
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <NarrowDayItem
                     key={d.date} d={d} i={i}
@@ -700,7 +701,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 ))}
               </div>
               {showHourly && (
-                <div className="flex-1 min-h-0 border-t border-zinc-100 dark:border-zinc-800 pt-2">
+                <div className="flex-1 min-h-0 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
                   <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
                 </div>
               )}
@@ -719,20 +720,20 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 <WeatherBadge code={wmo} isNight={isNight} size={48} iconStyle={iconStyle} />
                 <div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-2xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">{cache.temp}°</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">{wmoLabel(wmo)}</span>
+                    <span className="text-2xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>{cache.temp}°</span>
+                    <span className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</span>
                   </div>
-                  <div className="text-2xs text-zinc-400 tabular-nums mt-0.5">
+                  <div className="text-2xs tabular-nums mt-0.5" style={{ color: 'var(--ink-4)' }}>
                     ↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}° · 💧{cache.humidity}% · 💨{cache.windSpeed}㎞/h
                   </div>
                 </div>
               </div>
-              <div className="flex border-t border-zinc-100 dark:border-zinc-800 pt-1 shrink-0">
+              <div className="flex border-t pt-1 shrink-0" style={{ borderColor: 'var(--line)' }}>
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <DayCol key={d.date} d={d} i={i} isSelected={selectedDay === i + 1} onSelect={() => setSelectedDay(i + 1)} iconStyle={iconStyle} />
                 ))}
               </div>
-              <div className="flex-1 min-h-0 border-t border-zinc-100 dark:border-zinc-800 pt-2">
+              <div className="flex-1 min-h-0 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
                 <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
               </div>
             </div>
@@ -748,18 +749,18 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 }`}
               >
                 <WeatherBadge code={wmo} isNight={isNight} size={72} iconStyle={iconStyle} />
-                <div className="text-4xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">{cache.temp}°</div>
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">{wmoLabel(wmo)}</div>
-                <div className="text-2xs text-zinc-400 tabular-nums">↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
-                <div className="mt-auto flex flex-col gap-0.5 text-2xs text-zinc-400 tabular-nums">
+                <div className="text-4xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>{cache.temp}°</div>
+                <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
+                <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
+                <div className="mt-auto flex flex-col gap-0.5 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
                   <span>💧{cache.humidity}%</span>
                   <span>🌧{cache.precipitation}㎜</span>
                   <span>💨{cache.windSpeed}㎞/h</span>
                 </div>
               </div>
               <div
-                className="flex flex-col justify-between border-l border-zinc-100 dark:border-zinc-800 pl-3 shrink-0 overflow-hidden"
-                style={{ width: medDailyW }}
+                className="flex flex-col justify-between border-l pl-3 shrink-0 overflow-hidden"
+                style={{ width: medDailyW, borderColor: 'var(--line)' }}
               >
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <DayRow
@@ -771,7 +772,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   />
                 ))}
               </div>
-              <div className="flex-1 min-h-0 min-w-0 border-l border-zinc-100 dark:border-zinc-800 pl-3 overflow-hidden">
+              <div className="flex-1 min-h-0 min-w-0 border-l pl-3 overflow-hidden" style={{ borderColor: 'var(--line)' }}>
                 <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
               </div>
             </div>
@@ -789,10 +790,10 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 <WeatherBadge code={wmo} isNight={isNight} size={76} iconStyle={iconStyle} />
                 <div>
                   <div className="flex items-end gap-2">
-                    <span className="text-5xl font-thin tabular-nums text-zinc-800 dark:text-zinc-100 leading-none">{cache.temp}°</span>
-                    <span className="text-sm text-zinc-500 dark:text-zinc-400 pb-1">{wmoLabel(wmo)}</span>
+                    <span className="text-5xl font-thin tabular-nums leading-none" style={{ color: 'var(--ink-0)' }}>{cache.temp}°</span>
+                    <span className="text-sm pb-1" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</span>
                   </div>
-                  <div className="flex gap-3 mt-0.5 text-2xs text-zinc-400 tabular-nums">
+                  <div className="flex gap-3 mt-0.5 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
                     <span>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</span>
                     <span>💧{cache.humidity}%</span>
                     <span>🌧{cache.precipitation}㎜</span>
@@ -800,7 +801,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-0 border-t border-zinc-100 dark:border-zinc-800 pt-1 shrink-0">
+              <div className="flex flex-col gap-0 border-t pt-1 shrink-0" style={{ borderColor: 'var(--line)' }}>
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <DayRow
                     key={d.date} d={d} i={i} compact
@@ -811,7 +812,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   />
                 ))}
               </div>
-              <div className="flex-1 min-h-0 border-t border-zinc-100 dark:border-zinc-800 pt-2">
+              <div className="flex-1 min-h-0 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
                 <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
               </div>
             </div>

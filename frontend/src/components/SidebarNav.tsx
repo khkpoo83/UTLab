@@ -1,4 +1,4 @@
-import React, { Fragment, useContext, useEffect, useState } from 'react'
+import { Fragment, useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
   ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Menu,
@@ -110,9 +110,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
     document.documentElement.classList.toggle('dark', isDark)
     syncPnlColors(isDark)
     applyBackground(loadBgConfig(isDark ? 'dark' : 'light'))
-    if (next !== 'system') {
-      apiClient.put('/api/settings', { settings: { ui_dark_mode: isDark } }).catch(() => {})
-    }
+    apiClient.put('/api/settings', { settings: { ui_dark_mode: next === 'system' ? null : isDark } }).catch(() => {})
   }
 
   const handleLogout = () => { localStorage.removeItem('token'); navigate('/login') }
@@ -192,20 +190,9 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         {/* 네비게이션 */}
         <nav className="flex-1 overflow-y-auto py-2 px-1.5 space-y-0.5">
           {mainNavGroups.map(group => {
-            const isSiteSection = group.id === 'site'
             const isGroupActive = activeGroup?.id === group.id
             const isExpanded = expanded.has(group.id)
             const hasChildren = (group.children?.length ?? 0) > 0
-
-            const divider = isSiteSection ? (
-              <div key={`${group.id}-divider`} className="border-t border-zinc-100 dark:border-zinc-800 my-1.5 mx-0.5" />
-            ) : null
-
-            const siteWrap = (content: React.ReactNode) => isSiteSection ? (
-              <div className={`rounded-lg py-0.5 ${collapsed ? '' : 'bg-zinc-50/60 dark:bg-zinc-800/20'}`}>
-                {content}
-              </div>
-            ) : <>{content}</>
 
             if (!hasChildren) {
               const linkClass = `flex items-center rounded-lg text-sm transition-colors ${
@@ -215,133 +202,124 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
               if (group.href) {
                 return (
                   <Fragment key={group.id}>
-                    {divider}
-                    {siteWrap(
-                      <div className="relative group/item">
-                        <a
-                          href={group.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title={collapsed ? group.label : undefined}
-                          className={linkClass}
-                          onClick={onClose}
-                        >
-                          <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
-                          {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
-                        </a>
-                      </div>
-                    )}
+                    <div className="relative group/item">
+                      <a
+                        href={group.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={collapsed ? group.label : undefined}
+                        className={linkClass}
+                        onClick={onClose}
+                      >
+                        <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
+                        {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
+                      </a>
+                    </div>
                   </Fragment>
                 )
               }
 
               return (
                 <Fragment key={group.id}>
-                  {divider}
-                  {siteWrap(
-                    <div className="relative group/item">
-                      <NavLink
-                        to={group.to!}
-                        onClick={onClose}
-                        title={collapsed ? group.label : undefined}
-                        className={({ isActive }) =>
-                          `flex items-center rounded-lg text-sm transition-colors ${
-                            collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
-                          } ${
-                            isActive
-                              ? 'bg-accent/10 text-accent font-medium'
-                              : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
-                          }`
-                        }
-                      >
-                        <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
-                        {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
-                      </NavLink>
-                      {!collapsed && (
-                        <FavStar active={homeTab === group.to!} onClick={() => saveHomeTab(group.to!)} />
-                      )}
-                    </div>
-                  )}
+                  <div className="relative group/item">
+                    <NavLink
+                      to={group.to!}
+                      onClick={onClose}
+                      title={collapsed ? group.label : undefined}
+                      className={({ isActive }) =>
+                        `flex items-center rounded-lg text-sm transition-colors ${
+                          collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
+                        } ${
+                          isActive
+                            ? 'bg-accent/10 text-accent font-medium'
+                            : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                        }`
+                      }
+                    >
+                      <group.Icon size={collapsed ? 19 : 17} className="flex-shrink-0" />
+                      {!collapsed && <span className="flex-1 truncate">{group.label}</span>}
+                    </NavLink>
+                    {!collapsed && (
+                      <FavStar active={homeTab === group.to!} onClick={() => saveHomeTab(group.to!)} />
+                    )}
+                  </div>
                 </Fragment>
               )
             }
 
             return (
               <Fragment key={group.id}>
-                {divider}
-                {siteWrap(
-                  <div>
-                    <button
-                      onClick={() => { if (!collapsed) toggle(group.id) }}
-                      title={collapsed ? group.label : undefined}
-                      className={`w-full flex items-center rounded-lg text-sm transition-colors ${
-                        collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
-                      } ${
-                        isGroupActive
-                          ? 'text-accent'
-                          : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
-                      }`}
-                    >
-                      <group.Icon size={collapsed ? 19 : 17} className={`flex-shrink-0 ${isGroupActive ? 'text-accent' : ''}`} />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 text-left truncate">{group.label}</span>
-                          {isExpanded
-                            ? <ChevronDown size={13} className="opacity-40 flex-shrink-0" />
-                            : <ChevronRight size={13} className="opacity-40 flex-shrink-0" />
-                          }
-                        </>
-                      )}
-                    </button>
-
-                    {!collapsed && isExpanded && (
-                      <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
-                        {group.children!.map(item => (
-                          <div key={item.to} className="relative group/item">
-                            <NavLink
-                              to={item.to}
-                              onClick={onClose}
-                              className={({ isActive }) =>
-                                `flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-r-md text-xs transition-colors ${
-                                  isActive
-                                    ? 'bg-accent/10 text-accent font-medium'
-                                    : 'text-zinc-500 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300'
-                                }`
-                              }
-                            >
-                              <item.Icon size={13} className="flex-shrink-0" />
-                              <span className="flex-1 truncate">{item.label}</span>
-                            </NavLink>
-                            <FavStar active={homeTab === item.to} onClick={() => saveHomeTab(item.to)} />
-                          </div>
-                        ))}
-                      </div>
+                <div>
+                  <button
+                    onClick={() => { if (!collapsed) toggle(group.id) }}
+                    title={collapsed ? group.label : undefined}
+                    className={`w-full flex items-center rounded-lg text-sm transition-colors ${
+                      collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
+                    } ${
+                      isGroupActive
+                        ? 'text-accent'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <group.Icon size={collapsed ? 19 : 17} className={`flex-shrink-0 ${isGroupActive ? 'text-accent' : ''}`} />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 text-left truncate">{group.label}</span>
+                        {isExpanded
+                          ? <ChevronDown size={13} className="opacity-40 flex-shrink-0" />
+                          : <ChevronRight size={13} className="opacity-40 flex-shrink-0" />
+                        }
+                      </>
                     )}
+                  </button>
 
-                    {collapsed && (
-                      <div className="relative mt-0.5 space-y-0.5 ml-[5px]">
-                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full pointer-events-none" />
-                        {group.children!.map(item => (
+                  {!collapsed && isExpanded && (
+                    <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
+                      {group.children!.map(item => (
+                        <div key={item.to} className="relative group/item">
                           <NavLink
-                            key={item.to}
                             to={item.to}
                             onClick={onClose}
-                            title={item.label}
                             className={({ isActive }) =>
-                              `flex items-center justify-center pl-2 pr-1.5 py-1.5 rounded-r-md transition-colors ${
+                              `flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-r-md text-xs transition-colors ${
                                 isActive
-                                  ? 'bg-accent/10 text-accent'
-                                  : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300'
+                                  ? 'bg-accent/10 text-accent font-medium'
+                                  : 'text-zinc-500 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300'
                               }`
                             }
                           >
-                            <item.Icon size={13} />
+                            <item.Icon size={13} className="flex-shrink-0" />
+                            <span className="flex-1 truncate">{item.label}</span>
                           </NavLink>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          <FavStar active={homeTab === item.to} onClick={() => saveHomeTab(item.to)} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {collapsed && (
+                    <div className="relative mt-0.5 space-y-0.5 ml-[5px]">
+                      <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full pointer-events-none" />
+                      {group.children!.map(item => (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          onClick={onClose}
+                          title={item.label}
+                          className={({ isActive }) =>
+                            `flex items-center justify-center pl-2 pr-1.5 py-1.5 rounded-r-md transition-colors ${
+                              isActive
+                                ? 'bg-accent/10 text-accent'
+                                : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300'
+                            }`
+                          }
+                        >
+                          <item.Icon size={13} />
+                        </NavLink>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Fragment>
             )
           })}

@@ -126,6 +126,7 @@ async def sync_kis_to_portfolio() -> dict:
                 amount     = round(sell_price * sold_qty, 0),
                 pnl        = round(pnl, 0),
                 pnl_pct    = round(pnl_pct, 2),
+                account_no = acc_no,
                 note       = "KIS 자동감지",
             ))
             sell_events_added += 1
@@ -153,24 +154,33 @@ async def sync_kis_to_portfolio() -> dict:
                 ))
                 total_holdings += 1
 
-        # ── 6. 누적 실현 손익 조회 ───────────────────────────────────────────
-        sell_rows = (await session.execute(
-            select(InvestmentEvent.pnl).where(
+        # ── 6. 누적 실현 손익 조회 (TOTAL + 계좌별) ─────────────────────────
+        sell_rows_all = (await session.execute(
+            select(InvestmentEvent.pnl, InvestmentEvent.account_no).where(
                 InvestmentEvent.event_type == "sell",
                 InvestmentEvent.pnl.isnot(None),
                 InvestmentEvent.event_date <= today_str,
             )
         )).all()
-        realized_pnl = sum(r[0] for r in sell_rows if r[0] is not None)
+        realized_pnl_total = sum(r[0] for r in sell_rows_all if r[0] is not None)
+        # 계좌별 실현손익 (account_no 있는 이벤트만, NULL은 TOTAL에만 반영)
+        realized_pnl_by_acc: dict[str, float] = {}
+        for pnl_val, acc in sell_rows_all:
+            if acc and pnl_val is not None:
+                realized_pnl_by_acc[acc] = realized_pnl_by_acc.get(acc, 0.0) + pnl_val
 
         # ── 7. PortfolioSnapshot 저장 ────────────────────────────────────────
         total_eval     = sum(b.get("total_eval_amount", 0) for b in valid)
         total_purchase = sum(b.get("total_purchase_amount", 0) for b in valid)
+        total_cash     = sum(b.get("deposit", 0) for b in valid)
 
         now_kst = datetime.now(KST)
         snap_dt = now_kst.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
-        async def _upsert_snapshot(acct_no: str, eval_amt: float, purchase_amt: float) -> None:
+        async def _upsert_snapshot(
+            acct_no: str, eval_amt: float, purchase_amt: float,
+            cash_amt: float = 0.0, r_pnl: float = 0.0,
+        ) -> None:
             if purchase_amt <= 0 or eval_amt <= 0:
                 return
             p  = eval_amt - purchase_amt
@@ -187,24 +197,29 @@ async def sync_kis_to_portfolio() -> dict:
                 r.total_cost   = round(purchase_amt, 0)
                 r.pnl          = round(p, 0)
                 r.pnl_pct      = round(pp, 4)
-                r.realized_pnl = round(realized_pnl, 0)
+                r.realized_pnl = round(r_pnl, 0)
+                r.cash_balance = round(cash_amt, 0)
             else:
                 session.add(PortfolioSnapshot(
-                    date         = snap_dt,
-                    account_no   = acct_no,
-                    total_value  = round(eval_amt, 0),
-                    total_cost   = round(purchase_amt, 0),
-                    pnl          = round(p, 0),
-                    pnl_pct      = round(pp, 4),
-                    realized_pnl = round(realized_pnl, 0),
+                    date          = snap_dt,
+                    account_no    = acct_no,
+                    total_value   = round(eval_amt, 0),
+                    total_cost    = round(purchase_amt, 0),
+                    pnl           = round(p, 0),
+                    pnl_pct       = round(pp, 4),
+                    realized_pnl  = round(r_pnl, 0),
+                    cash_balance  = round(cash_amt, 0),
                 ))
 
-        await _upsert_snapshot('TOTAL', total_eval, total_purchase)
+        await _upsert_snapshot('TOTAL', total_eval, total_purchase, total_cash, realized_pnl_total)
         for b in valid:
+            acc_no = b["account_no"]
             await _upsert_snapshot(
-                b["account_no"],
+                acc_no,
                 b.get("total_eval_amount", 0),
                 b.get("total_purchase_amount", 0),
+                b.get("deposit", 0),
+                realized_pnl_by_acc.get(acc_no, 0.0),
             )
 
         await session.commit()
@@ -213,4 +228,20 @@ async def sync_kis_to_portfolio() -> dict:
         f"KIS sync 완료: {len(valid)}개 계좌, {total_holdings}개 종목, "
         f"평가 {total_eval:,.0f}원, 매도감지 {sell_events_added}건"
     )
-    return {"status": "ok", "accounts": len(valid), "holdings": total_holdings, "sells_detected": sell_events_added}
+
+    # 입출금 내역 자동 동기화 (실패해도 전체 sync는 성공으로 처리)
+    deposit_synced: dict[str, int] = {}
+    try:
+        from services.deposit_service import sync_all_deposit_history
+        deposit_synced = await sync_all_deposit_history()
+        logger.info(f"입출금 sync 완료: {deposit_synced}")
+    except Exception as e:
+        logger.warning(f"입출금 sync 실패 (무시): {e}")
+
+    return {
+        "status": "ok",
+        "accounts": len(valid),
+        "holdings": total_holdings,
+        "sells_detected": sell_events_added,
+        "deposit_synced": deposit_synced,
+    }

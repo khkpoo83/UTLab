@@ -11,8 +11,8 @@ interface SectionCardProps {
 }
 
 const BG: Record<string, string> = {
-  paper: 'var(--paper)',
-  cream: 'var(--cream)',
+  paper: 'var(--c-surface)',
+  cream: 'var(--c-surface-subtle)',
   ink:   'var(--ink-0)',
 }
 const TEXT_TITLE: Record<string, string> = {
@@ -39,10 +39,14 @@ export function SectionCard({
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       padding: `${py}px ${px}px`,
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
     }}>
       <div style={{
         display: 'flex', alignItems: 'baseline',
         justifyContent: 'space-between', marginBottom: 14,
+        flexShrink: 0,
       }}>
         <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 10 }}>
           <span className="ut-eyebrow" style={tone === 'ink' ? { color: 'rgba(255,255,255,0.5)' } : {}}>
@@ -70,10 +74,11 @@ export function SectionCard({
         fontSize: 28, fontWeight: 700, color: TEXT_TITLE[tone],
         letterSpacing: '-0.025em', lineHeight: 1.15, marginBottom: 6,
         fontFamily: 'var(--font-sans)',
+        flexShrink: 0,
       }}>
         {title}<span style={{ color: 'var(--dot)' }}>.</span>
       </div>
-      <div style={{ marginTop: 12 }}>{children}</div>
+      <div style={{ marginTop: 12, flex: 1, minHeight: 0, overflowY: 'auto' }}>{children}</div>
     </div>
   )
 }

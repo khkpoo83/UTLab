@@ -17,8 +17,8 @@ interface FeedCardProps {
 }
 
 const BG: Record<string, string> = {
-  paper: 'var(--paper)',
-  cream: 'var(--cream)',
+  paper: 'var(--c-surface)',
+  cream: 'var(--c-surface-subtle)',
   ink:   'var(--ink-0)',
 }
 

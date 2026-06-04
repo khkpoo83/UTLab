@@ -175,6 +175,7 @@ class PortfolioSnapshot(Base):
     pnl = Column(Float, nullable=False)            # 미실현 손익 (원)
     pnl_pct = Column(Float, nullable=False)        # 수익률 (%)
     realized_pnl = Column(Float, nullable=False, server_default='0')  # 누적 실현 손익 (원)
+    cash_balance = Column(Float, nullable=False, server_default='0')  # 예수금 (d2_entra)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (
@@ -319,6 +320,32 @@ class ApprovalRating(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+class InvestmentMark(Base):
+    """포트폴리오 차트 이벤트 마커 — 수익률 그래프에 날짜별 투자 이벤트 표기"""
+    __tablename__ = "investment_mark"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(String(10), nullable=False, index=True)      # "YYYY-MM-DD" KST
+    title = Column(String(256), nullable=False)
+    google_event_id = Column(String(256), nullable=True, unique=True)   # GCal 이벤트 ID
+    google_calendar_id = Column(String(256), nullable=True)             # GCal 캘린더 ID
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class DepositEvent(Base):
+    """KIS 자동 수집 입출금 내역 (kt00015)"""
+    __tablename__ = "deposit_event"
+
+    id = Column(Integer, primary_key=True, index=True)
+    account_no = Column(String(20), nullable=False, index=True)
+    date = Column(String(10), nullable=False, index=True)   # "YYYY-MM-DD"
+    trde_no = Column(String(40), nullable=True)             # 거래번호 (dedup key)
+    amount = Column(Float, nullable=False)                  # 양수=입금, 음수=출금
+    remark = Column(String(200), nullable=True)             # 적요명
+    balance_after = Column(Float, nullable=True)            # 거래 후 예수금잔고
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
 class InvestmentEvent(Base):
     """투자 이벤트 — 매수/매도/입금/출금 수동 기록"""
     __tablename__ = "investment_event"
@@ -333,6 +360,7 @@ class InvestmentEvent(Base):
     amount = Column(Float, nullable=True)      # 총금액
     pnl = Column(Float, nullable=True)         # 손익 (매도 시)
     pnl_pct = Column(Float, nullable=True)     # 손익률 (매도 시)
+    account_no = Column(String(32), nullable=True)  # 매도 계좌번호 (per-account R 귀속)
     note = Column(String(256), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -528,6 +556,32 @@ async def init_db() -> None:
             )""",
             "CREATE INDEX IF NOT EXISTS ix_blog_posts_created_at ON blog_posts (created_at)",
             "CREATE INDEX IF NOT EXISTS ix_blog_posts_visibility ON blog_posts (visibility)",
+            # investment_mark 테이블
+            """CREATE TABLE IF NOT EXISTS investment_mark (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date VARCHAR(10) NOT NULL,
+                title VARCHAR(256) NOT NULL,
+                google_event_id VARCHAR(256),
+                google_calendar_id VARCHAR(256),
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )""",
+            "CREATE INDEX IF NOT EXISTS ix_investment_mark_date ON investment_mark (date)",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ux_investment_mark_gcal ON investment_mark (google_event_id)",
+            # deposit_event 테이블
+            """CREATE TABLE IF NOT EXISTS deposit_event (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                account_no VARCHAR(20) NOT NULL,
+                date VARCHAR(10) NOT NULL,
+                trde_no VARCHAR(40),
+                amount FLOAT NOT NULL,
+                remark VARCHAR(200),
+                balance_after FLOAT,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )""",
+            "CREATE INDEX IF NOT EXISTS ix_deposit_event_account ON deposit_event (account_no)",
+            "CREATE INDEX IF NOT EXISTS ix_deposit_event_date ON deposit_event (date)",
+            "ALTER TABLE portfolio_snapshot ADD COLUMN cash_balance FLOAT NOT NULL DEFAULT 0",
+            "ALTER TABLE investment_event ADD COLUMN account_no VARCHAR(32)",
         ]
         for sql in migrations:
             try:
@@ -580,6 +634,16 @@ class BlogPost(Base):
     tags = Column(String(1000), nullable=True)    # JSON 배열 문자열
     ai_generated = Column(Boolean, default=False)
     word_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Memo(Base):
+    __tablename__ = "memo"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(500), nullable=False)
+    body = Column(Text, nullable=True)            # 마크다운
+    color = Column(String(20), nullable=True)     # 수동 색 지정 (null=자동)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

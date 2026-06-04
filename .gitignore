@@ -48,6 +48,7 @@ SPEC_*.md
 app.jsx
 raindrop-canvas.jsx
 ParticleCanvas.tsx
+/RaindropCanvas.tsx
 index.html
 git.sample
 
@@ -57,3 +58,8 @@ git.sample
 # 임시 업로드/작업 파일
 tmp/
 renewal/
+
+# 설계문서 / 기획서 / 스타일 샘플 (내부 문서 — 로컬 보관, git 제외)
+DESIGN_*.md
+돈이돈을벌자_기획/
+frontend/public/studio-samples/

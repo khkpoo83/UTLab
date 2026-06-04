@@ -366,6 +366,7 @@ async def get_history(days: int = 90, account_no: str = 'TOTAL') -> list[dict]:
         row_date = row.date.strftime("%Y-%m-%d")
         if row_date == today_kst:
             continue  # 오늘은 프론트에서 KIS 데이터로 주입
+        cash = row.cash_balance if row.cash_balance is not None else 0.0
         history.append({
             "date": row_date,
             "total_value": row.total_value,
@@ -373,6 +374,22 @@ async def get_history(days: int = 90, account_no: str = 'TOTAL') -> list[dict]:
             "pnl": row.pnl,
             "pnl_pct": row.pnl_pct,
             "realized_pnl": row.realized_pnl if row.realized_pnl is not None else 0.0,
+            "cash_balance": cash,
+            "equity": (row.total_value or 0.0) + cash,
+            "unrealized_pnl": (row.total_value or 0.0) - (row.total_cost or 0.0),
         })
+
+    # 누적 순입금 주입
+    if history:
+        try:
+            from services.deposit_service import get_cumulative_deposits
+            dates = [h["date"] for h in history]
+            cum = await get_cumulative_deposits(account_no, dates)
+            for h in history:
+                h["net_deposits"] = cum.get(h["date"], 0.0)
+        except Exception as e:
+            logger.warning(f"net_deposits 계산 실패: {e}")
+            for h in history:
+                h["net_deposits"] = 0.0
 
     return history

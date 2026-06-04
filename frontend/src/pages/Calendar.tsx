@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ChevronLeft, ChevronRight, RefreshCw, ExternalLink, CalendarDays, Plus, MapPin, Search, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, RefreshCw, CalendarDays, Plus, ChevronDown } from 'lucide-react'
 import apiClient, { settingsApi } from '../api/client'
 import { Card } from '../components/Card'
 import Modal, { ModalHeader } from '../components/Modal'
+import LocationPicker, { LatLon, geocodeFirst } from '../components/LocationPicker'
 
 // ── 타입 ──────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface CalEvent {
   html_link?: string
   color_id?: string
   recurrence?: string[]
+  recurring_event_id?: string
 }
 
 const GCL_COLORS: Record<string, string> = {
@@ -110,6 +112,16 @@ function EventChip({
 
 // ── EventFormData ─────────────────────────────────────────────────────────────
 
+type RecurFreq = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'
+type RecurEnd = 'NONE' | 'COUNT' | 'UNTIL'
+type RecurScope = 'this' | 'following' | 'all'
+
+const SCOPE_OPTS: { v: RecurScope; label: string; desc: string }[] = [
+  { v: 'this',      label: '이 일정만',  desc: '고른 날짜 하루만' },
+  { v: 'following', label: '이후 일정',  desc: '이 날부터 뒤로 전부 (이전은 그대로)' },
+  { v: 'all',       label: '모든 일정',  desc: '지난 것까지 반복 전체' },
+]
+
 interface EventFormData {
   summary: string
   description: string
@@ -120,6 +132,75 @@ interface EventFormData {
   end_date: string
   end_time: string
   calendar_id: string
+  recur_freq: RecurFreq
+  recur_interval: number
+  recur_byday: string[]      // ['MO','WE'] (WEEKLY일 때)
+  recur_end: RecurEnd
+  recur_count: number
+  recur_until: string        // YYYY-MM-DD
+}
+
+const WEEKDAY_CODES = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+const FREQ_UNIT: Record<string, string> = { DAILY: '일', WEEKLY: '주', MONTHLY: '개월', YEARLY: '년' }
+
+/** EventFormData → Google recurrence 배열 (반복 없으면 null) */
+function buildRRule(form: EventFormData): string | null {
+  if (form.recur_freq === 'NONE') return null
+  // "1회 반복"은 단일 일정과 같음 → 반복 규칙 없음 (구글도 단일로 표시)
+  if (form.recur_end === 'COUNT' && form.recur_count <= 1) return null
+  const parts = [`FREQ=${form.recur_freq}`]
+  if (form.recur_interval > 1) parts.push(`INTERVAL=${form.recur_interval}`)
+  if (form.recur_freq === 'WEEKLY' && form.recur_byday.length) {
+    parts.push(`BYDAY=${form.recur_byday.join(',')}`)
+  }
+  if (form.recur_end === 'COUNT' && form.recur_count > 0) {
+    parts.push(`COUNT=${form.recur_count}`)
+  } else if (form.recur_end === 'UNTIL' && form.recur_until) {
+    const ymd = form.recur_until.replace(/-/g, '')
+    parts.push(form.all_day ? `UNTIL=${ymd}` : `UNTIL=${ymd}T235959Z`)
+  }
+  return `RRULE:${parts.join(';')}`
+}
+
+/** Google recurrence 배열 → EventFormData 반복 필드 (수정 진입 시 프리필) */
+function parseRRule(recurrence?: string[] | null): Pick<EventFormData, 'recur_freq' | 'recur_interval' | 'recur_byday' | 'recur_end' | 'recur_count' | 'recur_until'> {
+  const base = { recur_freq: 'NONE' as RecurFreq, recur_interval: 1, recur_byday: [] as string[], recur_end: 'NONE' as RecurEnd, recur_count: 10, recur_until: '' }
+  const rule = recurrence?.find(r => r.startsWith('RRULE:'))
+  if (!rule) return base
+  const fields = Object.fromEntries(
+    rule.replace('RRULE:', '').split(';').map(kv => kv.split('=') as [string, string])
+  )
+  const freq = (fields.FREQ ?? 'NONE') as RecurFreq
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) return base
+  const out = { ...base, recur_freq: freq }
+  if (fields.INTERVAL) out.recur_interval = Math.max(1, parseInt(fields.INTERVAL) || 1)
+  if (fields.BYDAY) out.recur_byday = fields.BYDAY.split(',').filter(d => WEEKDAY_CODES.includes(d))
+  if (fields.COUNT) {
+    const c = parseInt(fields.COUNT) || 0
+    if (c <= 1) return base   // 1회 이하 = 반복 아님 (구글도 단일로 표시)
+    out.recur_end = 'COUNT'; out.recur_count = c
+  }
+  else if (fields.UNTIL) {
+    out.recur_end = 'UNTIL'
+    const m = fields.UNTIL.match(/^(\d{4})(\d{2})(\d{2})/)
+    if (m) out.recur_until = `${m[1]}-${m[2]}-${m[3]}`
+  }
+  return out
+}
+
+/** 반복 규칙 사람이 읽는 요약 */
+function describeRecurrence(form: EventFormData): string {
+  if (form.recur_freq === 'NONE') return '반복 안 함'
+  const unit = { DAILY: '일', WEEKLY: '주', MONTHLY: '개월', YEARLY: '년' }[form.recur_freq]
+  let s = form.recur_interval > 1 ? `${form.recur_interval}${unit}마다` : { DAILY: '매일', WEEKLY: '매주', MONTHLY: '매월', YEARLY: '매년' }[form.recur_freq]
+  if (form.recur_freq === 'WEEKLY' && form.recur_byday.length) {
+    const days = form.recur_byday.map(c => WEEKDAY_LABELS[WEEKDAY_CODES.indexOf(c)]).join('·')
+    s += ` ${days}요일`
+  }
+  if (form.recur_end === 'COUNT' && form.recur_count > 0) s += ` · ${form.recur_count}회`
+  else if (form.recur_end === 'UNTIL' && form.recur_until) s += ` · ~${form.recur_until}`
+  return s
 }
 
 function defaultFormData(date?: string | null, primaryCalId?: string, endDate?: string | null): EventFormData {
@@ -141,6 +222,12 @@ function defaultFormData(date?: string | null, primaryCalId?: string, endDate?: 
     end_date: endDate ?? base,
     end_time: `${String(endH).padStart(2, '0')}:${String(snapM).padStart(2, '0')}`,
     calendar_id: primaryCalId ?? 'primary',
+    recur_freq: 'NONE',
+    recur_interval: 1,
+    recur_byday: [],
+    recur_end: 'NONE',
+    recur_count: 10,
+    recur_until: '',
   }
 }
 
@@ -160,87 +247,8 @@ function eventToFormData(ev: CalEvent): EventFormData {
     end_date:    endDateDisplay,
     end_time:    ev.all_day ? '10:00' : endLocal.slice(11, 16),
     calendar_id: ev.calendar_id ?? 'primary',
+    ...parseRRule(ev.recurrence),
   }
-}
-
-// ── LocationSearchModal ───────────────────────────────────────────────────────
-
-interface NominatimResult {
-  place_id: string
-  display_name: string
-}
-
-function LocationSearchModal({
-  onSelect, onClose,
-}: {
-  onSelect: (address: string) => void
-  onClose: () => void
-}) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<NominatimResult[]>([])
-  const [loading, setLoading] = useState(false)
-  const [searched, setSearched] = useState(false)
-
-  async function search() {
-    if (!query.trim()) return
-    setLoading(true)
-    setSearched(true)
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=8&accept-language=ko`,
-        { headers: { 'Accept-Language': 'ko' } }
-      )
-      const data: NominatimResult[] = await res.json()
-      setResults(data)
-    } catch {
-      setResults([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Modal onClose={onClose} maxWidth="max-w-sm" bottomSheet={false}>
-      <ModalHeader title="장소 검색" onClose={onClose} />
-      <div className="px-4 pb-4 pt-3 space-y-3">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && search()}
-            placeholder="장소 이름이나 주소 입력..."
-            autoFocus
-            className="flex-1 px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
-          />
-          <button
-            onClick={search}
-            disabled={loading}
-            className="px-3 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center gap-1"
-          >
-            <Search size={14} />
-          </button>
-        </div>
-        <div className="space-y-0.5 max-h-64 overflow-y-auto -mx-1 px-1">
-          {loading && (
-            <p className="text-xs text-zinc-400 text-center py-4">검색 중...</p>
-          )}
-          {!loading && searched && results.length === 0 && (
-            <p className="text-xs text-zinc-400 text-center py-4">검색 결과 없음</p>
-          )}
-          {results.map(r => (
-            <button
-              key={r.place_id}
-              onClick={() => onSelect(r.display_name)}
-              className="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 rounded-lg transition-colors leading-snug"
-            >
-              {r.display_name}
-            </button>
-          ))}
-        </div>
-      </div>
-    </Modal>
-  )
 }
 
 // ── EventModal ────────────────────────────────────────────────────────────────
@@ -251,25 +259,63 @@ const TIME_OPTIONS = Array.from({ length: 48 }, (_, i) => {
   return `${String(h).padStart(2, '0')}:${m}`
 })
 
+// ── EventModal ────────────────────────────────────────────────────────────────
+
 function EventModal({
-  mode, initialData, calendars, onClose, onSave, onDelete,
+  mode, initialData, calendars, onClose, onSave, onDelete, recurringFetchGid,
 }: {
   mode: 'create' | 'edit'
   initialData: EventFormData
   calendars: GoogleCalendar[]
   onClose: () => void
-  onSave: (data: EventFormData) => Promise<void>
-  onDelete?: () => Promise<void>
+  onSave: (data: EventFormData, scope?: RecurScope) => Promise<void>
+  onDelete?: (scope?: RecurScope) => Promise<void>
+  recurringFetchGid?: string   // 반복 인스턴스면 마스터 RRULE을 조회할 google_event_id
 }) {
   const [form, setForm] = useState<EventFormData>(initialData)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [locationSearchOpen, setLocationSearchOpen] = useState(false)
+  const [coords, setCoords] = useState<LatLon | null>(null)
+  // 반복 일정 적용 범위 — 모달 안에서 선택, 저장/삭제 시 그 범위로 적용
+  const [editScope, setEditScope] = useState<RecurScope>('this')
+  // 편집 진입 당시 "실제로" 반복 시리즈였는지 — 범위 선택 노출 여부.
+  // COUNT=1 등 사실상 단일인 경우는 비반복으로 간주 → 범위 선택 안 함.
+  const [seriesRecurring, setSeriesRecurring] = useState(initialData.recur_freq !== 'NONE')
+  const wasRecurring = seriesRecurring
 
   function set<K extends keyof EventFormData>(key: K, value: EventFormData[K]) {
     setForm(f => ({ ...f, [key]: value }))
   }
+
+  // 수정 진입 시: 저장된 장소 문자열을 지오코딩하여 지도 핀 복원
+  const didGeocodeInit = useRef(false)
+  useEffect(() => {
+    if (didGeocodeInit.current) return
+    didGeocodeInit.current = true
+    if (initialData.location.trim()) {
+      geocodeFirst(initialData.location).then(c => { if (c) setCoords(c) })
+    }
+  }, [initialData.location])
+
+  // 수정 진입 시: 반복 인스턴스는 규칙이 비어있으므로 마스터에서 RRULE을 가져와 표시
+  const didRecurInit = useRef(false)
+  useEffect(() => {
+    if (didRecurInit.current) return
+    didRecurInit.current = true
+    if (recurringFetchGid && form.recur_freq === 'NONE') {
+      apiClient.get(`/api/calendar/events/${recurringFetchGid}/recurrence`)
+        .then(({ data }) => {
+          const parsed = parseRRule(data?.recurrence)
+          if (parsed.recur_freq !== 'NONE') {
+            // 진짜 반복 시리즈일 때만 규칙 프리필 + 범위 선택 활성화
+            setForm(f => ({ ...f, ...parsed }))
+            setSeriesRecurring(true)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [recurringFetchGid])
 
   function handleStartTimeChange(newTime: string) {
     setForm(f => {
@@ -306,21 +352,45 @@ function EventModal({
     }
   }
 
+  function setFreq(freq: RecurFreq) {
+    setForm(f => {
+      const next = { ...f, recur_freq: freq }
+      // 주간 선택 시 기본 요일 = 시작일 요일
+      if (freq === 'WEEKLY' && f.recur_byday.length === 0) {
+        const dow = new Date(f.start_date + 'T12:00:00').getDay()
+        next.recur_byday = [WEEKDAY_CODES[dow]]
+      }
+      return next
+    })
+  }
+
+  function toggleByday(code: string) {
+    setForm(f => {
+      const has = f.recur_byday.includes(code)
+      const arr = has ? f.recur_byday.filter(d => d !== code) : [...f.recur_byday, code]
+      const ordered = WEEKDAY_CODES.filter(c => arr.includes(c))
+      return { ...f, recur_byday: ordered.length ? ordered : f.recur_byday }
+    })
+  }
+
   const writableCalendars = calendars.filter(c => c.accessRole !== 'reader' && c.accessRole !== 'freeBusyReader')
 
   async function handleSave() {
     if (!form.summary.trim()) { setError('제목을 입력하세요'); return }
     setSaving(true); setError(null)
-    try { await onSave(form); onClose() }
+    try { await onSave(form, wasRecurring ? editScope : undefined); onClose() }
     catch (e: any) { setError(e?.response?.data?.detail ?? '저장 실패') }
     finally { setSaving(false) }
   }
 
   async function handleDelete() {
     if (!onDelete) return
-    if (!confirm('일정을 삭제할까요?')) return
+    const msg = wasRecurring
+      ? `'${SCOPE_OPTS.find(o => o.v === editScope)?.label}' 범위로 삭제할까요?`
+      : '일정을 삭제할까요?'
+    if (!confirm(msg)) return
     setDeleting(true); setError(null)
-    try { await onDelete(); onClose() }
+    try { await onDelete(wasRecurring ? editScope : undefined); onClose() }
     catch (e: any) { setError(e?.response?.data?.detail ?? '삭제 실패') }
     finally { setDeleting(false) }
   }
@@ -331,220 +401,332 @@ function EventModal({
   const endBeforeStart = !form.all_day && form.end_date === form.start_date && toMins(form.end_time) <= toMins(form.start_time)
 
   return (
-    <>
-      <Modal onClose={onClose} maxWidth="max-w-md" bottomSheet={false}>
-        <ModalHeader
-          title={mode === 'create' ? '일정 추가' : '일정 수정'}
-          onClose={onClose}
-        />
+    <Modal onClose={onClose} maxWidth="max-w-3xl" bottomSheet={false}>
+      <ModalHeader
+        title={mode === 'create' ? '일정 추가' : '일정 수정'}
+        onClose={onClose}
+      />
 
-        <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
-          {error && (
-            <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/40 rounded-lg px-3 py-2">{error}</p>
-          )}
+      <div className="px-5 py-4 max-h-[75vh] overflow-y-auto">
+        {error && (
+          <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/40 rounded-lg px-3 py-2 mb-3">{error}</p>
+        )}
 
-          {/* 제목 */}
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">제목 *</label>
-            <input
-              type="text"
-              value={form.summary}
-              onChange={e => set('summary', e.target.value)}
-              placeholder="일정 제목"
-              autoFocus
-              className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
-            />
-          </div>
-
-          {/* 캘린더 선택 */}
-          {writableCalendars.length > 1 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-3">
+          {/* ── 좌측: 폼 ── */}
+          <div className="space-y-3">
+            {/* 제목 */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">캘린더</label>
-              <div className="relative">
-                <select
-                  value={form.calendar_id}
-                  onChange={e => set('calendar_id', e.target.value)}
-                  className="w-full pl-7 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent appearance-none cursor-pointer"
-                >
-                  {writableCalendars.map(cal => (
-                    <option key={cal.id} value={cal.id}>{cal.name}</option>
-                  ))}
-                </select>
-                <span
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full pointer-events-none"
-                  style={{ backgroundColor: selectedCal?.backgroundColor ?? 'rgb(var(--c-accent-rgb))' }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* 종일 토글 */}
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleAllDay}
-              role="switch"
-              aria-checked={form.all_day}
-              className={`relative flex-shrink-0 w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                form.all_day ? 'bg-accent' : 'bg-zinc-300 dark:bg-zinc-600'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  form.all_day ? 'translate-x-5' : 'translate-x-0'
-                }`}
+              <label className="block text-xs text-zinc-500 mb-1">제목 *</label>
+              <input
+                type="text"
+                value={form.summary}
+                onChange={e => set('summary', e.target.value)}
+                placeholder="일정 제목"
+                autoFocus
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
               />
-            </button>
-            <span className="text-sm text-zinc-600 dark:text-zinc-400 select-none">종일</span>
-          </div>
-
-          {/* 시작/종료 */}
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">시작</label>
-                <input type="date" value={form.start_date} onChange={e => handleStartDateChange(e.target.value)} className={inputCls} />
-                {!form.all_day && (
-                  <select value={form.start_time} onChange={e => handleStartTimeChange(e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer`}>
-                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs text-zinc-500 mb-1">종료</label>
-                <input type="date" value={form.end_date} min={form.start_date} onChange={e => set('end_date', e.target.value)} className={inputCls} />
-                {!form.all_day && (
-                  <select value={form.end_time} onChange={e => set('end_time', e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer ${endBeforeStart ? 'border-red-400 dark:border-red-500' : ''}`}>
-                    {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                )}
-              </div>
             </div>
-            {endBeforeStart && (
-              <p className="text-xs text-red-500">종료 시간이 시작 시간보다 이릅니다</p>
-            )}
-          </div>
 
-          {/* 장소 */}
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">장소</label>
-            <div className="flex gap-2">
+            {/* 캘린더 선택 */}
+            {writableCalendars.length > 1 && (
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">캘린더</label>
+                <div className="relative">
+                  <select
+                    value={form.calendar_id}
+                    onChange={e => set('calendar_id', e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent appearance-none cursor-pointer"
+                  >
+                    {writableCalendars.map(cal => (
+                      <option key={cal.id} value={cal.id}>{cal.name}</option>
+                    ))}
+                  </select>
+                  <span
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full pointer-events-none"
+                    style={{ backgroundColor: selectedCal?.backgroundColor ?? 'rgb(var(--c-accent-rgb))' }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* 종일 토글 */}
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={toggleAllDay}
+                role="switch"
+                aria-checked={form.all_day}
+                className={`relative flex-shrink-0 w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  form.all_day ? 'bg-accent' : 'bg-zinc-300 dark:bg-zinc-600'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                    form.all_day ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-sm text-zinc-600 dark:text-zinc-400 select-none">종일</span>
+            </div>
+
+            {/* 시작/종료 */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">시작</label>
+                  <input type="date" value={form.start_date} onChange={e => handleStartDateChange(e.target.value)} className={inputCls} />
+                  {!form.all_day && (
+                    <select value={form.start_time} onChange={e => handleStartTimeChange(e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer`}>
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">종료</label>
+                  <input type="date" value={form.end_date} min={form.start_date} onChange={e => set('end_date', e.target.value)} className={inputCls} />
+                  {!form.all_day && (
+                    <select value={form.end_time} onChange={e => set('end_time', e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer ${endBeforeStart ? 'border-red-400 dark:border-red-500' : ''}`}>
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
+                </div>
+              </div>
+              {endBeforeStart && (
+                <p className="text-xs text-red-500">종료 시간이 시작 시간보다 이릅니다</p>
+              )}
+            </div>
+
+            {/* 반복 */}
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">반복</label>
+              <div className="space-y-2">
+                  <select
+                    value={form.recur_freq}
+                    onChange={e => setFreq(e.target.value as RecurFreq)}
+                    className={`${inputCls} cursor-pointer`}
+                  >
+                    <option value="NONE">반복 안 함</option>
+                    <option value="DAILY">매일</option>
+                    <option value="WEEKLY">매주</option>
+                    <option value="MONTHLY">매월</option>
+                    <option value="YEARLY">매년</option>
+                  </select>
+
+                  {form.recur_freq !== 'NONE' && (
+                    <div className="space-y-2 pl-0.5">
+                      {/* 간격 */}
+                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                        <span>매</span>
+                        <input
+                          type="number" min={1} max={99} value={form.recur_interval}
+                          onChange={e => set('recur_interval', Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent text-center"
+                        />
+                        <span>{FREQ_UNIT[form.recur_freq]}마다</span>
+                      </div>
+
+                      {/* 요일 (주간) */}
+                      {form.recur_freq === 'WEEKLY' && (
+                        <div className="flex gap-1">
+                          {WEEKDAY_CODES.map((code, i) => {
+                            const on = form.recur_byday.includes(code)
+                            return (
+                              <button
+                                key={code} type="button" onClick={() => toggleByday(code)}
+                                className={`w-7 h-7 rounded-full text-xs font-medium transition-colors ${
+                                  on
+                                    ? 'bg-accent text-white'
+                                    : `bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-zinc-500'}`
+                                }`}
+                              >{WEEKDAY_LABELS[i]}</button>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* 종료 조건 */}
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={form.recur_end}
+                          onChange={e => set('recur_end', e.target.value as RecurEnd)}
+                          className="px-2.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent cursor-pointer flex-shrink-0"
+                        >
+                          <option value="NONE">계속 반복</option>
+                          <option value="COUNT">횟수 지정</option>
+                          <option value="UNTIL">날짜까지</option>
+                        </select>
+                        {form.recur_end === 'COUNT' && (
+                          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                            <input
+                              type="number" min={2} max={730} value={form.recur_count}
+                              onChange={e => set('recur_count', Math.max(2, parseInt(e.target.value) || 2))}
+                              className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent text-center"
+                            />
+                            <span>회</span>
+                          </div>
+                        )}
+                        {form.recur_end === 'UNTIL' && (
+                          <input
+                            type="date" min={form.start_date} value={form.recur_until}
+                            onChange={e => set('recur_until', e.target.value)}
+                            className={`${inputCls} flex-1`}
+                          />
+                        )}
+                      </div>
+
+                      <p className="text-2xs text-zinc-400">{describeRecurrence(form)}</p>
+                    </div>
+                  )}
+                </div>
+            </div>
+
+            {/* 반복 적용 범위 — 반복 시리즈일 때만. 저장/삭제 시 이 범위로 적용 */}
+            {wasRecurring && (
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">적용 범위 (반복 일정)</label>
+                <div className="grid grid-cols-3 gap-1">
+                  {SCOPE_OPTS.map(o => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      onClick={() => setEditScope(o.v)}
+                      className={`py-1.5 text-xs rounded-lg border transition-colors ${
+                        editScope === o.v
+                          ? 'bg-accent text-white border-accent'
+                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-accent'
+                      }`}
+                    >{o.label}</button>
+                  ))}
+                </div>
+                <p className="text-2xs text-zinc-400 mt-1">
+                  {SCOPE_OPTS.find(o => o.v === editScope)?.desc} · 저장/삭제 시 적용
+                </p>
+              </div>
+            )}
+
+            {/* 장소 (텍스트) */}
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">장소</label>
               <input
                 type="text"
                 value={form.location}
                 onChange={e => set('location', e.target.value)}
-                placeholder="선택 사항"
-                className="flex-1 px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
+                placeholder="우측 지도에서 선택하거나 직접 입력"
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
               />
-              <button
-                type="button"
-                onClick={() => setLocationSearchOpen(true)}
-                className="px-2.5 py-2 text-zinc-400 hover:text-accent bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-accent transition-colors"
-                title="지도에서 장소 검색"
-              >
-                <MapPin size={15} />
-              </button>
+            </div>
+
+            {/* 설명 */}
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">설명</label>
+              <textarea
+                value={form.description}
+                onChange={e => set('description', e.target.value)}
+                placeholder="선택 사항"
+                rows={2}
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent resize-none transition-colors"
+              />
             </div>
           </div>
 
-          {/* 설명 */}
+          {/* ── 우측: 위치 지도 ── */}
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">설명</label>
-            <textarea
-              value={form.description}
-              onChange={e => set('description', e.target.value)}
-              placeholder="선택 사항"
-              rows={2}
-              className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent resize-none transition-colors"
+            <label className="block text-xs text-zinc-500 mb-1">위치 지도</label>
+            <LocationPicker
+              value={form.location}
+              coords={coords}
+              onChange={(loc, c) => { set('location', loc); setCoords(c) }}
+              height={300}
             />
           </div>
         </div>
+      </div>
 
-        {/* 하단 버튼 */}
-        <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-100 dark:border-zinc-800">
-          <div>
-            {mode === 'edit' && onDelete && (
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="text-xs text-red-500 hover:text-red-600 transition-colors disabled:opacity-50"
-              >
-                {deleting ? '삭제 중...' : '삭제'}
-              </button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors">
-              취소
-            </button>
+      {/* 하단 버튼 */}
+      <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-100 dark:border-zinc-800">
+        <div>
+          {mode === 'edit' && onDelete && (
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs text-red-500 hover:text-red-600 transition-colors disabled:opacity-50"
             >
-              {saving ? '저장 중...' : '저장'}
+              {deleting ? '삭제 중...' : '삭제'}
             </button>
-          </div>
+          )}
         </div>
-      </Modal>
-
-      {locationSearchOpen && (
-        <LocationSearchModal
-          onSelect={addr => { set('location', addr); setLocationSearchOpen(false) }}
-          onClose={() => setLocationSearchOpen(false)}
-        />
-      )}
-    </>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors">
+            취소
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-1.5 text-xs bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
+          >
+            {saving ? '저장 중...' : '저장'}
+          </button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
-// ── UpcomingPanel ─────────────────────────────────────────────────────────────
+// ── SelectedDatePanel (선택한 날짜의 일정) ─────────────────────────────────────
 
-function UpcomingPanel({ calendars }: { calendars: GoogleCalendar[] }) {
-  const [events, setEvents] = useState<CalEvent[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchUpcoming = useCallback(() => {
-    apiClient.get('/api/calendar/events/upcoming', { params: { limit: 5 } })
-      .then(({ data }) => setEvents(data))
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    fetchUpcoming()
-    window.addEventListener('calendarUpdated', fetchUpcoming)
-    const t = setInterval(fetchUpcoming, 30_000)
-    return () => { window.removeEventListener('calendarUpdated', fetchUpcoming); clearInterval(t) }
-  }, [fetchUpcoming])
-
-  if (loading) return <div className="text-xs text-zinc-400 py-1">로딩 중...</div>
-  if (!events.length) return <div className="text-xs text-zinc-400 py-1">다가오는 일정 없음</div>
+function SelectedDatePanel({
+  dateKey, events, calendars, onEventClick, onAdd,
+}: {
+  dateKey: string
+  events: CalEvent[]
+  calendars: GoogleCalendar[]
+  onEventClick: (ev: CalEvent) => void
+  onAdd: () => void
+}) {
+  const [, m, d] = dateKey.split('-').map(Number)
+  const dow = DAYS[new Date(dateKey + 'T12:00:00').getDay()]
+  const sorted = [...events].sort((a, b) => {
+    if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
+    return (a.start_dt ?? '').localeCompare(b.start_dt ?? '')
+  })
 
   return (
-    <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50 -my-1">
-      {events.map(ev => {
-        const color = evColor(ev, calendars)
-        return (
-          <div key={ev.id} className="flex items-start gap-2 py-1.5">
-            <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-zinc-700 dark:text-zinc-200 truncate">{ev.summary ?? '(제목 없음)'}</div>
-              <div className="text-xs text-zinc-400 mt-0.5">
-                {ev.all_day ? '종일' : (ev.start_dt ? toKstTime(ev.start_dt) : '')}
-                {ev.location && ` · ${ev.location}`}
-              </div>
-            </div>
-            {ev.html_link && (
-              <a href={ev.html_link} target="_blank" rel="noopener noreferrer"
-                className="opacity-0 hover:opacity-100 text-zinc-400 hover:text-accent transition-all flex-shrink-0 mt-0.5">
-                <ExternalLink size={13} />
-              </a>
-            )}
-          </div>
-        )
-      })}
-    </div>
+    <Card
+      title={`${m}월 ${d}일 (${dow})`}
+      icon={<CalendarDays size={14} />}
+      right={
+        <button onClick={onAdd} className="text-xs text-accent hover:underline flex items-center gap-0.5">
+          <Plus size={12} /> 추가
+        </button>
+      }
+    >
+      {sorted.length === 0 ? (
+        <div className="text-xs text-zinc-400 py-2 text-center">일정 없음</div>
+      ) : (
+        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50 -my-1">
+          {sorted.map(ev => {
+            const color = evColor(ev, calendars)
+            return (
+              <button
+                key={ev.id}
+                onClick={() => onEventClick(ev)}
+                className="w-full flex items-start gap-2 py-1.5 text-left px-1 -mx-1 rounded hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
+              >
+                <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-zinc-700 dark:text-zinc-200 truncate">{ev.summary ?? '(제목 없음)'}</div>
+                  <div className="text-xs text-zinc-400 mt-0.5">
+                    {ev.all_day ? '종일' : (ev.start_dt ? toKstTime(ev.start_dt) : '')}
+                    {ev.location && ` · ${ev.location}`}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -593,24 +775,7 @@ function CalGridCells({
 
   return (
     <div className="grid grid-cols-7">
-      {/* 전달 마지막 주 */}
-      {Array.from({ length: 7 }).map((_, i) => {
-        const day = pLast - firstDow - 6 + i
-        return (
-          <div
-            key={`ep${i}`}
-            onClick={() => onNavigatePrev(pk(day))}
-            className={fadedCellBase}
-          >
-            <div className={fadedNum(i)}>{day}</div>
-          </div>
-        )
-      })}
-
-      {/* 전달/현재달 구분선 */}
-      <div className="col-span-7 h-[2px] bg-zinc-300/40 dark:bg-zinc-600/40" />
-
-      {/* 이번 달 첫 주 빈칸 */}
+      {/* 이번 달 첫 주 — 지난달 말일들 (격자 틀 안에서만 표시) */}
       {Array.from({ length: firstDow }).map((_, i) => {
         const day = pLast - firstDow + 1 + i
         return (
@@ -700,22 +865,6 @@ function CalGridCells({
         )
       })}
 
-      {/* 현재달/다음달 구분선 */}
-      <div className="col-span-7 h-[2px] bg-zinc-300/40 dark:bg-zinc-600/40" />
-
-      {/* 다음달 첫 주 */}
-      {Array.from({ length: 7 }).map((_, i) => {
-        const day = trail + 1 + i
-        return (
-          <div
-            key={`en${i}`}
-            onClick={() => onNavigateNext(nk(day))}
-            className={fadedCellBase}
-          >
-            <div className={fadedNum(i)}>{day}</div>
-          </div>
-        )
-      })}
     </div>
   )
 }
@@ -948,6 +1097,10 @@ export default function CalendarPage() {
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerYear, setPickerYear] = useState(today.getFullYear())
+  const [pickerStep, setPickerStep] = useState<'decade' | 'months'>('months')
+  const [decadeStart, setDecadeStart] = useState(today.getFullYear() - 5)
+  const pickerBtnRef = useRef<HTMLButtonElement>(null)
+  const [pickerPos, setPickerPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 })
   const [events, setEvents] = useState<CalEvent[]>([])
   const [calendars, setCalendars] = useState<GoogleCalendar[]>([])
   const [selectedCalIds, setSelectedCalIds] = useState<Set<string>>(new Set())
@@ -1014,6 +1167,18 @@ export default function CalendarPage() {
     return () => { window.removeEventListener('calendarUpdated', fetchEvents); clearInterval(t) }
   }, [connected, fetchEvents])
 
+  // NEXT UP 전용 — 보고 있는 달과 무관하게 항상 "오늘 이후" 다가오는 일정 조회
+  const [upcoming, setUpcoming] = useState<CalEvent[]>([])
+  useEffect(() => {
+    if (!connected) return
+    const load = () => apiClient.get('/api/calendar/events/upcoming', { params: { limit: 50 } })
+      .then(({ data }) => setUpcoming(data)).catch(() => {})
+    load()
+    window.addEventListener('calendarUpdated', load)
+    const t = setInterval(load, 60_000)
+    return () => { window.removeEventListener('calendarUpdated', load); clearInterval(t) }
+  }, [connected])
+
   // 전역 mouseup — 드래그 종료 (ref 사용으로 stale closure 없음)
   useEffect(() => {
     function handleMouseUp() {
@@ -1045,6 +1210,34 @@ export default function CalendarPage() {
 
   const prevMonth = () => triggerNav(year, month, month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1)
   const nextMonth = () => triggerNav(year, month, month === 11 ? year + 1 : year, month === 11 ? 0 : month + 1)
+
+  // 마우스 휠 위/아래 → 달 이동 (구글 캘린더 웹처럼). 한 번에 한 달, 애니메이션 동안 잠금
+  const gridWrapRef = useRef<HTMLDivElement>(null)
+  const wheelLockRef = useRef(false)
+  const wheelAccumRef = useRef(0)
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return  // 가로 스크롤 무시
+    e.preventDefault()
+    if (wheelLockRef.current) return
+    // 방향 바뀌면 누적 초기화
+    if ((wheelAccumRef.current > 0) !== (e.deltaY > 0)) wheelAccumRef.current = 0
+    wheelAccumRef.current += e.deltaY
+    if (Math.abs(wheelAccumRef.current) < 24) return
+    const goNext = wheelAccumRef.current > 0
+    wheelAccumRef.current = 0
+    wheelLockRef.current = true
+    const toY = goNext ? (month === 11 ? year + 1 : year) : (month === 0 ? year - 1 : year)
+    const toM = goNext ? (month === 11 ? 0 : month + 1) : (month === 0 ? 11 : month - 1)
+    triggerNav(year, month, toY, toM)
+    setTimeout(() => { wheelLockRef.current = false }, ANIM_MS + 80)
+  }, [year, month])
+
+  useEffect(() => {
+    const el = gridWrapRef.current
+    if (!el) return
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
 
   const goToday = () => {
     if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
@@ -1139,6 +1332,8 @@ export default function CalendarPage() {
   const primaryCalId = calendars.find(c => c.primary)?.id ?? 'primary'
 
   function buildEventBody(form: EventFormData) {
+    const rrule = buildRRule(form)
+    const recurrence = rrule ? [rrule] : undefined
     if (form.all_day) {
       return {
         summary: form.summary,
@@ -1148,6 +1343,7 @@ export default function CalendarPage() {
         start: form.start_date,
         end: form.end_date || form.start_date,
         calendar_id: form.calendar_id || primaryCalId,
+        recurrence,
       }
     }
     return {
@@ -1158,10 +1354,13 @@ export default function CalendarPage() {
       start: kstLocalToUtcIso(`${form.start_date}T${form.start_time}`),
       end:   kstLocalToUtcIso(`${form.end_date}T${form.end_time}`),
       calendar_id: form.calendar_id || primaryCalId,
+      recurrence,
     }
   }
 
   function buildUpdateBody(form: EventFormData) {
+    const rrule = buildRRule(form)
+    const recurrence = rrule ? [rrule] : undefined
     if (form.all_day) {
       return {
         summary: form.summary,
@@ -1170,6 +1369,7 @@ export default function CalendarPage() {
         all_day: true,
         start: form.start_date,
         end: form.end_date || form.start_date,
+        recurrence,
       }
     }
     return {
@@ -1179,21 +1379,48 @@ export default function CalendarPage() {
       all_day: false,
       start: kstLocalToUtcIso(`${form.start_date}T${form.start_time}`),
       end:   kstLocalToUtcIso(`${form.end_date}T${form.end_time}`),
+      recurrence,
     }
   }
 
+  // 특정 캘린더만 증분 동기화 (반복 일정 생성/수정/삭제 후 빠른 반영)
+  async function syncOne(calendarId?: string) {
+    try {
+      await apiClient.post('/api/calendar/sync/incremental', null, {
+        params: calendarId ? { calendar_id: calendarId } : {},
+      })
+    } catch {}
+  }
+
   async function handleCreate(form: EventFormData) {
-    await apiClient.post('/api/calendar/events', buildEventBody(form))
+    const body = buildEventBody(form)
+    await apiClient.post('/api/calendar/events', body)
+    // 반복 이벤트는 마스터 1건만 저장되므로 증분 동기화로 occurrence 펼침
+    if (body.recurrence) { await syncOne(body.calendar_id) }
     await fetchEvents()
   }
 
-  async function handleUpdate(ev: CalEvent, form: EventFormData) {
-    await apiClient.patch(`/api/calendar/events/${ev.google_event_id}`, buildUpdateBody(form))
+  async function handleUpdate(ev: CalEvent, form: EventFormData, scope?: RecurScope) {
+    const body = buildUpdateBody(form)
+    // 단일 occurrence 반복 인스턴스(COUNT=1 등)에 반복 규칙을 새로 지정 → 마스터 재정의(redefine).
+    // 인스턴스 ID로 요청해야 백엔드가 캘린더를 정확히 해석하고, scope로 마스터를 수정함.
+    const effScope: string | undefined =
+      scope ?? ((ev.recurring_event_id && body.recurrence) ? 'redefine' : undefined)
+    await apiClient.patch(
+      `/api/calendar/events/${ev.google_event_id}`,
+      body,
+      { params: effScope ? { scope: effScope } : {} },
+    )
+    // 반복/범위 변경은 시리즈 재구성 → 해당 캘린더만 증분 동기화 (full_sync 대비 빠름)
+    if (effScope || body.recurrence) { await syncOne(ev.calendar_id) }
     await fetchEvents()
   }
 
-  async function handleDelete(ev: CalEvent) {
-    await apiClient.delete(`/api/calendar/events/${ev.google_event_id}`)
+  async function handleDelete(ev: CalEvent, scope?: RecurScope) {
+    // 단일 occurrence 반복 인스턴스 삭제 → 시리즈(마스터) 삭제(scope=all, 캘린더는 인스턴스에서 해석)
+    const effScope: string | undefined = scope ?? (ev.recurring_event_id ? 'all' : undefined)
+    await apiClient.delete(`/api/calendar/events/${ev.google_event_id}`, { params: effScope ? { scope: effScope } : {} })
+    if (effScope) { await syncOne(ev.calendar_id) }
     await fetchEvents()
   }
 
@@ -1207,9 +1434,9 @@ export default function CalendarPage() {
     )
   }
 
-  // 다음 일정 (비종일, 미래)
-  const nextEvent = filteredEvents
-    .filter(e => !e.all_day && e.start_dt)
+  // 다음 일정 (비종일·미래) — 항상 오늘 기준 upcoming + 선택 캘린더 필터
+  const nextEvent = upcoming
+    .filter(e => (!e.calendar_id || selectedCalIds.has(e.calendar_id)) && !e.all_day && e.start_dt)
     .map(e => ({ ev: e, startDate: new Date(e.start_dt! + 'Z') }))
     .filter(e => e.startDate > new Date())
     .sort((a, b) => a.startDate.getTime() - b.startDate.getTime())[0] ?? null
@@ -1271,41 +1498,93 @@ export default function CalendarPage() {
               {/* 년월 이동 피커 */}
               <div className="relative">
                 <button
-                  onClick={() => { setPickerYear(year); setPickerOpen(p => !p) }}
+                  ref={pickerBtnRef}
+                  onClick={() => {
+                    if (!pickerOpen && pickerBtnRef.current) {
+                      const r = pickerBtnRef.current.getBoundingClientRect()
+                      setPickerPos({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) })
+                    }
+                    setPickerYear(year); setDecadeStart(year - 5); setPickerStep('months'); setPickerOpen(p => !p)
+                  }}
                   className={`chip text-xs px-2.5 py-1 tabular-nums ${pickerOpen ? 'chip-active' : ''}`}
                   title="년월 이동"
                 >이동</button>
-                {pickerOpen && (
+                {pickerOpen && createPortal(
                   <>
-                    <div className="fixed inset-0 z-[90]" onClick={() => setPickerOpen(false)} />
-                    <div className="absolute top-full right-0 mt-1.5 z-[100] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-3 w-52">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-                          <ChevronLeft size={14} />
-                        </button>
-                        <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">{pickerYear}년</span>
-                        <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
-                          <ChevronRight size={14} />
-                        </button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-1">
-                        {MONTHS.map((m, i) => {
-                          const isCurrent = pickerYear === year && i === month
-                          return (
+                    <div className="fixed inset-0 z-[9990]" onClick={() => setPickerOpen(false)} />
+                    <div className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-3 w-56"
+                      style={{ top: pickerPos.top, right: pickerPos.right }}>
+                      {pickerStep === 'decade' ? (
+                        <>
+                          {/* 연대(12년) 헤더 */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <button onClick={() => setDecadeStart(s => s - 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                              <ChevronLeft size={14} />
+                            </button>
+                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">{decadeStart}–{decadeStart + 11}</span>
+                            <button onClick={() => setDecadeStart(s => s + 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                          {/* 연도 그리드 */}
+                          <div className="grid grid-cols-4 gap-1">
+                            {Array.from({ length: 12 }, (_, k) => decadeStart + k).map(y => {
+                              const isCur = y === year
+                              return (
+                                <button
+                                  key={y}
+                                  onClick={() => { setPickerYear(y); setPickerStep('months') }}
+                                  className={`py-1.5 text-xs rounded-lg tabular-nums transition-colors ${
+                                    isCur ? 'bg-accent text-white font-medium' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                  }`}
+                                >{y}</button>
+                              )
+                            })}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* 월 헤더 (연도 클릭 → 연대 단계) */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                              <ChevronLeft size={14} />
+                            </button>
                             <button
-                              key={i}
-                              onClick={() => goToYearMonth(pickerYear, i)}
-                              className={`py-1.5 text-xs rounded-lg transition-colors ${
-                                isCurrent
-                                  ? 'bg-accent text-white font-medium'
-                                  : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                              }`}
-                            >{m}</button>
-                          )
-                        })}
-                      </div>
+                              onClick={() => { setDecadeStart(pickerYear - 5); setPickerStep('decade') }}
+                              className="flex items-center gap-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums px-2 py-0.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                              title="연도 선택"
+                            >{pickerYear}년 <ChevronDown size={12} /></button>
+                            <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
+                          {/* 월 그리드 */}
+                          <div className="grid grid-cols-4 gap-1">
+                            {MONTHS.map((m, i) => {
+                              const isCurrent = pickerYear === year && i === month
+                              return (
+                                <button
+                                  key={i}
+                                  onClick={() => goToYearMonth(pickerYear, i)}
+                                  className={`py-1.5 text-xs rounded-lg transition-colors ${
+                                    isCurrent
+                                      ? 'bg-accent text-white font-medium'
+                                      : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                  }`}
+                                >{m}</button>
+                              )
+                            })}
+                          </div>
+                        </>
+                      )}
+                      {/* 빠른 점프: 오늘 */}
+                      <button
+                        onClick={() => { goToYearMonth(today.getFullYear(), today.getMonth()) }}
+                        className="mt-2 w-full text-center text-xs text-accent hover:underline py-1"
+                      >오늘로</button>
                     </div>
-                  </>
+                  </>,
+                  document.body
                 )}
               </div>
               <button
@@ -1364,7 +1643,7 @@ export default function CalendarPage() {
             ))}
           </div>
           {/* 날짜 셀 */}
-          <div className="relative overflow-hidden">
+          <div ref={gridWrapRef} className="relative overflow-hidden">
             {exitView && (
               <div className={`absolute inset-x-0 top-0 z-10 pointer-events-none ${
                 transDir === 'up' ? 'cal-exit-up' : 'cal-exit-down'
@@ -1409,9 +1688,13 @@ export default function CalendarPage() {
         <aside className="space-y-3">
           <TodayCard events={filteredEvents} calendars={calendars} />
           <MiniCalendar year={nextMonthYear} month={nextMonthMonth} events={filteredEvents} />
-          <Card title="다가오는 일정" icon={<CalendarDays size={14} />}>
-            <UpcomingPanel calendars={calendars} />
-          </Card>
+          <SelectedDatePanel
+            dateKey={selectedDate ?? todayKey}
+            events={eventsByDate[selectedDate ?? todayKey] ?? []}
+            calendars={calendars}
+            onEventClick={ev => setModal({ type: 'edit', event: ev })}
+            onAdd={() => setModal({ type: 'create', date: selectedDate ?? todayKey })}
+          />
         </aside>
       </div>
 
@@ -1431,8 +1714,13 @@ export default function CalendarPage() {
           initialData={eventToFormData(modal.event)}
           calendars={calendars}
           onClose={() => setModal({ type: 'none' })}
-          onSave={form => handleUpdate(modal.event, form)}
-          onDelete={() => handleDelete(modal.event)}
+          onSave={(form, scope) => handleUpdate(modal.event, form, scope)}
+          onDelete={scope => handleDelete(modal.event, scope)}
+          recurringFetchGid={
+            (modal.event.recurring_event_id || (modal.event.recurrence && modal.event.recurrence.length))
+              ? modal.event.google_event_id
+              : undefined
+          }
         />
       )}
     </div>

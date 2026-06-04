@@ -14,16 +14,20 @@ API 스펙:
 """
 from __future__ import annotations
 
+import json
 import logging
 import tarfile
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 
 logger = logging.getLogger(__name__)
+
+# 키움 expires_dt는 KST(UTC+9) 기준 — 컨테이너 TZ와 무관하게 고정 처리
+_KST = timezone(timedelta(hours=9))
 
 
 @dataclass
@@ -158,9 +162,9 @@ class KiwoomService:
 
     @staticmethod
     def _parse_expires_dt(expires_dt: str) -> float:
-        """'YYYYMMDDHHMMSS' → unix timestamp"""
+        """'YYYYMMDDHHMMSS'(KST) → unix timestamp. 컨테이너가 UTC여도 정확히 해석"""
         try:
-            dt = datetime.strptime(expires_dt, "%Y%m%d%H%M%S")
+            dt = datetime.strptime(expires_dt, "%Y%m%d%H%M%S").replace(tzinfo=_KST)
             return dt.timestamp()
         except Exception:
             return time.time() + 86400  # 파싱 실패 시 24시간
@@ -467,6 +471,196 @@ class KiwoomService:
             self._balance_cache.pop(account_no, None)
         else:
             self._balance_cache.clear()
+
+    async def fetch_deposit_history(
+        self,
+        account_no: str,
+        start_date: str,  # "YYYYMMDD"
+        end_date: str,    # "YYYYMMDD"
+    ) -> list[dict]:
+        """kt00015 - 위탁종합거래내역요청 (입출금만, 페이지네이션 포함).
+
+        반환: [{"date": "YYYY-MM-DD", "trde_no": str, "amount": float(양=입금 음=출금),
+                "remark": str, "balance_after": float}, ...]
+        """
+        token = await self._get_token(account_no)
+        results: list[dict] = []
+        cont_yn = "N"
+        next_key = ""
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            while True:
+                resp = await client.post(
+                    f"{self._base_url}/api/dostk/acnt",
+                    headers={
+                        "api-id": "kt00015",
+                        "authorization": f"Bearer {token}",
+                        "cont-yn": cont_yn,
+                        "next-key": next_key,
+                        "Content-Type": "application/json;charset=UTF-8",
+                    },
+                    json={
+                        "tp": "1",      # 입출금
+                        "gds_tp": "0",  # 전체 상품
+                        "dmst_stex_tp": "%",  # 전체 거래소
+                        "strt_dt": start_date,
+                        "end_dt": end_date,
+                        "stk_cd": "",
+                        "crnc_cd": "",
+                        "frgn_stex_code": "",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+                if data.get("return_code", -1) != 0:
+                    msg = data.get("return_msg", "")
+                    logger.warning(f"kt00015 입출금내역 조회 실패 ({account_no}): {msg}")
+                    break
+
+                items = data.get("trst_ovrl_trde_prps_array") or []
+                for item in items:
+                    raw_date = (item.get("trde_dt") or "").replace("-", "").strip()
+                    if len(raw_date) == 8:
+                        date_str = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+                    else:
+                        continue
+
+                    io_tp_nm = (item.get("io_tp_nm") or "").strip()
+                    # 입금/출금 방향 결정: 출금 계열이면 음수
+                    is_out = any(k in io_tp_nm for k in ("출금", "인출", "출고"))
+                    raw_amt = item.get("trde_amt") or item.get("exct_amt") or 0
+                    try:
+                        amt = float(str(raw_amt).replace(",", "").lstrip("+"))
+                    except (ValueError, TypeError):
+                        amt = 0.0
+                    if amt == 0.0:
+                        continue
+                    if is_out:
+                        amt = -abs(amt)
+                    else:
+                        amt = abs(amt)
+
+                    raw_bal = item.get("entra_remn") or 0
+                    try:
+                        bal = float(str(raw_bal).replace(",", "").lstrip("+"))
+                    except (ValueError, TypeError):
+                        bal = 0.0
+
+                    results.append({
+                        "date": date_str,
+                        "trde_no": (item.get("trde_no") or "").strip(),
+                        "amount": amt,
+                        "remark": (item.get("rmrk_nm") or io_tp_nm or "").strip()[:200],
+                        "balance_after": bal,
+                    })
+
+                # 페이지네이션
+                cont_yn = data.get("cont-yn") or data.get("cont_yn") or "N"
+                next_key = data.get("next-key") or data.get("next_key") or ""
+                if cont_yn != "Y" or not next_key:
+                    break
+
+        return results
+
+    async def fetch_stock_transactions(
+        self,
+        account_no: str,
+        ticker: str,
+        start_date: str,  # "YYYYMMDD"
+        end_date: str,    # "YYYYMMDD"
+    ) -> list[dict]:
+        """kt00015 - 위탁종합거래내역요청 (특정 종목 매매내역, stk_cd 필터).
+
+        반환: [{"date": "YYYY-MM-DD", "type": "매수|매도|기타", "quantity": int,
+                "price": float, "amount": float, "remark": str}, ...]
+        실패/미지원 시 [] 반환 (graceful).
+        """
+        try:
+            token = await self._get_token(account_no)
+        except Exception as e:
+            logger.warning(f"거래내역 토큰 발급 실패 ({account_no}): {e}")
+            return []
+
+        results: list[dict] = []
+        cont_yn = "N"
+        next_key = ""
+
+        def num(v) -> float:
+            try:
+                return float(str(v).replace(",", "").strip().lstrip("+"))
+            except (ValueError, TypeError):
+                return 0.0
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                for _ in range(10):  # 페이지네이션 안전 상한
+                    resp = await client.post(
+                        f"{self._base_url}/api/dostk/acnt",
+                        headers={
+                            "api-id": "kt00015",
+                            "authorization": f"Bearer {token}",
+                            "cont-yn": cont_yn,
+                            "next-key": next_key,
+                            "Content-Type": "application/json;charset=UTF-8",
+                        },
+                        json={
+                            "tp": "0",            # 전체 (매매 포함) → 클라이언트에서 매수/매도 필터
+                            "gds_tp": "0",
+                            "dmst_stex_tp": "%",
+                            "strt_dt": start_date,
+                            "end_dt": end_date,
+                            "stk_cd": ticker,     # 종목 필터
+                            "crnc_cd": "",
+                            "frgn_stex_code": "",
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if data.get("return_code", -1) != 0:
+                        logger.warning(f"kt00015 거래내역 조회 실패 ({account_no}/{ticker}): {data.get('return_msg', '')}")
+                        break
+
+                    items = data.get("trst_ovrl_trde_prps_array") or []
+                    for item in items:
+                        io_tp_nm = (item.get("io_tp_nm") or "").strip()
+                        if "매수" in io_tp_nm:
+                            ttype = "매수"
+                        elif "매도" in io_tp_nm:
+                            ttype = "매도"
+                        else:
+                            continue  # 입출금 등 비매매 건 제외
+
+                        # 체결일(cntr_dt) 우선, 없으면 처리일(trde_dt)
+                        raw_date = (item.get("cntr_dt") or item.get("trde_dt") or "").replace("-", "").strip()
+                        if len(raw_date) != 8:
+                            continue
+                        date_str = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+
+                        qty = num(item.get("trde_qty_jwa_cnt") or item.get("qty"))
+                        price = num(item.get("trde_unit") or item.get("uv"))
+                        amount = num(item.get("trde_amt") or item.get("exct_amt"))
+                        if amount == 0.0 and qty and price:
+                            amount = qty * price
+
+                        results.append({
+                            "date": date_str,
+                            "type": ttype,
+                            "quantity": int(qty),
+                            "price": price,
+                            "amount": amount,
+                            "remark": (item.get("rmrk_nm") or "").strip()[:100],
+                        })
+
+                    cont_yn = data.get("cont-yn") or data.get("cont_yn") or "N"
+                    next_key = data.get("next-key") or data.get("next_key") or ""
+                    if cont_yn != "Y" or not next_key:
+                        break
+        except Exception as e:
+            logger.warning(f"거래내역 조회 예외 ({account_no}/{ticker}): {e}")
+            return []
+
+        return results
 
     def get_cached_price(self, ticker: str) -> Optional[dict]:
         """잔고 캐시에서 특정 ticker의 현재가 정보 반환 (NXT 가격 우선).

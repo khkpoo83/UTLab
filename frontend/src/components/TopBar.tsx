@@ -3,13 +3,14 @@
  */
 import { useContext, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Moon, Sun, Monitor, Globe } from 'lucide-react'
+import { Moon, Sun, Monitor, Globe, Settings } from 'lucide-react'
 import Logo from './Logo'
 import apiClient from '../api/client'
 import { loadBgConfig, applyBackground } from '../utils/background'
 import { getProfileIconNode } from '../utils/settings-utils'
 import { HomeFavContext } from '../contexts'
 import { NAV_GROUPS, getActiveGroup, getFirstRoute } from '../nav'
+
 
 type ThemeMode = 'light' | 'dark' | 'system'
 
@@ -77,8 +78,6 @@ function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) 
 
 // ── TopBar ────────────────────────────────────────────────────────────────────
 
-const siteGroup = NAV_GROUPS.find(g => g.id === 'site')
-
 export function TopBar() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -114,9 +113,7 @@ export function TopBar() {
     document.documentElement.classList.toggle('dark', isDark)
     syncPnlColors(isDark)
     applyBackground(loadBgConfig(isDark ? 'dark' : 'light'))
-    if (next !== 'system') {
-      apiClient.put('/api/settings', { settings: { ui_dark_mode: isDark } }).catch(() => {})
-    }
+    apiClient.put('/api/settings', { settings: { ui_dark_mode: next === 'system' ? null : isDark } }).catch(() => {})
   }
 
   const ThemeIcon = themeMode === 'dark' ? Moon : themeMode === 'light' ? Sun : Monitor
@@ -172,48 +169,16 @@ export function TopBar() {
         {/* 구분선 */}
         <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
 
-        {/* 우측 관리 영역 — 연한 bg로 구분 */}
-        <div className="flex items-center gap-0.5 flex-shrink-0 px-1.5 py-1 rounded-md bg-zinc-50 dark:bg-zinc-900/60">
-          {/* 홈페이지 관리 서브 링크 */}
-          {siteGroup?.children?.map(item => {
-            const isActive = location.pathname.startsWith(item.to)
-            return (
-              <button
-                key={item.to}
-                onClick={() => navigate(item.to)}
-                title={item.label}
-                className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors whitespace-nowrap ${
-                  isActive
-                    ? 'text-accent bg-accent/10 font-medium'
-                    : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                }`}
-              >
-                <item.Icon size={12} />
-                <span className="hidden sm:inline">{item.label}</span>
-              </button>
-            )
-          })}
-
-          {/* 구분 */}
-          <div className="w-px h-3.5 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
-
-          {/* 홈화면으로 */}
-          <button
-            onClick={() => navigate('/')}
-            title="홈화면으로"
-            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap"
-          >
-            <Globe size={12} />
-            <span className="hidden sm:inline">홈화면</span>
-          </button>
-        </div>
-
-        {/* 구분선 */}
-        <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-700 flex-shrink-0" />
-
         {/* 유저 컨트롤 */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           <Clock />
+          <button
+            onClick={() => navigate('/')}
+            title="공개 홈화면"
+            className={utilBtnCls}
+          >
+            <Globe size={15} />
+          </button>
           <button onClick={cycleTheme} title={themeTitle} className={utilBtnCls}>
             <ThemeIcon size={15} />
           </button>
@@ -229,6 +194,13 @@ export function TopBar() {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </a>
+          <button
+            onClick={() => navigate('/settings')}
+            title="설정"
+            className={utilBtnCls}
+          >
+            <Settings size={15} />
+          </button>
           <ProfileBtn />
           <button
             onClick={handleLogout}

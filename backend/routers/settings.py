@@ -43,6 +43,8 @@ DEFAULT_SETTINGS = {
     "ui_dark_mode": None,           # 다크모드 (True/False/None=auto)
     "ui_home_widgets": None,        # 홈 위젯 설정 (JSON array)
     "ui_nav_mode": "top",           # 메뉴 방식 (top/sidebar)
+    "ui_weather_icon_style": "fill", # 날씨 아이콘 스타일
+    "ui_bg_config_dark": None,      # 다크모드 배경 설정 (JSON)
     "ui_radius": "lg",              # 모서리 둥글기 (none/sm/md/lg/xl)
     "ui_overlay_style": "both",     # 모달 오버레이 (both/dim/blur/frosted/none)
     "ui_card_opacity": 1.0,         # 카드 투명도 (0.0~1.0)
@@ -57,8 +59,14 @@ DEFAULT_SETTINGS = {
     "site_hero_subtitle": "매일 들여다보면서 알게 된 것들.",
     "site_editor_note": "인덱스를 만드는 게 목표가 아니라, 다시 찾아보고 싶은 기록을 남기는 게 목표입니다.",
     "site_footer_copyright": "U.T Lab4 — 한 사람의 인덱스",
-    "site_marquee_items": None,  # JSON array of {text, size} objects
+    "site_marquee_items": None,  # JSON array of keywords
     "site_marquee_speed": 60,   # 마퀴 기준 속도 (초, 낮을수록 빠름)
+    # ── 메모 설정 ──
+    "memo_color_mode": "pastel",  # 포스트잇 색상 모드: "pastel" | "theme"
+    "site_marquee_type": "triple",    # 마퀴 형태: triple(3단) / single(한줄)
+    "site_marquee_enabled": True,     # 마퀴 표시 여부
+    "site_marquee_position": "top",   # 마퀴 위치: top(제목 아래) / bottom(에디터노트 위)
+    "site_footer_bg": "particle",     # 푸터 배경: particle / prism / wire
 }
 
 
@@ -79,6 +87,8 @@ PUBLIC_KEYS = {
     "site_hero_title", "site_hero_subtitle",
     "site_editor_note", "site_footer_copyright",
     "site_marquee_items", "site_marquee_speed",
+    "site_marquee_type", "site_marquee_enabled", "site_marquee_position",
+    "site_footer_bg",
 }
 
 @router.get("/public")

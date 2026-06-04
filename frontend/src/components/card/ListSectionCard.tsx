@@ -21,16 +21,20 @@ export function ListSectionCard<T>({
 
   return (
     <div style={{
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
     }}>
       {/* Header */}
       <div style={{
         padding: hPx,
         borderBottom: '1px solid var(--line)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        flexShrink: 0,
       }}>
         <div>
           {header.eyebrow && (
@@ -47,18 +51,21 @@ export function ListSectionCard<T>({
         )}
       </div>
 
-      {/* Items */}
-      {items.map((item, i) => (
-        <div key={i}>{renderItem(item, i)}</div>
-      ))}
+      {/* Items — 높이에 맞춰 개수를 계산하므로 스크롤 없이 표시 */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {items.map((item, i) => (
+          <div key={i}>{renderItem(item, i)}</div>
+        ))}
+      </div>
 
       {/* Footer */}
       {footer && (
         <div style={{
           padding: density === 'compact' ? '10px 18px' : '12px 22px',
-          background: 'var(--cream)',
+          background: 'var(--c-surface-subtle)',
           borderTop: '1px solid var(--line)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          flexShrink: 0,
         }}>
           {footer}
         </div>

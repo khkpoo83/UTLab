@@ -2,9 +2,10 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { loadBgConfig, applyBackground, saveBgConfig, getCurrentMode } from './utils/background'
-import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, getCardOpacity, applyCardOpacity, getDotColor, applyDotColor } from './utils/settings-utils'
+import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, applyCardOpacity, applyDotColor } from './utils/settings-utils'
+import { saveWeatherIconStyle } from './components/WeatherWidget'
 import { setLogoIconStyle } from './components/Logo'
-import { loadOverlayStyle, applyOverlayStyle } from './utils/overlay'
+import { applyOverlayStyle } from './utils/overlay'
 import apiClient from './api/client'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { TopBar } from './components/TopBar'
@@ -29,7 +30,7 @@ const BlogWrite       = React.lazy(() => import('./pages/BlogWrite'))
 const BlogDetail      = React.lazy(() => import('./pages/BlogDetail'))
 const PublicBlog      = React.lazy(() => import('./pages/PublicBlog'))
 const PublicBlogDetail = React.lazy(() => import('./pages/PublicBlogDetail'))
-const SiteManage      = React.lazy(() => import('./pages/SiteManage'))
+const Memo            = React.lazy(() => import('./pages/Memo'))
 
 function PageLoader() {
   return (
@@ -119,7 +120,7 @@ const AppRoutes = () => (
         <Route path="/blog/new"       element={<BlogWrite />} />
         <Route path="/blog/:id"       element={<BlogDetail />} />
         <Route path="/blog/:id/edit"  element={<BlogWrite />} />
-        <Route path="/site-manage"    element={<SiteManage />} />
+        <Route path="/memo"           element={<Memo />} />
         <Route path="*"               element={<Navigate to="/home" replace />} />
       </Routes>
     </Suspense>
@@ -146,23 +147,16 @@ function MainLayout() {
   const touchFromEdge = useRef(false)
 
   useEffect(() => {
-    applyBackground(loadBgConfig(getCurrentMode()))
-    // 로컬 설정 먼저 적용 (서버 응답 전 깜빡임 방지)
-    const localRadius = localStorage.getItem('ui_radius') as UiRadius | null
-    if (localRadius) applyUiRadius(localRadius)
-    applyOverlayStyle(loadOverlayStyle())
-    applyCardOpacity(getCardOpacity())
-    applyPnlColors(loadPnlColorConfig())  // --up/--down 즉시 설정
-    applyDotColor(getDotColor())
-
     const token = localStorage.getItem('token')
     if (!token) return
     apiClient.get('/api/settings').then(({ data }) => {
       if (data.ui_season)           applySeasonTheme(data.ui_season)
       if (data.ui_logo_icon)        setLogoIconStyle(data.ui_logo_icon as Parameters<typeof setLogoIconStyle>[0])
       if (data.ui_pnl_color_config) applyPnlColors({ ...loadPnlColorConfig(), ...data.ui_pnl_color_config })
-      if (data.ui_bg_config)        { saveBgConfig(data.ui_bg_config, 'light'); applyBackground(loadBgConfig(getCurrentMode())) }
-      if (data.ui_dark_mode != null) {
+      if (data.ui_bg_config)        saveBgConfig(data.ui_bg_config, 'light')
+      if (data.ui_bg_config_dark)   saveBgConfig(data.ui_bg_config_dark, 'dark')
+      if (data.ui_bg_config || data.ui_bg_config_dark) applyBackground(loadBgConfig(getCurrentMode()))
+      if (data.ui_dark_mode != null && localStorage.getItem('theme') !== 'system') {
         const dark = Boolean(data.ui_dark_mode)
         document.documentElement.classList.toggle('dark', dark)
         localStorage.setItem('theme', dark ? 'dark' : 'light')
@@ -176,6 +170,7 @@ function MainLayout() {
       if (data.ui_overlay_style) applyOverlayStyle(data.ui_overlay_style)
       if (data.ui_card_opacity != null) applyCardOpacity(data.ui_card_opacity)
       if (data.ui_dot_color) applyDotColor(data.ui_dot_color as string)
+      if (data.ui_weather_icon_style) saveWeatherIconStyle(data.ui_weather_icon_style)
     }).catch(() => {})
   }, [])
 
@@ -299,33 +294,7 @@ function MainLayout() {
 
 function App() {
   useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    if (saved === 'dark') document.documentElement.classList.add('dark')
-    else if (saved === 'light') document.documentElement.classList.remove('dark')
-    else if (window.matchMedia('(prefers-color-scheme: dark)').matches)
-      document.documentElement.classList.add('dark')
-
-    const season = localStorage.getItem('season')
-    if (season && season !== 'default')
-      document.documentElement.setAttribute('data-season', season)
-
-    try {
-      const raw = localStorage.getItem('pnl_color_config')
-      if (raw) {
-        const cfg = JSON.parse(raw)
-        const dark = document.documentElement.classList.contains('dark')
-        document.documentElement.style.setProperty('--c-up',   dark ? cfg.upDark   : cfg.upLight)
-        document.documentElement.style.setProperty('--c-down', dark ? cfg.downDark : cfg.downLight)
-        document.documentElement.setAttribute('data-pnl-up-light',   cfg.upLight)
-        document.documentElement.setAttribute('data-pnl-down-light', cfg.downLight)
-        document.documentElement.setAttribute('data-pnl-up-dark',    cfg.upDark)
-        document.documentElement.setAttribute('data-pnl-down-dark',  cfg.downDark)
-      }
-    } catch {}
-
-    // 포인트(dot) 색상 조기 적용
-    applyDotColor(getDotColor())
-
+    // 모든 시각 설정은 index.html 인라인 스크립트에서 즉시 적용됨 (FOUC 방지)
     const syncThemeColor = () => {
       const dark = document.documentElement.classList.contains('dark')
       const meta = document.getElementById('theme-color-meta') as HTMLMetaElement | null

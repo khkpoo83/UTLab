@@ -25,11 +25,12 @@ export function StatGroupCard({ stats, density = 'default' }: StatGroupCardProps
 
   return (
     <div style={{
-      background: 'var(--paper)',
+      background: 'var(--c-surface)',
       border: '1px solid var(--line)',
       borderRadius: 'var(--r-md)',
       display: 'grid',
       gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
+      height: '100%',
     }}>
       {stats.map((s, i) => (
         <div key={s.label} style={{
