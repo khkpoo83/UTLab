@@ -194,7 +194,7 @@ const Analytics: React.FC = () => {
                         </div>
                       ) : analysisGroups.length === 0 ? (
                         <div className="flex items-center gap-3 py-1">
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">분석 없음 · 매일 03:00 자동 실행</span>
+                          <span className="text-xs text-ink-3">분석 없음 · 매일 03:00 자동 실행</span>
                           <Button variant="primary" size="xs"
                             onClick={handleRefreshAnalysis} disabled={analysisRefreshing}>
                             지금 분석
@@ -205,13 +205,13 @@ const Analytics: React.FC = () => {
                           {analysisGroups.map((group) => (
                             <div key={group.account_id ?? 'unassigned'}>
                               {analysisGroups.length > 1 && (
-                                <p className="text-2xs text-zinc-400 mb-1.5">{group.account_name}</p>
+                                <p className="text-2xs text-ink-4 mb-1.5">{group.account_name}</p>
                               )}
                               <div className="flex flex-wrap gap-1.5">
                                 {group.items.map((item: PortfolioAnalysisItem) => {
                                   const outlookArrowCls =
                                     item.outlook === 'bullish' ? 'text-up' :
-                                    item.outlook === 'bearish' ? 'text-down' : 'text-zinc-400'
+                                    item.outlook === 'bearish' ? 'text-down' : 'text-ink-4'
                                   const outlookIcon = item.outlook === 'bullish' ? '↑' : item.outlook === 'bearish' ? '↓' : '→'
                                   const recDot =
                                     item.recommendation === 'buy_more' ? 'bg-up' :
@@ -219,9 +219,9 @@ const Analytics: React.FC = () => {
                                     item.recommendation === 'sell' ? 'bg-down' : 'bg-zinc-400'
                                   return (
                                     <button key={item.ticker} onClick={() => setSelectedAnalysisItem(item)}
-                                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 surface hover:bg-zinc-100 dark:hover:bg-zinc-700 text-2xs font-medium transition-colors">
+                                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-ink-5 surface hover:bg-zinc-100 dark:hover:bg-zinc-700 text-2xs font-medium transition-colors">
                                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${recDot}`} />
-                                      <span className="text-zinc-800 dark:text-zinc-200 font-semibold">{item.name}</span>
+                                      <span className="text-ink-0 font-semibold">{item.name}</span>
                                       <span className={`font-bold ${outlookArrowCls}`}>{outlookIcon}</span>
                                     </button>
                                   )
@@ -243,7 +243,7 @@ const Analytics: React.FC = () => {
 
         <DragOverlay dropAnimation={null}>
           {activeCardId ? (
-            <div className="bg-white dark:bg-zinc-900 border-2 border-dashed border-accent rounded-2xl px-4 py-3 text-sm font-medium text-zinc-500 dark:text-zinc-400 shadow-lg">
+            <div className="bg-white dark:bg-zinc-900 border-2 border-dashed border-accent rounded-2xl px-4 py-3 text-sm font-medium text-ink-3 shadow-lg">
               {ANALYTICS_CARD_TITLES[activeCardId]}
             </div>
           ) : null}
@@ -255,16 +255,16 @@ const Analytics: React.FC = () => {
         const outlookBadge =
           item.outlook === 'bullish' ? { cls: 'text-up border border-up/40', style: { backgroundColor: 'rgb(var(--c-up-rgb, 240 80 122) / 0.15)' }, label: '강세 ↑' } :
           item.outlook === 'bearish' ? { cls: 'text-down border border-down/40', style: { backgroundColor: 'rgb(var(--c-accent-rgb) / 0.15)' }, label: '약세 ↓' } :
-          { cls: 'bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-600', style: {}, label: '중립 →' }
+          { cls: 'bg-zinc-100 dark:bg-zinc-700 text-ink-2 border border-ink-5', style: {}, label: '중립 →' }
         const recBadge =
           item.recommendation === 'buy_more' ? { cls: 'text-white', style: { backgroundColor: 'var(--c-up)' }, label: '추가매수' } :
           item.recommendation === 'reduce'   ? { cls: 'text-white', style: { backgroundColor: 'var(--c-down)' }, label: '비중축소' } :
           item.recommendation === 'sell'     ? { cls: 'text-white', style: { backgroundColor: 'var(--c-down)' }, label: '매도' } :
-          { cls: 'bg-zinc-100 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300', style: {}, label: '보유' }
+          { cls: 'bg-zinc-100 dark:bg-zinc-700 text-ink-1', style: {}, label: '보유' }
         const confLabel =
           item.confidence === 'high'   ? { cls: 'text-[color:var(--tag-amber-fg)]', label: '★★★ 확실' } :
-          item.confidence === 'medium' ? { cls: 'text-zinc-500 dark:text-zinc-400', label: '★★☆ 보통' } :
-          { cls: 'text-zinc-400 dark:text-zinc-500', label: '★☆☆ 참고' }
+          item.confidence === 'medium' ? { cls: 'text-ink-3', label: '★★☆ 보통' } :
+          { cls: 'text-ink-4', label: '★☆☆ 참고' }
         return createPortal(
           <div
             className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
@@ -278,8 +278,8 @@ const Analytics: React.FC = () => {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-base font-bold text-zinc-900 dark:text-zinc-100">{item.name}</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">{item.ticker}</span>
+                    <span className="text-base font-bold text-ink-0">{item.name}</span>
+                    <span className="text-xs text-ink-3">{item.ticker}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${outlookBadge.cls}`} style={outlookBadge.style}>{outlookBadge.label}</span>
@@ -289,7 +289,7 @@ const Analytics: React.FC = () => {
                 </div>
                 <button
                   onClick={() => setSelectedAnalysisItem(null)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors flex-shrink-0"
+                  className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-4 hover:text-ink-2 transition-colors flex-shrink-0"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -298,16 +298,16 @@ const Analytics: React.FC = () => {
               </div>
               {item.short_term_forecast && (
                 <div>
-                  <p className="text-2xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide mb-1.5">단기 전망</p>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{item.short_term_forecast}</p>
+                  <p className="text-2xs font-semibold text-ink-4 uppercase tracking-wide mb-1.5">단기 전망</p>
+                  <p className="text-sm text-ink-1 leading-relaxed">{item.short_term_forecast}</p>
                 </div>
               )}
               {item.key_points?.length > 0 && (
                 <div>
-                  <p className="text-2xs font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wide mb-1.5">핵심 포인트</p>
+                  <p className="text-2xs font-semibold text-ink-4 uppercase tracking-wide mb-1.5">핵심 포인트</p>
                   <ul className="space-y-1.5">
                     {item.key_points.map((pt, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                      <li key={idx} className="flex items-start gap-2 text-sm text-ink-1">
                         <span className="flex-shrink-0 mt-0.5 text-down">•</span>
                         <span>{pt}</span>
                       </li>

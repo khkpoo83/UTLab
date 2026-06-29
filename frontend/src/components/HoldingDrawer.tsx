@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   portfolioApi,
@@ -63,8 +63,14 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
+  // 과거 lazy-load 상태 (재렌더 불필요 → ref)
+  const loadingMoreRef = useRef(false)
+  const hasMoreRef = useRef(true)
+
   const loadChart = useCallback(async () => {
     setChartLoading(true)
+    hasMoreRef.current = true        // 기간/종목 바뀌면 과거 로드 재개
+    loadingMoreRef.current = false
     try {
       const { data } = await portfolioApi.chartByTicker(holding.ticker, period)
       setChartData(data)
@@ -76,6 +82,35 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
   }, [holding.ticker, period])
 
   useEffect(() => { loadChart() }, [loadChart])
+
+  // 모든 기간 과거 lazy-load 지원 (일봉='YYYY-MM-DD' / 분봉=unix초)
+  const canLoadMore = true
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return
+    if (chartData.length === 0) return
+    const earliest = chartData[0].time   // 일봉='YYYY-MM-DD' / 분봉=unix초
+    const before = typeof earliest === 'number'
+      ? earliest
+      : Math.floor(Date.parse(`${earliest}T00:00:00Z`) / 1000)
+    if (!Number.isFinite(before)) return
+    loadingMoreRef.current = true
+    try {
+      const { data: older } = await portfolioApi.chartByTicker(holding.ticker, period, before)
+      // 이미 가진 날짜는 제외(중복 방지)
+      const existing = new Set(chartData.map(d => d.time))
+      const fresh = older.filter(d => !existing.has(d.time))
+      if (fresh.length === 0) {
+        hasMoreRef.current = false      // 더 이상 과거 없음 → 반복 중단
+      } else {
+        setChartData(prev => [...fresh, ...prev])
+      }
+    } catch {
+      // 일시 실패는 다음 트리거에서 재시도 (hasMore 유지)
+    } finally {
+      loadingMoreRef.current = false
+    }
+  }, [holding.ticker, period, chartData])
 
   useEffect(() => {
     portfolioApi.newsByTicker(holding.ticker, holding.name ?? '').then(({ data }) => {
@@ -149,7 +184,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
 
   const tabBtn = (active: boolean) =>
     `px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
-      active ? 'border-accent text-accent' : 'border-transparent text-zinc-400 hover:text-zinc-600'
+      active ? 'border-accent text-accent' : 'border-transparent text-ink-4 hover:text-ink-2'
     }`
 
   return createPortal(
@@ -171,14 +206,14 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b sticky top-0 panel-header-surface z-10">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 truncate">{holding.name}</h2>
+            <h2 className="text-base font-semibold text-ink-0 truncate">{holding.name}</h2>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <p className="text-xs text-zinc-400">{code} · {holding.exchange ?? ''}</p>
+              <p className="text-xs text-ink-4">{code} · {holding.exchange ?? ''}</p>
               {holding.kis_market === 'NXT' && (
                 <span className="text-2xs px-1.5 py-0.5 rounded tag tag-tonal">NXT</span>
               )}
               {acct && (
-                <span className="flex items-center gap-1 text-2xs px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 text-zinc-500">
+                <span className="flex items-center gap-1 text-2xs px-1.5 py-0.5 rounded border border-ink-5 text-ink-3">
                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: acct.color }} />
                   {acct.name}
                 </span>
@@ -189,7 +224,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
             <button
               onClick={() => setIsWide(w => !w)}
               title={isWide ? '기본 너비로' : '더 넓게 보기'}
-              className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="text-ink-4 hover:text-ink-2 p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             >
               {isWide ? (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,7 +236,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                 </svg>
               )}
             </button>
-            <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <button onClick={onClose} className="text-ink-4 hover:text-ink-2 p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -212,7 +247,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
         <div className="px-5 py-4 space-y-5">
           {/* ── 상단: 요약 / 기업정보 탭 ── */}
           <div>
-            <div className="flex gap-1 mb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex gap-1 mb-3 border-b border-[var(--divide)]">
               <button onClick={() => setTopTab('summary')} className={tabBtn(topTab === 'summary')}>요약</button>
               <button onClick={() => setTopTab('info')} className={tabBtn(topTab === 'info')}>기업정보</button>
             </div>
@@ -221,9 +256,9 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-3">
                 {summaryCells.map((c) => (
                   <div key={c.label}>
-                    <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">{c.label}</p>
+                    <p className="text-2xs text-ink-3 mb-0.5">{c.label}</p>
                     <p className={`text-sm font-semibold tabular-nums ${
-                      c.tone === 'up' ? 'text-up' : c.tone === 'down' ? 'text-down' : 'text-zinc-900 dark:text-zinc-100'
+                      c.tone === 'up' ? 'text-up' : c.tone === 'down' ? 'text-down' : 'text-ink-0'
                     }`}>
                       {c.value}
                     </p>
@@ -245,8 +280,8 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-3">
                     {infoCells.map((c) => (
                       <div key={c.label}>
-                        <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-0.5">{c.label}</p>
-                        <p className="text-sm font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{c.value}</p>
+                        <p className="text-2xs text-ink-3 mb-0.5">{c.label}</p>
+                        <p className="text-sm font-semibold tabular-nums text-ink-0">{c.value}</p>
                       </div>
                     ))}
                   </div>
@@ -257,13 +292,13 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                     </div>
                   )}
                   {f.summary && (
-                    <p className="text-2xs text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-4">{f.summary}</p>
+                    <p className="text-2xs text-ink-3 leading-relaxed line-clamp-4">{f.summary}</p>
                   )}
                 </div>
               ) : (
                 <div className="py-6 text-center">
-                  <p className="text-xs text-zinc-400">기업 기초정보를 불러올 수 없습니다.</p>
-                  <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">해외/일부 종목은 제공되지 않을 수 있습니다.</p>
+                  <p className="text-xs text-ink-4">기업 기초정보를 불러올 수 없습니다.</p>
+                  <p className="text-2xs text-ink-4 mt-1">해외/일부 종목은 제공되지 않을 수 있습니다.</p>
                 </div>
               )
             )}
@@ -277,30 +312,31 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
             onPeriodChange={setPeriod}
             loading={chartLoading}
             height={280}
+            onLoadMore={canLoadMore ? handleLoadMore : undefined}
           />
 
           {/* ── 외부 링크 ── */}
           <div>
-            <h3 className="text-xs font-medium text-zinc-500 mb-2">외부 링크</h3>
+            <h3 className="text-xs font-medium text-ink-3 mb-2">외부 링크</h3>
             <div className="flex flex-wrap gap-2">
               <a
                 href={`https://finance.naver.com/item/main.naver?code=${code}`}
                 target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-ink-2 hover:border-accent hover:text-accent transition-colors"
               >
                 <span className="font-bold text-accent">N</span> 네이버 금융
               </a>
               <a
                 href={`https://finance.naver.com/item/board.naver?code=${code}`}
                 target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-ink-2 hover:border-accent hover:text-accent transition-colors"
               >
                 <span className="font-bold text-accent">N</span> 종목토론방
               </a>
               <a
                 href={`https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(holding.name)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-ink-2 hover:border-accent hover:text-accent transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
@@ -311,7 +347,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                 <a
                   href={`https://dart.fss.or.kr/dsab002/search.ax?textCrpNm=${encodeURIComponent(holding.name)}`}
                   target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg panel-inner-surface border text-ink-2 hover:border-accent hover:text-accent transition-colors"
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -324,7 +360,7 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
 
           {/* ── 하단: 관련 뉴스 / 거래내역 탭 ── */}
           <div>
-            <div className="flex gap-1 mb-3 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex gap-1 mb-3 border-b border-[var(--divide)]">
               <button onClick={() => setBottomTab('news')} className={tabBtn(bottomTab === 'news')}>관련 뉴스</button>
               <button onClick={() => setBottomTab('tx')} className={tabBtn(bottomTab === 'tx')}>거래내역</button>
             </div>
@@ -336,11 +372,11 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                 </div>
               ) : news.length === 0 ? (
                 <div className="py-3 text-center">
-                  <p className="text-xs text-zinc-400">수집된 관련 기사가 없습니다.</p>
-                  <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">위 링크에서 최신 뉴스를 확인하세요.</p>
+                  <p className="text-xs text-ink-4">수집된 관련 기사가 없습니다.</p>
+                  <p className="text-2xs text-ink-4 mt-1">위 링크에서 최신 뉴스를 확인하세요.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-50 dark:divide-zinc-800">
+                <div className="divide-y divide-[var(--divide)]">
                   {news.map((n) => (
                     <a
                       key={n.id}
@@ -349,14 +385,14 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                       rel="noopener noreferrer"
                       className="block py-2.5 px-1 rounded hover:bg-accent/5 transition-colors group"
                     >
-                      <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-accent line-clamp-2">{n.title}</p>
+                      <p className="text-xs font-medium text-ink-0 group-hover:text-accent line-clamp-2">{n.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-2xs text-zinc-400">{n.source}</p>
-                        {n.published_at && <p className="text-2xs text-zinc-400">{new Date(n.published_at).toLocaleDateString('ko-KR')}</p>}
+                        <p className="text-2xs text-ink-4">{n.source}</p>
+                        {n.published_at && <p className="text-2xs text-ink-4">{new Date(n.published_at).toLocaleDateString('ko-KR')}</p>}
                         {n.summary && <span className="text-2xs text-accent">✓ AI요약</span>}
                       </div>
                       {n.summary && (
-                        <p className="text-2xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">{n.summary}</p>
+                        <p className="text-2xs text-ink-3 mt-1 line-clamp-2 leading-relaxed">{n.summary}</p>
                       )}
                     </a>
                   ))}
@@ -369,11 +405,11 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                 </div>
               ) : transactions.length === 0 ? (
                 <div className="py-3 text-center">
-                  <p className="text-xs text-zinc-400">거래내역이 없습니다.</p>
-                  <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">최근 1년 내 매매 체결 내역이 없거나 조회할 수 없습니다.</p>
+                  <p className="text-xs text-ink-4">거래내역이 없습니다.</p>
+                  <p className="text-2xs text-ink-4 mt-1">최근 1년 내 매매 체결 내역이 없거나 조회할 수 없습니다.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-zinc-50 dark:divide-zinc-800">
+                <div className="divide-y divide-[var(--divide)]">
                   {transactions.map((t, i) => {
                     const isBuy = t.type === '매수'
                     return (
@@ -384,13 +420,13 @@ const HoldingDrawer: React.FC<HoldingDrawerProps> = ({ holding, onClose, account
                           }`}>
                             {t.type}
                           </span>
-                          <span className="text-2xs text-zinc-400 tabular-nums">{t.date}</span>
+                          <span className="text-2xs text-ink-4 tabular-nums">{t.date}</span>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs tabular-nums text-zinc-800 dark:text-zinc-200">
+                          <p className="text-xs tabular-nums text-ink-0">
                             {t.quantity.toLocaleString()}주 @ {formatPrice(t.price)}
                           </p>
-                          <p className="text-2xs text-zinc-400 tabular-nums">{formatPrice(t.amount)}</p>
+                          <p className="text-2xs text-ink-4 tabular-nums">{formatPrice(t.amount)}</p>
                         </div>
                       </div>
                     )

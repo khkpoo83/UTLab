@@ -89,24 +89,124 @@ function isInRange(dateKey: string, range: { start: string; end: string } | null
 
 function EventChip({
   ev, calendars, onClick,
+  roundLeft = true, roundRight = true, bleedLeft = false, bleedRight = false, showLabel = true,
 }: {
   ev: CalEvent
   calendars: GoogleCalendar[]
   onClick?: (ev: CalEvent, e: React.MouseEvent) => void
+  // 연속(여러 날) 일정 막대용 — 칸 경계를 넘어 이어지는 모양 제어
+  roundLeft?: boolean   // 왼쪽 모서리 둥글기 (막대 시작/주 시작)
+  roundRight?: boolean  // 오른쪽 모서리 둥글기 (막대 끝/주 끝)
+  bleedLeft?: boolean   // 왼쪽 칸 패딩까지 확장 (이전 칸과 연결)
+  bleedRight?: boolean  // 오른쪽 칸 패딩까지 확장 (다음 칸과 연결)
+  showLabel?: boolean   // 제목 표시 (시작일·주 시작일에만)
 }) {
   const color = evColor(ev, calendars)
   const timeStr = ev.all_day ? null : (ev.start_dt ? toKstTime(ev.start_dt) : null)
   return (
     <div
-      className="text-[10px] px-1 py-0.5 rounded truncate text-white leading-tight shadow-sm cursor-pointer hover:brightness-90 transition-all active:scale-95"
-      style={{ backgroundColor: color, borderLeft: `2.5px solid color-mix(in srgb, ${color} 60%, #000)` }}
+      className="text-[10px] px-1 h-[17px] flex items-center truncate text-white leading-tight shadow-sm cursor-pointer hover:brightness-95 transition-all active:scale-[0.98]"
+      style={{
+        backgroundColor: color,
+        borderTopLeftRadius: roundLeft ? 4 : 0,
+        borderBottomLeftRadius: roundLeft ? 4 : 0,
+        borderTopRightRadius: roundRight ? 4 : 0,
+        borderBottomRightRadius: roundRight ? 4 : 0,
+        marginLeft: bleedLeft ? -6 : 0,
+        marginRight: bleedRight ? -6 : 0,
+      }}
       title={ev.summary ?? '(제목 없음)'}
       onClick={e => { e.stopPropagation(); onClick?.(ev, e) }}
     >
-      {timeStr && <span className="opacity-80 mr-0.5">{timeStr}</span>}
-      {ev.summary ?? '(제목 없음)'}
+      {showLabel && (
+        <span className="truncate">
+          {timeStr && <span className="opacity-80 mr-0.5">{timeStr}</span>}
+          {ev.summary ?? '(제목 없음)'}
+        </span>
+      )}
     </div>
   )
+}
+
+// ── 월간 레인 레이아웃 ──────────────────────────────────────────────────────────
+// 여러 날 종일 일정을 칸 경계를 넘어 "이어지는 막대"로 그리기 위한 배치 계산.
+// spanning(여러 날) 이벤트는 그리디 레인 배정으로 모든 날에서 같은 세로 위치(lane)에
+// 놓이고, single(하루) 이벤트는 그 날의 가장 낮은 빈 레인을 채운다.
+
+interface LaneSeg {
+  ev: CalEvent
+  isStart: boolean  // 이 칸이 이벤트의 시작일
+  isEnd: boolean    // 이 칸이 이벤트의 마지막 날
+}
+interface LaneCell {
+  lanes: (LaneSeg | null)[]
+  total: number     // 그 날의 전체 일정 수 (overflow 계산용)
+}
+
+/** 이벤트의 (포함) 마지막 날짜 키. 종일 복수일만 시작일보다 뒤가 될 수 있음 */
+function eventInclusiveEnd(ev: CalEvent): string {
+  const startKey = toKstDateKey(ev.start_dt!, ev.all_day)
+  if (ev.all_day && ev.end_dt) {
+    const last = allDayEndForDisplay(ev.end_dt)
+    return last < startKey ? startKey : last
+  }
+  return startKey
+}
+
+function buildMonthLayout(events: CalEvent[]): Record<string, LaneCell> {
+  const ranged = events
+    .filter(e => e.start_dt)
+    .map(e => ({ ev: e, startKey: toKstDateKey(e.start_dt!, e.all_day), endKey: eventInclusiveEnd(e) }))
+  const spanning = ranged.filter(e => e.endKey > e.startKey)
+  const single   = ranged.filter(e => e.endKey === e.startKey)
+
+  // 그리디 레인 배정: 시작 빠른 순, 같으면 긴 것 먼저 → 위쪽 레인 고정
+  spanning.sort((a, b) => a.startKey.localeCompare(b.startKey) || b.endKey.localeCompare(a.endKey))
+  const laneEnd: string[] = []  // 레인별 현재 점유 이벤트의 마지막 날짜
+  const laneOf = new Map<typeof spanning[number], number>()
+  for (const s of spanning) {
+    let lane = 0
+    while (lane < laneEnd.length && laneEnd[lane] >= s.startKey) lane++
+    laneEnd[lane] = s.endKey
+    laneOf.set(s, lane)
+  }
+
+  const cells: Record<string, (LaneSeg | null)[]> = {}
+  const ensure = (k: string) => (cells[k] ??= [])
+
+  // spanning 이벤트를 고정 레인에 모든 날 배치
+  for (const s of spanning) {
+    const lane = laneOf.get(s)!
+    let cur = s.startKey
+    while (cur <= s.endKey) {
+      const arr = ensure(cur)
+      while (arr.length <= lane) arr.push(null)
+      arr[lane] = { ev: s.ev, isStart: cur === s.startKey, isEnd: cur === s.endKey }
+      cur = addDays(cur, 1)
+    }
+  }
+
+  // single 이벤트를 그 날의 가장 낮은 빈 레인에 채움 (종일 먼저, 그다음 시각 순)
+  const singleByDay: Record<string, typeof single> = {}
+  for (const s of single) (singleByDay[s.startKey] ??= []).push(s)
+  for (const k in singleByDay) {
+    const arr = ensure(k)
+    const list = singleByDay[k].sort((a, b) => {
+      if (a.ev.all_day !== b.ev.all_day) return a.ev.all_day ? -1 : 1
+      return (a.ev.start_dt ?? '').localeCompare(b.ev.start_dt ?? '')
+    })
+    for (const s of list) {
+      let lane = 0
+      while (arr[lane] != null) lane++
+      arr[lane] = { ev: s.ev, isStart: true, isEnd: true }
+    }
+  }
+
+  const out: Record<string, LaneCell> = {}
+  for (const k in cells) {
+    out[k] = { lanes: cells[k], total: cells[k].filter(Boolean).length }
+  }
+  return out
 }
 
 
@@ -396,7 +496,7 @@ function EventModal({
   }
 
   const selectedCal = calendars.find(c => c.id === form.calendar_id)
-  const inputCls = "w-full px-2.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
+  const inputCls = "w-full px-2.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent transition-colors"
   const toMins = (t: string) => parseInt(t.slice(0, 2)) * 60 + parseInt(t.slice(3, 5))
   const endBeforeStart = !form.all_day && form.end_date === form.start_date && toMins(form.end_time) <= toMins(form.start_time)
 
@@ -417,26 +517,26 @@ function EventModal({
           <div className="space-y-3">
             {/* 제목 */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">제목 *</label>
+              <label className="block text-xs text-ink-3 mb-1">제목 *</label>
               <input
                 type="text"
                 value={form.summary}
                 onChange={e => set('summary', e.target.value)}
                 placeholder="일정 제목"
                 autoFocus
-                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent transition-colors"
               />
             </div>
 
             {/* 캘린더 선택 */}
             {writableCalendars.length > 1 && (
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">캘린더</label>
+                <label className="block text-xs text-ink-3 mb-1">캘린더</label>
                 <div className="relative">
                   <select
                     value={form.calendar_id}
                     onChange={e => set('calendar_id', e.target.value)}
-                    className="w-full pl-7 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent appearance-none cursor-pointer"
+                    className="w-full pl-7 pr-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent appearance-none cursor-pointer"
                   >
                     {writableCalendars.map(cal => (
                       <option key={cal.id} value={cal.id}>{cal.name}</option>
@@ -467,14 +567,14 @@ function EventModal({
                   }`}
                 />
               </button>
-              <span className="text-sm text-zinc-600 dark:text-zinc-400 select-none">종일</span>
+              <span className="text-sm text-ink-2 select-none">종일</span>
             </div>
 
             {/* 시작/종료 */}
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-zinc-500 mb-1">시작</label>
+                  <label className="block text-xs text-ink-3 mb-1">시작</label>
                   <input type="date" value={form.start_date} onChange={e => handleStartDateChange(e.target.value)} className={inputCls} />
                   {!form.all_day && (
                     <select value={form.start_time} onChange={e => handleStartTimeChange(e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer`}>
@@ -483,7 +583,7 @@ function EventModal({
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-zinc-500 mb-1">종료</label>
+                  <label className="block text-xs text-ink-3 mb-1">종료</label>
                   <input type="date" value={form.end_date} min={form.start_date} onChange={e => set('end_date', e.target.value)} className={inputCls} />
                   {!form.all_day && (
                     <select value={form.end_time} onChange={e => set('end_time', e.target.value)} className={`mt-1.5 ${inputCls} cursor-pointer ${endBeforeStart ? 'border-red-400 dark:border-red-500' : ''}`}>
@@ -499,7 +599,7 @@ function EventModal({
 
             {/* 반복 */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">반복</label>
+              <label className="block text-xs text-ink-3 mb-1">반복</label>
               <div className="space-y-2">
                   <select
                     value={form.recur_freq}
@@ -516,12 +616,12 @@ function EventModal({
                   {form.recur_freq !== 'NONE' && (
                     <div className="space-y-2 pl-0.5">
                       {/* 간격 */}
-                      <div className="flex items-center gap-2 text-xs text-zinc-500">
+                      <div className="flex items-center gap-2 text-xs text-ink-3">
                         <span>매</span>
                         <input
                           type="number" min={1} max={99} value={form.recur_interval}
                           onChange={e => set('recur_interval', Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent text-center"
+                          className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent text-center"
                         />
                         <span>{FREQ_UNIT[form.recur_freq]}마다</span>
                       </div>
@@ -537,7 +637,7 @@ function EventModal({
                                 className={`w-7 h-7 rounded-full text-xs font-medium transition-colors ${
                                   on
                                     ? 'bg-accent text-white'
-                                    : `bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-zinc-500'}`
+                                    : `bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 ${i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-ink-3'}`
                                 }`}
                               >{WEEKDAY_LABELS[i]}</button>
                             )
@@ -550,18 +650,18 @@ function EventModal({
                         <select
                           value={form.recur_end}
                           onChange={e => set('recur_end', e.target.value as RecurEnd)}
-                          className="px-2.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent cursor-pointer flex-shrink-0"
+                          className="px-2.5 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent cursor-pointer flex-shrink-0"
                         >
                           <option value="NONE">계속 반복</option>
                           <option value="COUNT">횟수 지정</option>
                           <option value="UNTIL">날짜까지</option>
                         </select>
                         {form.recur_end === 'COUNT' && (
-                          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                          <div className="flex items-center gap-1.5 text-xs text-ink-3">
                             <input
                               type="number" min={2} max={730} value={form.recur_count}
                               onChange={e => set('recur_count', Math.max(2, parseInt(e.target.value) || 2))}
-                              className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent text-center"
+                              className="w-16 px-2 py-1.5 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent text-center"
                             />
                             <span>회</span>
                           </div>
@@ -575,7 +675,7 @@ function EventModal({
                         )}
                       </div>
 
-                      <p className="text-2xs text-zinc-400">{describeRecurrence(form)}</p>
+                      <p className="text-2xs text-ink-4">{describeRecurrence(form)}</p>
                     </div>
                   )}
                 </div>
@@ -584,7 +684,7 @@ function EventModal({
             {/* 반복 적용 범위 — 반복 시리즈일 때만. 저장/삭제 시 이 범위로 적용 */}
             {wasRecurring && (
               <div>
-                <label className="block text-xs text-zinc-500 mb-1">적용 범위 (반복 일정)</label>
+                <label className="block text-xs text-ink-3 mb-1">적용 범위 (반복 일정)</label>
                 <div className="grid grid-cols-3 gap-1">
                   {SCOPE_OPTS.map(o => (
                     <button
@@ -594,12 +694,12 @@ function EventModal({
                       className={`py-1.5 text-xs rounded-lg border transition-colors ${
                         editScope === o.v
                           ? 'bg-accent text-white border-accent'
-                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-accent'
+                          : 'border-ink-5 text-ink-2 hover:border-accent'
                       }`}
                     >{o.label}</button>
                   ))}
                 </div>
-                <p className="text-2xs text-zinc-400 mt-1">
+                <p className="text-2xs text-ink-4 mt-1">
                   {SCOPE_OPTS.find(o => o.v === editScope)?.desc} · 저장/삭제 시 적용
                 </p>
               </div>
@@ -607,32 +707,32 @@ function EventModal({
 
             {/* 장소 (텍스트) */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">장소</label>
+              <label className="block text-xs text-ink-3 mb-1">장소</label>
               <input
                 type="text"
                 value={form.location}
                 onChange={e => set('location', e.target.value)}
                 placeholder="우측 지도에서 선택하거나 직접 입력"
-                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent transition-colors"
               />
             </div>
 
             {/* 설명 */}
             <div>
-              <label className="block text-xs text-zinc-500 mb-1">설명</label>
+              <label className="block text-xs text-ink-3 mb-1">설명</label>
               <textarea
                 value={form.description}
                 onChange={e => set('description', e.target.value)}
                 placeholder="선택 사항"
                 rows={2}
-                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent resize-none transition-colors"
+                className="w-full px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent resize-none transition-colors"
               />
             </div>
           </div>
 
           {/* ── 우측: 위치 지도 ── */}
           <div>
-            <label className="block text-xs text-zinc-500 mb-1">위치 지도</label>
+            <label className="block text-xs text-ink-3 mb-1">위치 지도</label>
             <LocationPicker
               value={form.location}
               coords={coords}
@@ -644,7 +744,7 @@ function EventModal({
       </div>
 
       {/* 하단 버튼 */}
-      <div className="flex items-center justify-between px-5 py-4 border-t border-zinc-100 dark:border-zinc-800">
+      <div className="flex items-center justify-between px-5 py-4 border-t border-[var(--divide)]">
         <div>
           {mode === 'edit' && onDelete && (
             <button
@@ -657,7 +757,7 @@ function EventModal({
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors">
+          <button onClick={onClose} className="px-3 py-1.5 text-xs text-ink-3 hover:text-ink-1 transition-colors">
             취소
           </button>
           <button
@@ -702,9 +802,9 @@ function SelectedDatePanel({
       }
     >
       {sorted.length === 0 ? (
-        <div className="text-xs text-zinc-400 py-2 text-center">일정 없음</div>
+        <div className="text-xs text-ink-4 py-2 text-center">일정 없음</div>
       ) : (
-        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50 -my-1">
+        <div className="divide-y divide-[var(--divide)] -my-1">
           {sorted.map(ev => {
             const color = evColor(ev, calendars)
             return (
@@ -715,8 +815,8 @@ function SelectedDatePanel({
               >
                 <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ backgroundColor: color }} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-zinc-700 dark:text-zinc-200 truncate">{ev.summary ?? '(제목 없음)'}</div>
-                  <div className="text-xs text-zinc-400 mt-0.5">
+                  <div className="text-sm text-ink-1 truncate">{ev.summary ?? '(제목 없음)'}</div>
+                  <div className="text-xs text-ink-4 mt-0.5">
                     {ev.all_day ? '종일' : (ev.start_dt ? toKstTime(ev.start_dt) : '')}
                     {ev.location && ` · ${ev.location}`}
                   </div>
@@ -733,7 +833,7 @@ function SelectedDatePanel({
 // ── CalGridCells ──────────────────────────────────────────────────────────────
 
 function CalGridCells({
-  year, month, eventsByDate, selectedDate,
+  year, month, cellLayout, selectedDate,
   onDateSelect, onNavigatePrev, onNavigateNext,
   onEventClick, onDateDoubleClick, onDateShiftClick,
   onDragStart, onDragOver,
@@ -741,7 +841,7 @@ function CalGridCells({
   calendars, todayKey,
 }: {
   year: number; month: number
-  eventsByDate: Record<string, CalEvent[]>
+  cellLayout: Record<string, LaneCell>
   selectedDate: string | null
   onDateSelect: (key: string | null) => void
   onNavigatePrev: (dateKey: string) => void
@@ -768,10 +868,10 @@ function CalGridCells({
   const nk = (d: number) => `${nYear}-${String(nMon + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 
   const fadedNum = (dow: number) => `w-6 h-6 flex items-center justify-center rounded-full text-xs font-medium mb-1 opacity-[0.18] ${
-    dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-zinc-700 dark:text-zinc-300'
+    dow === 0 ? 'text-red-500' : dow === 6 ? 'text-blue-500' : 'text-ink-1'
   }`
 
-  const fadedCellBase = 'h-[112px] overflow-hidden border-b border-r border-zinc-200/60 dark:border-zinc-700/60 p-1.5 cursor-pointer transition-colors select-none bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/30'
+  const fadedCellBase = 'h-[112px] overflow-hidden border-b border-r border-ink-5/60 p-1.5 cursor-pointer transition-colors select-none bg-zinc-100 dark:bg-zinc-800/50 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/30'
 
   return (
     <div className="grid grid-cols-7">
@@ -794,7 +894,14 @@ function CalGridCells({
         const day = i + 1
         const dow = (firstDow + i) % 7
         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-        const dayEvs = eventsByDate[dateKey] ?? []
+        const cell = cellLayout[dateKey]
+        // 표시할 레인: 상위 3개. 끝쪽 빈 레인은 잘라내되 사이의 빈 레인은 스페이서로 유지(정렬)
+        const capped = (cell?.lanes ?? []).slice(0, 3)
+        let lastIdx = -1
+        capped.forEach((s, idx) => { if (s) lastIdx = idx })
+        const renderLanes = capped.slice(0, lastIdx + 1)
+        const shown = renderLanes.filter(Boolean).length
+        const overflow = (cell?.total ?? 0) - shown
         const isToday = dateKey === todayKey
         const isSel   = dateKey === selectedDate
         const isDragHL = isInRange(dateKey, dragRange)
@@ -813,7 +920,7 @@ function CalGridCells({
               }
             }}
             onDoubleClick={e => { e.preventDefault(); onDateDoubleClick(dateKey) }}
-            className={`h-[112px] overflow-hidden border-b border-r border-zinc-200/60 dark:border-zinc-700/60 p-1.5 cursor-pointer transition-colors select-none ${
+            className={`h-[112px] overflow-hidden border-b border-r border-ink-5/60 p-1.5 cursor-pointer transition-colors select-none ${
               isDragHL
                 ? 'bg-accent/20 dark:bg-accent/25'
                 : isSel
@@ -832,7 +939,7 @@ function CalGridCells({
                 isToday ? 'text-[#0A0A0B] dark:text-white font-bold'
                 : isSun ? 'text-red-400'
                 : isSat ? 'text-blue-400'
-                : 'text-zinc-600 dark:text-zinc-300'
+                : 'text-ink-2'
               }`} style={isToday ? { fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 800 } : {}}>
                 {day}
               </div>
@@ -841,10 +948,23 @@ function CalGridCells({
               )}
             </div>
             <div className="space-y-0.5">
-              {dayEvs.slice(0, 3).map(ev => (
-                <EventChip key={ev.id} ev={ev} calendars={calendars} onClick={onEventClick} />
-              ))}
-              {dayEvs.length > 3 && <div className="text-[10px] text-zinc-400 pl-1">+{dayEvs.length - 3}개 더</div>}
+              {renderLanes.map((seg, idx) => {
+                if (!seg) return <div key={`sp${idx}`} className="h-[17px]" />
+                return (
+                  <EventChip
+                    key={seg.ev.id}
+                    ev={seg.ev}
+                    calendars={calendars}
+                    onClick={onEventClick}
+                    roundLeft={seg.isStart || dow === 0}
+                    roundRight={seg.isEnd || dow === 6}
+                    bleedLeft={!seg.isStart && dow !== 0}
+                    bleedRight={!seg.isEnd && dow !== 6}
+                    showLabel={seg.isStart || dow === 0}
+                  />
+                )
+              })}
+              {overflow > 0 && <div className="text-[10px] text-ink-4 pl-1">+{overflow}개 더</div>}
             </div>
           </div>
         )
@@ -1004,7 +1124,7 @@ function CalendarFilterDropdown({
         className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-lg border transition-colors ${
           open
             ? 'bg-accent text-white border-accent'
-            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-accent hover:text-accent'
+            : 'bg-white dark:bg-zinc-900 border-ink-5 text-ink-2 hover:border-accent hover:text-accent'
         }`}
         title="캘린더 선택"
       >
@@ -1014,7 +1134,7 @@ function CalendarFilterDropdown({
         />
         캘린더
         {activeCount < totalCount && (
-          <span className={`tabular-nums ${open ? 'text-white/70' : 'text-zinc-400'}`}>
+          <span className={`tabular-nums ${open ? 'text-white/70' : 'text-ink-4'}`}>
             {activeCount}/{totalCount}
           </span>
         )}
@@ -1025,7 +1145,7 @@ function CalendarFilterDropdown({
         <>
           <div className="fixed inset-0 z-[9990]" onClick={() => setOpen(false)} />
           <div
-            className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-2 min-w-[180px]"
+            className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-ink-5 rounded-xl shadow-xl p-2 min-w-[180px]"
             style={{ top: dropPos.top, left: dropPos.left }}
           >
             {calendars.map(cal => {
@@ -1037,14 +1157,14 @@ function CalendarFilterDropdown({
                   className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <span
-                    className={`flex-shrink-0 w-3 h-3 rounded-sm border-2 transition-all ${active ? 'border-transparent' : 'border-zinc-300 dark:border-zinc-600 bg-transparent'}`}
+                    className={`flex-shrink-0 w-3 h-3 rounded-sm border-2 transition-all ${active ? 'border-transparent' : 'border-ink-5 bg-transparent'}`}
                     style={active ? { backgroundColor: cal.backgroundColor } : {}}
                   />
-                  <span className={`text-sm flex-1 truncate transition-colors ${active ? 'text-zinc-700 dark:text-zinc-200' : 'text-zinc-400 dark:text-zinc-500'}`}>
+                  <span className={`text-sm flex-1 truncate transition-colors ${active ? 'text-ink-1' : 'text-ink-4'}`}>
                     {cal.name}
                   </span>
                   {cal.primary && (
-                    <span className="text-[10px] text-zinc-400 flex-shrink-0">기본</span>
+                    <span className="text-[10px] text-ink-4 flex-shrink-0">기본</span>
                   )}
                 </button>
               )
@@ -1329,6 +1449,9 @@ export default function CalendarPage() {
     return acc
   }, {})
 
+  // 여러 날 일정을 이어지는 막대로 그리기 위한 레인 배치
+  const cellLayout = buildMonthLayout(filteredEvents)
+
   const primaryCalId = calendars.find(c => c.primary)?.id ?? 'primary'
 
   function buildEventBody(form: EventFormData) {
@@ -1427,8 +1550,8 @@ export default function CalendarPage() {
   if (connected === false) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
-        <CalendarDays size={44} className="text-zinc-300 dark:text-zinc-600" />
-        <p className="text-sm text-zinc-500">Google 캘린더가 연결되지 않았습니다.</p>
+        <CalendarDays size={44} className="text-ink-5" />
+        <p className="text-sm text-ink-3">Google 캘린더가 연결되지 않았습니다.</p>
         <a href="/settings" className="text-sm text-accent hover:underline">설정에서 연결하기 →</a>
       </div>
     )
@@ -1481,11 +1604,11 @@ export default function CalendarPage() {
             </div>
             {/* 우측: 내비게이션 + 캘린더 필터 */}
             <div className="flex items-center gap-1.5 flex-wrap">
-              <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+              <button onClick={prevMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                 <ChevronLeft size={16} />
               </button>
               <button onClick={goToday} className="chip text-xs px-2.5 py-1">오늘</button>
-              <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+              <button onClick={nextMonth} className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                 <ChevronRight size={16} />
               </button>
               <div style={{ width: 1, height: 16, background: 'var(--line)', margin: '0 4px' }} />
@@ -1512,17 +1635,17 @@ export default function CalendarPage() {
                 {pickerOpen && createPortal(
                   <>
                     <div className="fixed inset-0 z-[9990]" onClick={() => setPickerOpen(false)} />
-                    <div className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-3 w-56"
+                    <div className="fixed z-[9999] bg-white dark:bg-zinc-900 border border-ink-5 rounded-xl shadow-xl p-3 w-56"
                       style={{ top: pickerPos.top, right: pickerPos.right }}>
                       {pickerStep === 'decade' ? (
                         <>
                           {/* 연대(12년) 헤더 */}
                           <div className="flex items-center justify-between mb-2.5">
-                            <button onClick={() => setDecadeStart(s => s - 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                            <button onClick={() => setDecadeStart(s => s - 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                               <ChevronLeft size={14} />
                             </button>
-                            <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums">{decadeStart}–{decadeStart + 11}</span>
-                            <button onClick={() => setDecadeStart(s => s + 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                            <span className="text-sm font-semibold text-ink-1 tabular-nums">{decadeStart}–{decadeStart + 11}</span>
+                            <button onClick={() => setDecadeStart(s => s + 12)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                               <ChevronRight size={14} />
                             </button>
                           </div>
@@ -1535,7 +1658,7 @@ export default function CalendarPage() {
                                   key={y}
                                   onClick={() => { setPickerYear(y); setPickerStep('months') }}
                                   className={`py-1.5 text-xs rounded-lg tabular-nums transition-colors ${
-                                    isCur ? 'bg-accent text-white font-medium' : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                    isCur ? 'bg-accent text-white font-medium' : 'text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                                   }`}
                                 >{y}</button>
                               )
@@ -1546,15 +1669,15 @@ export default function CalendarPage() {
                         <>
                           {/* 월 헤더 (연도 클릭 → 연대 단계) */}
                           <div className="flex items-center justify-between mb-2.5">
-                            <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                            <button onClick={() => setPickerYear(y => y - 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                               <ChevronLeft size={14} />
                             </button>
                             <button
                               onClick={() => { setDecadeStart(pickerYear - 5); setPickerStep('decade') }}
-                              className="flex items-center gap-0.5 text-sm font-semibold text-zinc-700 dark:text-zinc-200 tabular-nums px-2 py-0.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                              className="flex items-center gap-0.5 text-sm font-semibold text-ink-1 tabular-nums px-2 py-0.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                               title="연도 선택"
                             >{pickerYear}년 <ChevronDown size={12} /></button>
-                            <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 transition-colors">
+                            <button onClick={() => setPickerYear(y => y + 1)} className="p-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-3 transition-colors">
                               <ChevronRight size={14} />
                             </button>
                           </div>
@@ -1569,7 +1692,7 @@ export default function CalendarPage() {
                                   className={`py-1.5 text-xs rounded-lg transition-colors ${
                                     isCurrent
                                       ? 'bg-accent text-white font-medium'
-                                      : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                      : 'text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                                   }`}
                                 >{m}</button>
                               )
@@ -1595,7 +1718,7 @@ export default function CalendarPage() {
               </button>
               <button
                 onClick={fetchEvents} disabled={loading}
-                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-4 transition-colors"
                 title="새로고침"
               >
                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -1635,10 +1758,10 @@ export default function CalendarPage() {
         {/* 캘린더 그리드 */}
         <Card title="" className="!p-0 overflow-hidden">
           {/* 요일 헤더 */}
-          <div className="grid grid-cols-7 border-b border-zinc-200/70 dark:border-zinc-700/70 bg-zinc-50/80 dark:bg-zinc-800/50">
+          <div className="grid grid-cols-7 border-b border-[var(--divide)] bg-zinc-50/80 dark:bg-zinc-800/50">
             {DAYS.map((d, i) => (
               <div key={d} className={`py-2 text-center text-xs font-semibold tracking-wide ${
-                i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-zinc-500 dark:text-zinc-400'
+                i === 0 ? 'text-red-400' : i === 6 ? 'text-blue-400' : 'text-ink-3'
               }`}>{d}</div>
             ))}
           </div>
@@ -1650,7 +1773,7 @@ export default function CalendarPage() {
               }`}>
                 <CalGridCells
                   year={exitView.year} month={exitView.month}
-                  eventsByDate={{}} selectedDate={null}
+                  cellLayout={{}} selectedDate={null}
                   onDateSelect={() => {}} onNavigatePrev={() => {}} onNavigateNext={() => {}}
                   onEventClick={() => {}} onDateDoubleClick={() => {}} onDateShiftClick={() => {}}
                   onDragStart={() => {}} onDragOver={() => {}} dragRange={null}
@@ -1664,7 +1787,7 @@ export default function CalendarPage() {
             >
               <CalGridCells
                 year={year} month={month}
-                eventsByDate={eventsByDate} selectedDate={selectedDate}
+                cellLayout={cellLayout} selectedDate={selectedDate}
                 onDateSelect={dateKey => { if (!isDraggingRef.current) setSelectedDate(dateKey) }}
                 onNavigatePrev={navigatePrev} onNavigateNext={navigateNext}
                 onEventClick={ev => setModal({ type: 'edit', event: ev })}
@@ -1678,9 +1801,9 @@ export default function CalendarPage() {
             </div>
           </div>
           {/* 조작 힌트 */}
-          <div className="px-3 py-1.5 border-t border-zinc-100 dark:border-zinc-800 flex gap-4">
-            <span className="text-[10px] text-zinc-400">더블클릭 → 일정 추가</span>
-            <span className="text-[10px] text-zinc-400">날짜 선택 후 Shift+클릭 → 기간 일정 추가</span>
+          <div className="px-3 py-1.5 border-t border-[var(--divide)] flex gap-4">
+            <span className="text-[10px] text-ink-4">더블클릭 → 일정 추가</span>
+            <span className="text-[10px] text-ink-4">날짜 선택 후 Shift+클릭 → 기간 일정 추가</span>
           </div>
         </Card>
 

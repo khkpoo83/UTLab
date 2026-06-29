@@ -51,6 +51,12 @@
           if (season && season !== 'default') document.documentElement.setAttribute('data-season', season);
         } catch (e) {}
 
+        // ── 2.5 색상 테마(팔레트) — accent 계열만 구동, surface는 위 다크모드가 관리 ──
+        try {
+          var utTheme = localStorage.getItem('ut-theme');
+          if (utTheme && utTheme !== 'default') document.documentElement.setAttribute('data-theme', utTheme);
+        } catch (e) {}
+
         // ── 3. 배경 ────────────────────────────────────────────────────────
         try {
           var bgRaw = localStorage.getItem(dark ? 'bgConfig_dark' : 'bgConfig');

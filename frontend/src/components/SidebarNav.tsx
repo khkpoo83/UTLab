@@ -27,7 +27,7 @@ function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) 
       className={`absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-all ${
         active
           ? 'text-amber-400 opacity-100'
-          : 'text-zinc-300 dark:text-zinc-600 opacity-0 group-hover/item:opacity-100 hover:text-amber-400'
+          : 'text-ink-5 opacity-0 group-hover/item:opacity-100 hover:text-amber-400'
       }`}
     >
       <svg className="w-2.5 h-2.5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
@@ -121,13 +121,13 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
   const w = collapsed ? 'w-14' : 'w-56'
 
   const iconBtnCls = `flex items-center justify-center w-9 h-9 rounded-lg transition-colors
-    text-zinc-500 dark:text-zinc-400
-    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200`
+    text-ink-3
+    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-1`
 
   // 관리 영역 전용 — 메인 nav보다 한 단계 작게
   const mgmtBtnCls = `flex items-center justify-center w-7 h-7 rounded-md transition-colors
-    text-zinc-400 dark:text-zinc-500
-    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300`
+    text-ink-4
+    hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-2`
 
   const mainNavGroups = NAV_GROUPS.filter(g => !g.hideInSidebar)
 
@@ -139,8 +139,8 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
 
       <aside className={`
         fixed top-0 left-0 h-screen
-        bg-white dark:bg-zinc-950
-        border-r border-zinc-100 dark:border-white/[.05]
+        bg-[var(--nav-bg)]
+        border-r border-[var(--nav-border)]
         z-40 flex flex-col
         overflow-hidden
         transition-[width] duration-200 ease-in-out
@@ -149,7 +149,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         lg:translate-x-0
       `}>
         {/* 헤더: 로고 + 접기/펼치기 */}
-        <div className="flex-shrink-0 flex items-center h-11 px-2.5 border-b border-zinc-100 dark:border-white/[.05]">
+        <div className="flex-shrink-0 flex items-center h-11 px-2.5 border-b border-[var(--nav-border)]">
           {collapsed ? (
             <>
               {/* 데스크탑: 로고 클릭 = 펼치기 */}
@@ -158,14 +158,14 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                 onClick={onToggleCollapse}
                 title="펼치기"
               >
-                <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
+                <Logo size="md" iconOnly className="text-ink-0" />
               </button>
               {/* 모바일: 로고 클릭 = 홈 이동 */}
               <div
                 className="lg:hidden flex-1 flex justify-center cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
                 onClick={() => { navigate(homeTab); onClose() }}
               >
-                <Logo size="md" iconOnly className="text-zinc-900 dark:text-zinc-100" />
+                <Logo size="md" iconOnly className="text-ink-0" />
               </div>
             </>
           ) : (
@@ -174,7 +174,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                 className="flex-1 cursor-pointer hover:opacity-75 transition-opacity active:scale-95"
                 onClick={() => { navigate(homeTab); onClose() }}
               >
-                <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
+                <Logo size="sm" className="text-ink-0" />
               </div>
               <button
                 onClick={onToggleCollapse}
@@ -197,7 +197,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
             if (!hasChildren) {
               const linkClass = `flex items-center rounded-lg text-sm transition-colors ${
                 collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2'
-              } text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200`
+              } text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-0`
 
               if (group.href) {
                 return (
@@ -232,7 +232,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                         } ${
                           isActive
                             ? 'bg-accent/10 text-accent font-medium'
-                            : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                            : 'text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-0'
                         }`
                       }
                     >
@@ -258,7 +258,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                     } ${
                       isGroupActive
                         ? 'text-accent'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-800 dark:hover:text-zinc-200'
+                        : 'text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-0'
                     }`}
                   >
                     <group.Icon size={collapsed ? 19 : 17} className={`flex-shrink-0 ${isGroupActive ? 'text-accent' : ''}`} />
@@ -274,7 +274,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                   </button>
 
                   {!collapsed && isExpanded && (
-                    <div className="ml-4 border-l border-zinc-200 dark:border-white/[.04] mt-0.5 space-y-0.5 animate-accordion">
+                    <div className="ml-4 border-l border-ink-5 mt-0.5 space-y-0.5 animate-accordion">
                       {group.children!.map(item => (
                         <div key={item.to} className="relative group/item">
                           <NavLink
@@ -284,7 +284,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                               `flex items-center gap-2 pl-3 pr-2 py-1.5 rounded-r-md text-xs transition-colors ${
                                 isActive
                                   ? 'bg-accent/10 text-accent font-medium'
-                                  : 'text-zinc-500 dark:text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-300'
+                                  : 'text-ink-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-1'
                               }`
                             }
                           >
@@ -310,7 +310,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
                             `flex items-center justify-center pl-2 pr-1.5 py-1.5 rounded-r-md transition-colors ${
                               isActive
                                 ? 'bg-accent/10 text-accent'
-                                : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-600 dark:hover:text-zinc-300'
+                                : 'text-ink-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-2'
                             }`
                           }
                         >
@@ -327,12 +327,12 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
         </nav>
 
         {/* 하단 유저 바 */}
-        <div className="flex-shrink-0 border-t border-zinc-100 dark:border-white/[.05]">
+        <div className="flex-shrink-0 border-t border-[var(--nav-border)]">
           {collapsed ? (
             /* ── 접힌 상태 ── */
             <div className="flex flex-col items-center gap-0.5 py-2 px-1">
               {/* 프로필 카드 (접힘) — card 스타일 */}
-              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 flex-shrink-0">
+              <div className="w-8 h-8 flex items-center justify-center rounded-lg border border-ink-5 shadow-sm bg-white dark:bg-zinc-900 text-ink-2 flex-shrink-0">
                 {getProfileIconNode(profileIcon, 17)}
               </div>
               <div className="w-4 h-px bg-zinc-100 dark:bg-zinc-800 my-0.5" />
@@ -383,11 +383,11 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
             /* ── 펼친 상태 ── */
             <div className="px-2.5 py-2">
               {/* 프로필 카드 (펼침) — card 스타일 (테두리 + 그림자) */}
-              <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm bg-white dark:bg-zinc-900 px-2.5 py-2 mb-2 flex items-center gap-2">
-                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-zinc-500 dark:text-zinc-400">
+              <div className="rounded-lg border border-ink-5 shadow-sm bg-white dark:bg-zinc-900 px-2.5 py-2 mb-2 flex items-center gap-2">
+                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 text-ink-3">
                   {getProfileIconNode(profileIcon, 16)}
                 </span>
-                <span className="flex-1 text-xs font-semibold truncate text-zinc-700 dark:text-zinc-200">
+                <span className="flex-1 text-xs font-semibold truncate text-ink-1">
                   {username || 'admin'}
                 </span>
               </div>
@@ -424,7 +424,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
               <div className="w-full h-px bg-zinc-100 dark:bg-zinc-800 mb-1" />
               <button
                 onClick={() => { navigate('/'); onClose() }}
-                className="flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                className="flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-ink-4 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
                 title="메인으로 가기"
               >
                 <Globe size={12} />
@@ -432,7 +432,7 @@ export function SidebarNav({ mobileOpen, onClose, collapsed, onToggleCollapse }:
               </button>
               <button
                 onClick={onToggleCollapse}
-                className="hidden lg:flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-zinc-400 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
+                className="hidden lg:flex w-full items-center gap-1.5 px-1 py-1 text-2xs text-ink-4 hover:text-accent hover:bg-accent/10 rounded-md transition-colors"
                 title="접기"
               >
                 <ChevronsLeft size={12} />
@@ -451,7 +451,7 @@ export function SidebarToggle({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/[.04] flex items-center justify-center text-zinc-500 hover:text-accent hover:border-accent transition-colors lg:hidden"
+      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-ink-5 flex items-center justify-center text-ink-3 hover:text-accent hover:border-accent transition-colors lg:hidden"
       title="메뉴 열기"
     >
       <Menu size={15} />

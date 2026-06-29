@@ -14,6 +14,7 @@ from services.stock_service import (
     fetch_current_price,
     fetch_price_detail,
     get_chart_data,
+    get_chart_data_before,
     search_stocks,
     get_sparkline,
     fetch_stock_fundamentals,
@@ -460,9 +461,19 @@ async def get_chart_by_ticker(
     current_user: CurrentUser,
     ticker: str,
     period: str = Query("3m", pattern="^(1d|1w|1m|3m|1y)$"),
+    before: int | None = Query(None, description="설정 시 해당 unix초 이전 일봉 청크만 반환 (lazy-load)"),
 ) -> list[dict]:
     """KIS ticker 기반 차트 조회 (StockMaster에서 yf_ticker 매핑)"""
     yf_ticker = await _resolve_yf_ticker(ticker)
+
+    # 왼쪽 끝 lazy-load: before 이전 과거 봉 청크 반환 (기간별 일봉/분봉)
+    if before is not None:
+        data = await get_chart_data_before(yf_ticker, before, period)
+        if not data and yf_ticker.endswith(".KS"):
+            alt = yf_ticker[:-3] + ".KQ"
+            data = await get_chart_data_before(alt, before, period)
+        return data
+
     data = await get_chart_data(yf_ticker, period)
     # .KS로 빈 데이터면 코스닥(.KQ) 재시도 — StockMaster 미등록 종목 대응
     if not data and yf_ticker.endswith(".KS"):

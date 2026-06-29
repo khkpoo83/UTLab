@@ -501,10 +501,10 @@ const Portfolio: React.FC = () => {
       getValue: (h) => h.current_price ?? 0,
       render: (h) => (
         <div className="text-right">
-          <p className={`tabular-nums font-medium text-zinc-900 dark:text-zinc-100 leading-tight ${pBlur}`}>
+          <p className={`tabular-nums font-medium text-ink-0 leading-tight ${pBlur}`}>
             {h.current_price != null ? formatPrice(h.current_price) : '-'}
           </p>
-          <p className={`text-2xs text-zinc-400 mt-0.5 tabular-nums leading-tight ${pBlur}`}>{h.quantity.toLocaleString()}주</p>
+          <p className={`text-2xs text-ink-4 mt-0.5 tabular-nums leading-tight ${pBlur}`}>{h.quantity.toLocaleString()}주</p>
         </div>
       ),
     },
@@ -529,7 +529,7 @@ const Portfolio: React.FC = () => {
     {
       key: 'cost', label: '매수금액', width: 110, align: 'right',
       getValue: (h) => holdCost(h),
-      render: (h) => <span className={`tabular-nums text-zinc-600 dark:text-zinc-400 ${pBlur}`}>{formatPrice(holdCost(h))}</span>,
+      render: (h) => <span className={`tabular-nums text-ink-2 ${pBlur}`}>{formatPrice(holdCost(h))}</span>,
     },
     {
       key: 'weight', label: '비중', width: 120, type: 'pct-bar',
@@ -543,23 +543,23 @@ const Portfolio: React.FC = () => {
         return acct ? (
           <span className="flex items-center gap-1 text-xs">
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: acct.color }} />
-            <span className="text-zinc-600 dark:text-zinc-400">{acct.name}</span>
+            <span className="text-ink-2">{acct.name}</span>
           </span>
-        ) : <span className="text-2xs text-zinc-400 dark:text-zinc-500">미지정</span>
+        ) : <span className="text-2xs text-ink-4">미지정</span>
       },
     },
     {
       key: 'avg_price', label: '평균단가', width: 100, align: 'right', sortable: false, visible: false,
-      render: (h) => <span className={`tabular-nums text-zinc-500 dark:text-zinc-400 ${pBlur}`}>{formatPrice(h.avg_price)}</span>,
+      render: (h) => <span className={`tabular-nums text-ink-3 ${pBlur}`}>{formatPrice(h.avg_price)}</span>,
     },
     {
       key: 'current_value', label: '평가금액', width: 110, align: 'right', visible: false,
       getValue: (h) => h.current_value ?? 0,
-      render: (h) => <span className={`tabular-nums text-zinc-700 dark:text-zinc-300 ${pBlur}`}>{h.current_value != null ? formatPrice(h.current_value) : '-'}</span>,
+      render: (h) => <span className={`tabular-nums text-ink-1 ${pBlur}`}>{h.current_value != null ? formatPrice(h.current_value) : '-'}</span>,
     },
     {
       key: 'quantity', label: '수량', width: 70, align: 'right', sortable: false, visible: false,
-      render: (h) => <span className={`tabular-nums text-zinc-500 ${pBlur}`}>{h.quantity.toLocaleString()}</span>,
+      render: (h) => <span className={`tabular-nums text-ink-3 ${pBlur}`}>{h.quantity.toLocaleString()}</span>,
     },
     {
       key: 'day_change', label: '등락금액', width: 100, align: 'right', visible: false,
@@ -574,7 +574,7 @@ const Portfolio: React.FC = () => {
     {
       key: 'hold_days', label: '보유일수', width: 80, align: 'right', visible: false,
       getValue: (h) => holdDays(h),
-      render: (h) => <span className="tabular-nums text-zinc-500">{h.bought_at ? `${holdDays(h)}일` : '-'}</span>,
+      render: (h) => <span className="tabular-nums text-ink-3">{h.bought_at ? `${holdDays(h)}일` : '-'}</span>,
     },
     {
       key: 'sparkline', label: '추세', width: 80, sortable: false,
@@ -623,7 +623,7 @@ const Portfolio: React.FC = () => {
             title={autoRefresh ? `자동갱신 켜짐 — ${fmtCountdown(refreshCountdown)} 후 갱신` : '자동갱신 꺼짐'}
             icon={<RefreshCw size={12} className={autoRefresh ? 'animate-spin-slow' : ''} />}
           >{autoRefresh
-            ? <span style={{ color: 'var(--dot)', fontVariantNumeric: 'tabular-nums' }}>{fmtCountdown(refreshCountdown)}</span>
+            ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtCountdown(refreshCountdown)}</span>
             : '자동'
           }</ToggleChip>
           <Button
@@ -655,7 +655,7 @@ const Portfolio: React.FC = () => {
                 className={`flex-shrink-0 inline-flex items-center gap-1.5 h-6 px-2.5 text-xs rounded-lg font-medium transition-colors ${
                   isActive
                     ? 'border border-transparent text-white'
-                    : 'surface border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-200'
+                    : 'surface border border-ink-5 text-ink-3 hover:border-ink-4 hover:text-ink-1'
                 }`}
                 style={isActive ? { backgroundColor: a.color } : {}}
               >
@@ -842,7 +842,7 @@ const Portfolio: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-zinc-400 text-center py-8">
+                  <p className="text-xs text-ink-4 text-center py-8">
                     {selectedAccountId !== null ? '이 계좌에 종목이 없습니다' : '보유 종목이 없습니다'}
                   </p>
                 )}
@@ -877,7 +877,7 @@ const Portfolio: React.FC = () => {
         </SortableContext>
         <DragOverlay dropAnimation={null}>
           {activePortfolioCardId && (
-            <div className="rounded-xl bg-accent/20 border-2 border-accent/60 border-dashed flex items-center justify-center h-14 min-w-[160px] px-4 shadow-lg">
+            <div className="rounded-xl bg-accent/20 border-2 border-accent/60 border-dashed flex items-center justify-center h-14 min-w-[160px] px-4 shadow-e3">
               <span className="text-accent text-xs font-medium">
                 {PORTFOLIO_CARD_TITLES[activePortfolioCardId]}
               </span>
@@ -902,10 +902,10 @@ const Portfolio: React.FC = () => {
           style={{ background: 'var(--overlay-bg)', backdropFilter: 'var(--overlay-filter)', WebkitBackdropFilter: 'var(--overlay-filter)' }}
           onClick={() => setShowAliasModal(false)}
         >
-          <div className="w-full max-w-sm mx-4 panel-surface border rounded-2xl shadow-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-sm mx-4 panel-surface border rounded-2xl shadow-e4 p-5 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">계좌 별명 · 색상 편집</h3>
-              <button onClick={() => setShowAliasModal(false)} className="text-zinc-400 hover:text-zinc-600">
+              <h3 className="text-sm font-semibold text-ink-0">계좌 별명 · 색상 편집</h3>
+              <button onClick={() => setShowAliasModal(false)} className="text-ink-4 hover:text-ink-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -918,15 +918,15 @@ const Portfolio: React.FC = () => {
                     type="color"
                     value={colorInputs[a.account_no!] ?? a.color}
                     onChange={e => setColorInputs(prev => ({ ...prev, [a.account_no!]: e.target.value }))}
-                    className="w-7 h-7 rounded-lg border border-zinc-200 dark:border-zinc-700 cursor-pointer flex-shrink-0 p-0.5 bg-white dark:bg-zinc-800"
+                    className="w-7 h-7 rounded-lg border border-ink-5 cursor-pointer flex-shrink-0 p-0.5 surface"
                     title="계좌 색상"
                   />
-                  <span className="text-2xs text-zinc-400 w-20 flex-shrink-0 tabular-nums">{a.account_no}</span>
+                  <span className="text-2xs text-ink-4 w-20 flex-shrink-0 tabular-nums">{a.account_no}</span>
                   <input
                     type="text"
                     value={aliasInputs[a.account_no!] ?? a.name}
                     onChange={e => setAliasInputs(prev => ({ ...prev, [a.account_no!]: e.target.value }))}
-                    className="flex-1 text-xs px-2.5 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-accent"
+                    className="flex-1 text-xs px-2.5 py-1.5 border border-ink-5 rounded-lg surface text-ink-0 focus:outline-none focus:border-accent"
                     maxLength={20}
                   />
                 </div>

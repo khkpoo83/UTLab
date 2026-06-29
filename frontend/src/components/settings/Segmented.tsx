@@ -26,7 +26,7 @@ export function Segmented<T extends string>({ value, options, onChange, full = f
             className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${full ? 'flex-1' : ''} ${
               active
                 ? 'bg-white dark:bg-zinc-900 shadow-sm'
-                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300'
+                : 'text-ink-3 hover:text-ink-1'
             }`}
             style={active ? { color: 'var(--c-accent)' } : {}}
           >

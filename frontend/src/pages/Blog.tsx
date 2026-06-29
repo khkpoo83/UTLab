@@ -152,19 +152,19 @@ export default function Blog() {
 
       {/* 헤더 */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-lg font-bold text-zinc-800 dark:text-zinc-200">블로그 글</h1>
+        <h1 className="text-lg font-bold text-ink-0">블로그 글</h1>
         <Button size="sm" icon={<Plus size={14} />} onClick={() => navigate('/blog/new')}>새 글</Button>
       </div>
 
       {/* 필터 바 */}
       <div className="flex items-center gap-2 flex-wrap">
         <form onSubmit={handleSearch} className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg px-2 py-1.5">
-          <Search size={13} className="text-zinc-400 flex-shrink-0" />
+          <Search size={13} className="text-ink-4 flex-shrink-0" />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="제목 검색..."
-            className="bg-transparent text-sm outline-none w-36 text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
+            className="bg-transparent text-sm outline-none w-36 text-ink-1 placeholder-ink-4"
           />
         </form>
 
@@ -176,7 +176,7 @@ export default function Blog() {
               className={`px-2.5 py-1 text-xs rounded-lg transition-colors ${
                 visibility === v
                   ? 'bg-accent text-white'
-                  : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  : 'bg-zinc-100 dark:bg-zinc-800 text-ink-3 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
             >
               {v === 'all' ? '전체' : v === 'public' ? '공개' : '비공개'}
@@ -191,26 +191,26 @@ export default function Blog() {
             className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg transition-colors ${
               activeTag === tag
                 ? 'bg-accent/15 text-accent'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-ink-3 hover:bg-zinc-200 dark:hover:bg-zinc-700'
             }`}
           >
             <Tag size={10} /> {tag}
           </button>
         ))}
         {activeTag && (
-          <button onClick={() => setActiveTag('')} className="p-1 text-zinc-400 hover:text-zinc-600">
+          <button onClick={() => setActiveTag('')} className="p-1 text-ink-4 hover:text-ink-2">
             <X size={12} />
           </button>
         )}
       </div>
 
       {/* 게시 수 */}
-      {!loading && <p className="text-xs text-zinc-400">{posts.length}개의 글</p>}
+      {!loading && <p className="text-xs text-ink-4">{posts.length}개의 글</p>}
 
-      {loading && <div className="text-center py-12 text-zinc-400 text-sm">불러오는 중...</div>}
+      {loading && <div className="text-center py-12 text-ink-4 text-sm">불러오는 중...</div>}
 
       {!loading && posts.length === 0 && (
-        <div className="text-center py-16 text-zinc-400">
+        <div className="text-center py-16 text-ink-4">
           <p className="text-sm">작성된 글이 없습니다</p>
           <button onClick={() => navigate('/blog/new')} className="mt-3 text-accent text-sm hover:underline">
             첫 글 작성하기
@@ -224,24 +224,24 @@ export default function Blog() {
           {posts.map(post => (
             <div
               key={post.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-zinc-200 dark:hover:border-zinc-700 transition-colors group"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-ink-5 surface hover:border-ink-5 transition-colors group"
             >
               <div className="flex-shrink-0">
                 {post.visibility === 'public'
                   ? <Globe size={13} className="text-green-500" />
-                  : <Lock size={13} className="text-zinc-400" />
+                  : <Lock size={13} className="text-ink-4" />
                 }
               </div>
 
               <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/blog/${post.id}`)}>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-medium text-sm text-zinc-800 dark:text-zinc-200 truncate">{post.title}</span>
+                  <span className="font-medium text-sm text-ink-0 truncate">{post.title}</span>
                   {post.ai_generated && <Cpu size={10} className="text-purple-400 flex-shrink-0" />}
                 </div>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[11px] text-zinc-400">{formatDate(post.created_at)}</span>
+                  <span className="text-[11px] text-ink-4">{formatDate(post.created_at)}</span>
                   {post.tags.slice(0, 3).map(tag => (
-                    <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-400 rounded-full">{tag}</span>
+                    <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-ink-4 rounded-full">{tag}</span>
                   ))}
                 </div>
               </div>
@@ -249,7 +249,7 @@ export default function Blog() {
               <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
                 <button
                   onClick={() => navigate(`/blog/${post.id}/edit`)}
-                  className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                  className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-4 hover:text-ink-2"
                   title="수정"
                 >
                   <Pencil size={13} />
@@ -260,7 +260,7 @@ export default function Blog() {
                     await blogApi.delete(post.id)
                     loadPosts()
                   }}
-                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-zinc-400 hover:text-red-500"
+                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-ink-4 hover:text-red-500"
                   title="삭제"
                 >
                   <Trash2 size={13} />

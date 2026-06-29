@@ -17,7 +17,7 @@ const SIZE: Record<ChipSize, string> = {
 }
 
 const ACTIVE   = 'bg-accent border border-transparent'
-const INACTIVE = 'surface border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-700 dark:hover:text-zinc-200'
+const INACTIVE = 'surface border border-ink-5 text-ink-3 hover:border-ink-5 hover:text-ink-1'
 
 const ToggleChip: React.FC<ToggleChipProps> = ({
   active = false,

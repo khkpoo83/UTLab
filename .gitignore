@@ -39,6 +39,7 @@ utlab.zip
 docs/
 
 # 디자인 캔버스 / 스크래치 파일 (루트)
+시안*.html
 component-catalog.*
 design-canvas.jsx
 icons-canvas.jsx

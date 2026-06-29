@@ -1,0 +1,195 @@
+/* ============================================================
+   U.T Lab4 — 색상 테마 토큰 (라이트 + 다크)  · 프로젝트 적용본
+   ------------------------------------------------------------
+   적용: <html data-theme="amber">            라이트
+        <html class="dark" data-theme="amber"> 다크 (앱의 .dark 토글과 연동)
+   팔레트(10): amber green ocean violet noir graphite tealfull kraft plum midnight
+   · 팔레트가 surface(paper/cream/mist/line)·ink·accent·dot·band·viz 전체를 모드별로 정의
+   · main.tsx에서 index.css 뒤에 import (덮어쓰기 순서). --c-surface는 index.css가 --paper로 재배선
+   · --c-accent-dim/border는 index.css :root에서 --c-accent-rgb 기반 파생
+   · 손익색(up/down)은 등락색상 설정(applyPnlColors 인라인)이 우선
+   ============================================================ */
+
+/* ── 앰버 헤리티지 ── */
+[data-theme="amber"] {
+  --ink-0:#0A0A0B; --ink-1:#18181A; --ink-2:#3C3C40; --ink-3:#6B6A65; --ink-4:#A8A6A0; --ink-5:#D9D7D2;
+  --paper:#FFFFFF; --cream:#FAFAF7; --mist:#F4F3EF; --line:#E8E7E2; --line-2:#F0EFEA;
+  --dot:#F59E0B; --up:#E5484D; --down:#2A6FDB; --band:#0A0A0B;
+  --accent:#C77B12; --accent-bright:#F59E0B; --accent-soft:rgb(245 158 11 / 0.10); --accent-line:rgb(245 158 11 / 0.26);
+  --viz-1:#0A0A0B; --viz-2:#3C3C40; --viz-3:#6B6A65; --viz-4:#A8A6A0; --viz-5:#C9C7C1; --viz-6:#E1DFD9;
+  --c-accent:#F59E0B; --c-accent-rgb:245 158 11;
+}
+html.dark[data-theme="amber"] {
+  --ink-0:#FAF7F0; --ink-1:#EAE6DD; --ink-2:#C2BDB0; --ink-3:#857F70; --ink-4:#5B564A; --ink-5:#3A352C;
+  --paper:#1A1814; --cream:#121009; --mist:#23201A; --line:#2E2A22; --line-2:#221F19;
+  --dot:#F5C45F; --up:#FF6B6B; --down:#5C9EFF; --band:#F2EAD6;
+  --accent:#F5C45F; --accent-bright:#FBD27E; --accent-soft:rgb(245 196 95 / 0.16); --accent-line:rgb(245 196 95 / 0.34);
+  --viz-1:#F5C45F; --viz-2:#C9A455; --viz-3:#9A8A6B; --viz-4:#6E6A60; --viz-5:#4A4843; --viz-6:#34322E;
+  --c-accent:#FBD27E; --c-accent-rgb:245 196 95;
+}
+
+/* ── 에버그린 ── */
+[data-theme="green"] {
+  --ink-0:#0B0F0C; --ink-1:#171C18; --ink-2:#3A413C; --ink-3:#69716A; --ink-4:#A6ABA5; --ink-5:#D6DAD5;
+  --paper:#FFFFFF; --cream:#FAFAF6; --mist:#F2F4EF; --line:#E6E8E2; --line-2:#EFF1EB;
+  --dot:#36936B; --up:#E5484D; --down:#2A6FDB; --band:#0B0F0C;
+  --accent:#2E7D5B; --accent-bright:#36936B; --accent-soft:rgb(54 147 107 / 0.10); --accent-line:rgb(54 147 107 / 0.26);
+  --viz-1:#1F5E45; --viz-2:#2E7D5B; --viz-3:#5E8C77; --viz-4:#8FA89B; --viz-5:#B9C7BF; --viz-6:#DEE5E1;
+  --c-accent:#36936B; --c-accent-rgb:54 147 107;
+}
+html.dark[data-theme="green"] {
+  --ink-0:#EEF5F0; --ink-1:#DAE6DD; --ink-2:#AEC2B5; --ink-3:#7F9588; --ink-4:#566B5E; --ink-5:#37493D;
+  --paper:#101714; --cream:#0A110D; --mist:#1A241E; --line:#283A30; --line-2:#16201A;
+  --dot:#4FC08A; --up:#FF6B6B; --down:#5C9EFF; --band:#DCEFE3;
+  --accent:#4FC08A; --accent-bright:#6FD6A4; --accent-soft:rgb(79 192 138 / 0.16); --accent-line:rgb(79 192 138 / 0.34);
+  --viz-1:#4FC08A; --viz-2:#3E9E70; --viz-3:#357F5C; --viz-4:#2C5E45; --viz-5:#244A38; --viz-6:#1A3328;
+  --c-accent:#6FD6A4; --c-accent-rgb:79 192 138;
+}
+
+/* ── 딥 오션 ── */
+[data-theme="ocean"] {
+  --ink-0:#0A0D0E; --ink-1:#161B1D; --ink-2:#374043; --ink-3:#646E72; --ink-4:#A0AAAE; --ink-5:#D3DBDD;
+  --paper:#FFFFFF; --cream:#F6F9F9; --mist:#EEF2F3; --line:#E1E7E8; --line-2:#EDF1F2;
+  --dot:#2A949D; --up:#E5484D; --down:#2A6FDB; --band:#0A0D0E;
+  --accent:#1F7D85; --accent-bright:#2A949D; --accent-soft:rgb(42 148 157 / 0.10); --accent-line:rgb(42 148 157 / 0.26);
+  --viz-1:#15616A; --viz-2:#1F7D85; --viz-3:#578D92; --viz-4:#8AA8AB; --viz-5:#B6C7C9; --viz-6:#DCE5E6;
+  --c-accent:#2A949D; --c-accent-rgb:42 148 157;
+}
+html.dark[data-theme="ocean"] {
+  --ink-0:#ECF4F4; --ink-1:#D5E6E6; --ink-2:#A6C2C2; --ink-3:#779595; --ink-4:#4E6B6B; --ink-5:#314949;
+  --paper:#0D1718; --cream:#081112; --mist:#162324; --line:#243A3B; --line-2:#11201F;
+  --dot:#3FC0C8; --up:#FF6B6B; --down:#5C9EFF; --band:#D8EEF0;
+  --accent:#3FC0C8; --accent-bright:#5FD6DE; --accent-soft:rgb(63 192 200 / 0.16); --accent-line:rgb(63 192 200 / 0.34);
+  --viz-1:#3FC0C8; --viz-2:#2E9AA1; --viz-3:#237C82; --viz-4:#1A5C61; --viz-5:#154749; --viz-6:#0F3133;
+  --c-accent:#5FD6DE; --c-accent-rgb:63 192 200;
+}
+
+/* ── 바이올렛 잉크 ── */
+[data-theme="violet"] {
+  --ink-0:#0C0A0F; --ink-1:#19161C; --ink-2:#3D3A43; --ink-3:#6A6672; --ink-4:#A8A4AF; --ink-5:#D9D5DE;
+  --paper:#FFFFFF; --cream:#FAF9FC; --mist:#F3F1F7; --line:#E8E5EC; --line-2:#F1EFF5;
+  --dot:#7E58CE; --up:#E5484D; --down:#2A6FDB; --band:#0C0A0F;
+  --accent:#6A45BC; --accent-bright:#7E58CE; --accent-soft:rgb(126 88 206 / 0.10); --accent-line:rgb(126 88 206 / 0.26);
+  --viz-1:#5538A0; --viz-2:#6A45BC; --viz-3:#8A78C0; --viz-4:#ADA3C8; --viz-5:#CDC7DC; --viz-6:#E7E3EF;
+  --c-accent:#7E58CE; --c-accent-rgb:126 88 206;
+}
+html.dark[data-theme="violet"] {
+  --ink-0:#F2EEFA; --ink-1:#DED5EC; --ink-2:#B4A6C8; --ink-3:#857799; --ink-4:#5C4E70; --ink-5:#3A2F4E;
+  --paper:#16101F; --cream:#0F0A18; --mist:#221A30; --line:#332748; --line-2:#1B1528;
+  --dot:#A988FF; --up:#FF6B6B; --down:#5C9EFF; --band:#E7DEFA;
+  --accent:#A988FF; --accent-bright:#C2A8FF; --accent-soft:rgb(169 136 255 / 0.16); --accent-line:rgb(169 136 255 / 0.34);
+  --viz-1:#A988FF; --viz-2:#8A6FD8; --viz-3:#6E59AA; --viz-4:#52447C; --viz-5:#3C3159; --viz-6:#2A2240;
+  --c-accent:#C2A8FF; --c-accent-rgb:169 136 255;
+}
+
+/* ── 골드 누아르 ── */
+[data-theme="noir"] {
+  --ink-0:#1A160C; --ink-1:#272013; --ink-2:#48402C; --ink-3:#6E654C; --ink-4:#A39A7E; --ink-5:#D2C9AC;
+  --paper:#FFFDF6; --cream:#F6F0DE; --mist:#EFE7CE; --line:#E4DABC; --line-2:#F0E9D2;
+  --dot:#C99A2E; --up:#E5484D; --down:#2A6FDB; --band:#1A160C;
+  --accent:#9A7B1E; --accent-bright:#C99A2E; --accent-soft:rgb(201 154 46 / 0.10); --accent-line:rgb(201 154 46 / 0.26);
+  --viz-1:#1A160C; --viz-2:#9A7B1E; --viz-3:#BBA04E; --viz-4:#D2C08A; --viz-5:#E4D8B6; --viz-6:#F0EAD4;
+  --c-accent:#C99A2E; --c-accent-rgb:201 154 46;
+}
+html.dark[data-theme="noir"] {
+  --ink-0:#F7F3E8; --ink-1:#E8E2D0; --ink-2:#BEB7A0; --ink-3:#827B66; --ink-4:#564F3E; --ink-5:#332E22;
+  --paper:#121110; --cream:#0A0908; --mist:#1C1A16; --line:#2A271F; --line-2:#18160F;
+  --dot:#E0B43E; --up:#FF6B6B; --down:#5C9EFF; --band:#EFE7CE;
+  --accent:#E0B43E; --accent-bright:#F0C95E; --accent-soft:rgb(224 180 62 / 0.16); --accent-line:rgb(224 180 62 / 0.34);
+  --viz-1:#E0B43E; --viz-2:#B89537; --viz-3:#8E7530; --viz-4:#665526; --viz-5:#473B1E; --viz-6:#2E2716;
+  --c-accent:#F0C95E; --c-accent-rgb:224 180 62;
+}
+
+/* ── 그래파이트 ── */
+[data-theme="graphite"] {
+  --ink-0:#0C0E11; --ink-1:#181B20; --ink-2:#383D44; --ink-3:#646A72; --ink-4:#9FA6AE; --ink-5:#D3D8DD;
+  --paper:#FFFFFF; --cream:#F6F7F9; --mist:#EEF0F3; --line:#E2E5E9; --line-2:#EDEFF2;
+  --dot:#5C6B80; --up:#E5484D; --down:#2A6FDB; --band:#0C0E11;
+  --accent:#475567; --accent-bright:#5C6B80; --accent-soft:rgb(92 107 128 / 0.10); --accent-line:rgb(92 107 128 / 0.26);
+  --viz-1:#2C3540; --viz-2:#475567; --viz-3:#6E7A8A; --viz-4:#9AA3AF; --viz-5:#C0C7CF; --viz-6:#E0E4E8;
+  --c-accent:#5C6B80; --c-accent-rgb:92 107 128;
+}
+html.dark[data-theme="graphite"] {
+  --ink-0:#EEF1F4; --ink-1:#D6DCE2; --ink-2:#A6AFB9; --ink-3:#79838F; --ink-4:#505A66; --ink-5:#323B45;
+  --paper:#0E1216; --cream:#080C10; --mist:#1A2028; --line:#2A333D; --line-2:#141A20;
+  --dot:#94A6BC; --up:#FF6B6B; --down:#5C9EFF; --band:#DDE4EC;
+  --accent:#94A6BC; --accent-bright:#B0BFD2; --accent-soft:rgb(148 166 188 / 0.16); --accent-line:rgb(148 166 188 / 0.34);
+  --viz-1:#94A6BC; --viz-2:#74859A; --viz-3:#5C6A7E; --viz-4:#475463; --viz-5:#343E4A; --viz-6:#242B33;
+  --c-accent:#B0BFD2; --c-accent-rgb:148 166 188;
+}
+
+/* ── 틸 풀블리드 ── */
+[data-theme="tealfull"] {
+  --ink-0:#0E1C1C; --ink-1:#1B2E2E; --ink-2:#37514F; --ink-3:#5E7B78; --ink-4:#93AEAB; --ink-5:#C6DAD7;
+  --paper:#FFFFFF; --cream:#E7F1F0; --mist:#DBEAE8; --line:#CCE0DD; --line-2:#DEEBE9;
+  --dot:#14A39E; --up:#E5484D; --down:#2A6FDB; --band:#0B3735;
+  --accent:#0E8A86; --accent-bright:#14A39E; --accent-soft:rgb(20 163 158 / 0.10); --accent-line:rgb(20 163 158 / 0.26);
+  --viz-1:#0B3735; --viz-2:#0E8A86; --viz-3:#4FA9A4; --viz-4:#86C2BE; --viz-5:#B6D8D5; --viz-6:#DCEBE9;
+  --c-accent:#14A39E; --c-accent-rgb:20 163 158;
+}
+html.dark[data-theme="tealfull"] {
+  --ink-0:#E6F4F3; --ink-1:#CDE8E6; --ink-2:#9AC4C1; --ink-3:#6B9794; --ink-4:#456B68; --ink-5:#2C4A47;
+  --paper:#08201E; --cream:#051613; --mist:#0E2D2A; --line:#1A4642; --line-2:#0B2724;
+  --dot:#17C7C0; --up:#FF6B6B; --down:#5C9EFF; --band:#CFF0EE;
+  --accent:#17C7C0; --accent-bright:#3CDDD6; --accent-soft:rgb(23 199 192 / 0.16); --accent-line:rgb(23 199 192 / 0.34);
+  --viz-1:#17C7C0; --viz-2:#13A39D; --viz-3:#0E807B; --viz-4:#0B5F5B; --viz-5:#0A4744; --viz-6:#08302E;
+  --c-accent:#3CDDD6; --c-accent-rgb:23 199 192;
+}
+[data-theme="tealfull"] .ut-eyebrow { color:var(--accent); }
+
+/* ── 올리브 크라프트 ── */
+[data-theme="kraft"] {
+  --ink-0:#1E1B12; --ink-1:#2B2719; --ink-2:#4A4534; --ink-3:#6F6A54; --ink-4:#9F9982; --ink-5:#CCC5AC;
+  --paper:#FBF8F0; --cream:#EBE4D3; --mist:#E2DAC4; --line:#D6CDB4; --line-2:#E6DECB;
+  --dot:#B89530; --up:#E5484D; --down:#2A6FDB; --band:#272719;
+  --accent:#7A6A1E; --accent-bright:#97842B; --accent-soft:rgb(184 149 48 / 0.10); --accent-line:rgb(184 149 48 / 0.26);
+  --viz-1:#272719; --viz-2:#7A6A1E; --viz-3:#9C8C45; --viz-4:#B9AC78; --viz-5:#D2C9A2; --viz-6:#E4DCC2;
+  --c-accent:#97842B; --c-accent-rgb:184 149 48;
+}
+html.dark[data-theme="kraft"] {
+  --ink-0:#F2EEDF; --ink-1:#E2DBC4; --ink-2:#BFB694; --ink-3:#938A66; --ink-4:#665E42; --ink-5:#42402C;
+  --paper:#171510; --cream:#100E09; --mist:#22201A; --line:#34301F; --line-2:#1C1A12;
+  --dot:#C9A93A; --up:#FF6B6B; --down:#5C9EFF; --band:#EDE6CF;
+  --accent:#C9A93A; --accent-bright:#E0C25A; --accent-soft:rgb(201 169 58 / 0.16); --accent-line:rgb(201 169 58 / 0.34);
+  --viz-1:#C9A93A; --viz-2:#A28A32; --viz-3:#7D6B2B; --viz-4:#5A4F24; --viz-5:#42401C; --viz-6:#2E2C16;
+  --c-accent:#E0C25A; --c-accent-rgb:201 169 58;
+}
+[data-theme="kraft"] .ut-eyebrow { color:var(--accent); }
+
+/* ── 플럼 부티크 ── */
+[data-theme="plum"] {
+  --ink-0:#160A0F; --ink-1:#241319; --ink-2:#45343B; --ink-3:#6F5D64; --ink-4:#A99097; --ink-5:#DAC8CF;
+  --paper:#FFFFFF; --cream:#F1E6EA; --mist:#E9DAE0; --line:#DEC9D1; --line-2:#EEE2E6;
+  --dot:#B4407A; --up:#E5484D; --down:#2A6FDB; --band:#371320;
+  --accent:#9A3463; --accent-bright:#B4407A; --accent-soft:rgb(180 64 122 / 0.10); --accent-line:rgb(180 64 122 / 0.26);
+  --viz-1:#371320; --viz-2:#9A3463; --viz-3:#B86A8C; --viz-4:#D0A0B4; --viz-5:#E2C6D2; --viz-6:#F0E0E7;
+  --c-accent:#B4407A; --c-accent-rgb:180 64 122;
+}
+html.dark[data-theme="plum"] {
+  --ink-0:#F4E9EE; --ink-1:#E6CFDA; --ink-2:#C49FB0; --ink-3:#956D7E; --ink-4:#6B4A57; --ink-5:#48303B;
+  --paper:#1A0D14; --cream:#12080D; --mist:#251621; --line:#3A2230; --line-2:#1E1119;
+  --dot:#D85F95; --up:#FF6B6B; --down:#5C9EFF; --band:#F0DEE7;
+  --accent:#D85F95; --accent-bright:#E985AE; --accent-soft:rgb(216 95 149 / 0.16); --accent-line:rgb(216 95 149 / 0.34);
+  --viz-1:#D85F95; --viz-2:#B14A78; --viz-3:#8A3A5E; --viz-4:#642A45; --viz-5:#491F33; --viz-6:#311521;
+  --c-accent:#E985AE; --c-accent-rgb:216 95 149;
+}
+[data-theme="plum"] .ut-eyebrow { color:var(--accent); }
+
+/* ── 미드나잇 ── */
+[data-theme="midnight"] {
+  --ink-0:#0D0B1A; --ink-1:#191527; --ink-2:#37324A; --ink-3:#615C78; --ink-4:#9994B0; --ink-5:#CEC9DE;
+  --paper:#FFFFFF; --cream:#F1EFFA; --mist:#E7E4F5; --line:#DAD6EE; --line-2:#EAE7F7;
+  --dot:#6E4FF0; --up:#E5484D; --down:#2A6FDB; --band:#0D0B1A;
+  --accent:#5538D6; --accent-bright:#6E4FF0; --accent-soft:rgb(110 79 240 / 0.10); --accent-line:rgb(110 79 240 / 0.26);
+  --viz-1:#0D0B1A; --viz-2:#5538D6; --viz-3:#7E66E4; --viz-4:#A79AEC; --viz-5:#CAC2F2; --viz-6:#E5E0F8;
+  --c-accent:#6E4FF0; --c-accent-rgb:110 79 240;
+}
+html.dark[data-theme="midnight"] {
+  --ink-0:#F2EEFA; --ink-1:#DAD3EC; --ink-2:#ACA3C6; --ink-3:#756C92; --ink-4:#564E72; --ink-5:#3A3354;
+  --paper:#161324; --cream:#0F0D1C; --mist:#211C38; --line:#2D2748; --line-2:#1A1630;
+  --dot:#9B7DFF; --up:#FF6B6B; --down:#5C9EFF; --band:#E5DCFA;
+  --accent:#9B7DFF; --accent-bright:#B49BFF; --accent-soft:rgb(155 125 255 / 0.16); --accent-line:rgb(155 125 255 / 0.34);
+  --viz-1:#9B7DFF; --viz-2:#7E63D4; --viz-3:#60519E; --viz-4:#48406F; --viz-5:#332C4E; --viz-6:#241F38;
+  --c-accent:#B49BFF; --c-accent-rgb:155 125 255;
+}
+[data-theme="midnight"] .ut-eyebrow { color:var(--accent); }

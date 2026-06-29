@@ -345,13 +345,44 @@ const WireCanvas = memo(function WireCanvas({ isDark }: { isDark: boolean }) {
 })
 
 // ── Landing C 페이지 ──────────────────────────────────────────
-// 푸터 팔레트: 모노톤 vs 크림라이트 랜덤
-const CTA_PALETTES = [
-  { isDark: true,  bg: '#0a0a0b', bgEdge: '#000',    particle: [255,255,255] as [number,number,number], highlight: [200,200,200] as [number,number,number], vignette: 'rgba(0,0,0,0.55)',         textColor: '#FAFAF7' },
-  { isDark: true,  bg: '#1a1a1c', bgEdge: '#0a0a0b', particle: [220,210,190] as [number,number,number], highlight: [255,250,240] as [number,number,number], vignette: 'rgba(10,10,11,0.45)',      textColor: '#FAFAF7' },
-  { isDark: false, bg: '#FAFAF7', bgEdge: '#EEEBe4', particle: [60,60,65] as [number,number,number],  highlight: [30,30,35] as [number,number,number],  vignette: 'rgba(250,250,247,0.35)', textColor: '#0A0A0B' },
-  { isDark: false, bg: '#F5F1E8', bgEdge: '#E8E3D3', particle: [80,70,55] as [number,number,number],  highlight: [40,35,25] as [number,number,number],  vignette: 'rgba(245,241,232,0.35)', textColor: '#0A0A0B' },
-]
+// 푸터 CTA 팔레트: 테마 토큰 --band(랜딩 CTA 면) / --paper(대비 글씨·파티클) 기반.
+// 라이트=짙은 band/밝은 글씨, 다크=밝은 band/짙은 글씨 (팔레트·모드 자동추종)
+type CtaPalette = {
+  isDark: boolean; bg: string; bgEdge: string
+  particle: [number, number, number]; highlight: [number, number, number]
+  vignette: string; textColor: string
+}
+function resolveRgb(expr: string, fallback: [number, number, number]): [number, number, number] {
+  try {
+    const el = document.createElement('span')
+    el.style.cssText = `color:${expr};position:absolute;opacity:0;pointer-events:none`
+    document.body.appendChild(el)
+    const c = getComputedStyle(el).color
+    document.body.removeChild(el)
+    const m = c.match(/\d+(?:\.\d+)?/g)
+    if (m && m.length >= 3) return [Math.round(+m[0]), Math.round(+m[1]), Math.round(+m[2])]
+  } catch {}
+  return fallback
+}
+function shadeRgb([r, g, b]: [number, number, number], f: number): [number, number, number] {
+  const adj = (v: number) => Math.max(0, Math.min(255, Math.round(f < 0 ? v * (1 + f) : v + (255 - v) * f)))
+  return [adj(r), adj(g), adj(b)]
+}
+function buildCtaPalette(): CtaPalette {
+  const band = resolveRgb('var(--band)', [10, 10, 11])
+  const paper = resolveRgb('var(--paper)', [250, 250, 247])
+  const isDark = (0.299 * band[0] + 0.587 * band[1] + 0.114 * band[2]) / 255 < 0.5 // band가 짙으면 다크 푸터
+  const s = (c: [number, number, number]) => `rgb(${c[0]},${c[1]},${c[2]})`
+  return {
+    isDark,
+    bg: s(band),
+    bgEdge: s(shadeRgb(band, isDark ? -0.45 : -0.06)),
+    particle: paper,
+    highlight: paper,
+    vignette: `rgba(${band[0]},${band[1]},${band[2]},${isDark ? 0.5 : 0.3})`,
+    textColor: s(paper),
+  }
+}
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -363,7 +394,9 @@ export default function Landing() {
   const goToApp = () => navigate(isLoggedIn ? '/home' : '/login')
   const enterFrom = (location.state as Record<string, string> | null)?.enterFrom
   const slideClass = enterFrom === 'left' ? 'pub-slide-from-left' : enterFrom === 'right' ? 'pub-slide-from-right' : ''
-  const [ctaPalette] = useState(() => CTA_PALETTES[Math.floor(Math.random() * CTA_PALETTES.length)])
+  const [ctaPalette, setCtaPalette] = useState<CtaPalette>(buildCtaPalette)
+  // 테마/모드 변경 시 푸터 CTA를 --band 기반으로 재계산
+  useEffect(() => { setCtaPalette(buildCtaPalette()) }, [isDark, themeMode])
 
   // 캐시에서 초기값 읽기 → API 응답 전 flash 방지
   const _cache = useState(() => loadSiteCache())[0]

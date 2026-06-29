@@ -13,7 +13,7 @@ import {
   NEW_LOGO_STYLES,
 } from '../components/Logo'
 import {
-  BgConfig, BgType, GradientDir, loadBgConfig, saveBgConfig, getBgStyle, applyBackground,
+  BgConfig, BgType, GradientDir, loadBgConfig, saveBgConfig, getBgStyle, applyBackground, BG_DEFAULTS,
 } from '../utils/background'
 import {
   WeatherIconStyle, WEATHER_ICON_STYLES, getWeatherIconStyle, saveWeatherIconStyle, WeatherBadge,
@@ -26,6 +26,7 @@ import {
   loadPnlColorConfig, applyPnlColors, PnlColorConfig,
   applyUiRadius, getUiRadius, UiRadius, getCardOpacity, applyCardOpacity,
   applyDotColor, getDotColor,
+  applyColorTheme, getColorTheme, ColorTheme, COLOR_THEMES,
 } from '../utils/settings-utils'
 import { Button } from '../components/settings/Button'
 import { OptionTile, OptionGrid } from '../components/settings/OptionTile'
@@ -33,7 +34,6 @@ import { Toggle } from '../components/settings/Toggle'
 import { RangeField } from '../components/settings/RangeField'
 import { SettingRow } from '../components/settings/SettingRow'
 import { Segmented } from '../components/settings/Segmented'
-import { SwatchRow } from '../components/settings/Swatch'
 import { SettingsLayout } from '../components/settings/SettingsLayout'
 import type { SettingsTab, SettingsSection } from '../components/settings/SettingsLayout'
 
@@ -143,12 +143,12 @@ function PnlColorPicker({ value, onChange }: { value: PnlColorConfig; onChange: 
             { label: '상승 (다크)',   key: 'upDark'   as const },
             { label: '하락 (다크)',   key: 'downDark'  as const },
           ].map(({ label, key }) => (
-            <label key={key} className="flex items-center gap-2 text-xs text-zinc-600 dark:text-zinc-400">
+            <label key={key} className="flex items-center gap-2 text-xs text-ink-2">
               <input
                 type="color"
                 value={value[key] || '#888888'}
                 onChange={e => onChange({ ...value, [key]: e.target.value })}
-                className="w-8 h-8 rounded cursor-pointer border border-zinc-200 dark:border-zinc-700 p-0.5 bg-white dark:bg-zinc-800"
+                className="w-8 h-8 rounded cursor-pointer border border-ink-5 p-0.5 bg-white dark:bg-zinc-800"
               />
               {label}
             </label>
@@ -185,7 +185,7 @@ function BgPreviewSwatch({ cfg, size = 40 }: { cfg: BgConfig; size?: number }) {
   if (cfg.type === 'solid') {
     return (
       <div
-        className="rounded border border-zinc-200 dark:border-zinc-700"
+        className="rounded border border-ink-5"
         style={{ width: size, height: size, backgroundColor: cfg.solidColor || '#f8fafc' }}
       />
     )
@@ -193,7 +193,7 @@ function BgPreviewSwatch({ cfg, size = 40 }: { cfg: BgConfig; size?: number }) {
   if (cfg.type === 'gradient') {
     return (
       <div
-        className="rounded border border-zinc-200 dark:border-zinc-700"
+        className="rounded border border-ink-5"
         style={{
           width: size, height: size,
           backgroundImage: `linear-gradient(${cfg.gradientDir || '135deg'}, ${cfg.gradientFrom || '#e0f2fe'}, ${cfg.gradientTo || '#fdf4ff'})`,
@@ -204,7 +204,7 @@ function BgPreviewSwatch({ cfg, size = 40 }: { cfg: BgConfig; size?: number }) {
   const { backgroundImage, backgroundSize } = getBgStyle(cfg)
   return (
     <div
-      className="rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900"
+      className="rounded border border-ink-5 bg-white dark:bg-zinc-900"
       style={{ width: size, height: size, backgroundImage, backgroundSize }}
     />
   )
@@ -213,14 +213,14 @@ function BgPreviewSwatch({ cfg, size = 40 }: { cfg: BgConfig; size?: number }) {
 function ColorInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-3">
-      <label className="text-xs text-zinc-500 w-20 flex-shrink-0">{label}</label>
+      <label className="text-xs text-ink-3 w-20 flex-shrink-0">{label}</label>
       <div className="flex items-center gap-2">
         <input
           type="color" value={value}
           onChange={e => onChange(e.target.value)}
-          className="w-9 h-8 rounded border border-zinc-200 dark:border-zinc-700 cursor-pointer p-0.5 bg-transparent"
+          className="w-9 h-8 rounded border border-ink-5 cursor-pointer p-0.5 bg-transparent"
         />
-        <span className="text-xs text-zinc-400 font-mono">{value}</span>
+        <span className="text-xs text-ink-4 font-mono">{value}</span>
       </div>
     </div>
   )
@@ -270,15 +270,15 @@ function BackgroundPicker({ value, onChange }: { value: BgConfig; onChange: (cfg
       {isPattern && (
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <label className="text-xs text-zinc-500 w-20 flex-shrink-0">무늬 색상</label>
+            <label className="text-xs text-ink-3 w-20 flex-shrink-0">무늬 색상</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={value.patternColor}
                 onChange={e => update({ patternColor: e.target.value })}
-                className="w-9 h-8 rounded border border-zinc-200 dark:border-zinc-700 cursor-pointer p-0.5 bg-transparent"
+                className="w-9 h-8 rounded border border-ink-5 cursor-pointer p-0.5 bg-transparent"
               />
-              <span className="text-xs text-zinc-400 font-mono">{value.patternColor}</span>
+              <span className="text-xs text-ink-4 font-mono">{value.patternColor}</span>
             </div>
           </div>
           <RangeField label="크기" min={10} max={60} step={2} value={value.size} onChange={v => update({ size: v })} display={`${value.size}px`} labelWidth={80} />
@@ -359,8 +359,8 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{label}</span>
-        <span className="text-2xs text-zinc-400">{activeCount}시간/주 활성</span>
+        <span className="text-xs font-medium text-ink-1">{label}</span>
+        <span className="text-2xs text-ink-4">{activeCount}시간/주 활성</span>
       </div>
       <div
         className="overflow-x-auto select-none"
@@ -370,7 +370,7 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
         <table className="text-center border-collapse" style={{ minWidth: 400 }}>
           <thead>
             <tr>
-              <th className="w-8 text-2xs text-zinc-400 font-normal pr-1">시</th>
+              <th className="w-8 text-2xs text-ink-4 font-normal pr-1">시</th>
               {DAYS.map((d, i) => (
                 <th key={i} className="pb-1 px-0.5">
                   <button
@@ -380,7 +380,7 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
                         ? 'bg-accent text-white'
                         : (schedule[String(i)]?.length ?? 0) > 0
                         ? 'bg-accent/20 text-accent'
-                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-ink-3'
                     }`}
                   >
                     {d}
@@ -397,7 +397,7 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
                   <td className="pr-1.5 text-right">
                     <button
                       onClick={() => toggleHour(hour)}
-                      className={`text-2xs tabular-nums leading-none transition-colors ${allActive ? 'text-accent font-semibold' : 'text-zinc-400 hover:text-zinc-600'}`}
+                      className={`text-2xs tabular-nums leading-none transition-colors ${allActive ? 'text-accent font-semibold' : 'text-ink-4 hover:text-ink-2'}`}
                     >
                       {String(hour).padStart(2, '0')}
                     </button>
@@ -424,7 +424,7 @@ function ScheduleGrid({ label, scheduleKey, schedule, onChange, dragState }: Sch
           </tbody>
         </table>
       </div>
-      <p className="text-2xs text-zinc-400 mt-1.5">셀 클릭 또는 드래그로 활성 시간대 선택 · 요일/시간 헤더 클릭으로 행/열 전체 토글</p>
+      <p className="text-2xs text-ink-4 mt-1.5">셀 클릭 또는 드래그로 활성 시간대 선택 · 요일/시간 헤더 클릭으로 행/열 전체 토글</p>
     </div>
   )
 }
@@ -516,22 +516,43 @@ function MemoColorPicker({ value, onChange }: { value: 'pastel' | 'theme'; onCha
   )
 }
 
-// ── 포인트 색상 픽커 ──────────────────────────────────────────────────────────
+// ── 색상 테마(팔레트) 픽커 ────────────────────────────────────────────────────
+// 포인트 색상 대체. 10팔레트가 accent 계열을 한 번에 구동(라이트/다크 개별 튜닝).
+// 스와치는 현재 모드(다크/라이트)에 맞는 accent를 미리보기.
 
-const DOT_COLORS = [
-  { label: '앰버',     hex: '#F59E0B' },
-  { label: '오렌지',   hex: '#F97316' },
-  { label: '옐로우',   hex: '#EAB308' },
-  { label: '라임',     hex: '#84CC16' },
-  { label: '에메랄드', hex: '#10B981' },
-  { label: '스카이',   hex: '#0EA5E9' },
-  { label: '바이올렛', hex: '#8B5CF6' },
-  { label: '로즈',     hex: '#F43F5E' },
-]
-
-function DotColorPicker({ value, onChange }: { value: string; onChange: (hex: string) => void }) {
+function ThemePicker({ value, onChange }: { value: ColorTheme; onChange: (t: ColorTheme) => void }) {
+  const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
   return (
-    <SwatchRow value={value} colors={DOT_COLORS.map(c => ({ label: c.label, hex: c.hex }))} onChange={onChange} />
+    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5">
+      {COLOR_THEMES.map(t => {
+        const swatch = isDark ? t.dark : t.light
+        const active = value === t.id
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onChange(t.id)}
+            title={t.label}
+            className="flex flex-col items-center gap-1 group"
+          >
+            <span
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-transform group-hover:scale-110"
+              style={{
+                background: t.id === 'default'
+                  ? `conic-gradient(${t.light}, ${t.dark}, ${t.light})`
+                  : swatch,
+                boxShadow: active
+                  ? `0 0 0 2px var(--c-surface), 0 0 0 4px ${swatch}`
+                  : 'inset 0 0 0 1px rgba(0,0,0,0.12)',
+              }}
+            >
+              {active && <Check size={15} className="text-white drop-shadow" strokeWidth={3} />}
+            </span>
+            <span className={`text-2xs leading-none ${active ? 'text-ink-1 font-semibold' : 'text-ink-3'}`}>{t.label}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -658,6 +679,7 @@ const Settings: React.FC = () => {
   const [pendingOverlay, setPendingOverlay] = useState<OverlayStyle>(loadOverlayStyle)
   const [pendingCardOpacity, setPendingCardOpacity] = useState<number>(getCardOpacity)
   const [pendingDotColor, setPendingDotColor] = useState<string>(getDotColor)
+  const [pendingTheme, setPendingTheme] = useState<ColorTheme>(getColorTheme)
   const [pendingWeatherIcon, setPendingWeatherIcon] = useState<WeatherIconStyle>(getWeatherIconStyle)
   const [pendingMemoColorMode, setPendingMemoColorMode] = useState<'pastel' | 'theme'>('pastel')
 
@@ -689,6 +711,7 @@ const Settings: React.FC = () => {
     if (data.ui_overlay_style) { setPendingOverlay(data.ui_overlay_style as OverlayStyle); applyOverlayStyle(data.ui_overlay_style as OverlayStyle) }
     if (data.ui_card_opacity != null) { setPendingCardOpacity(data.ui_card_opacity as number); applyCardOpacity(data.ui_card_opacity as number) }
     if (data.ui_dot_color) { setPendingDotColor(data.ui_dot_color as string); applyDotColor(data.ui_dot_color as string) }
+    if (data.ui_color_theme) { setPendingTheme(data.ui_color_theme as ColorTheme); applyColorTheme(data.ui_color_theme as ColorTheme) }
     if (data.ui_weather_icon_style) { setPendingWeatherIcon(data.ui_weather_icon_style as WeatherIconStyle); saveWeatherIconStyle(data.ui_weather_icon_style as WeatherIconStyle) }
     if (data.ui_nav_mode) setPendingNavMode(data.ui_nav_mode as 'top' | 'sidebar')
     if (data.memo_color_mode) setPendingMemoColorMode(data.memo_color_mode as 'pastel' | 'theme')
@@ -858,7 +881,13 @@ const Settings: React.FC = () => {
   const updateRadius = (r: UiRadius) => { setPendingRadius(r); setDirty(true); setSaved(false) }
   const updateOverlay = (s: OverlayStyle) => { applyOverlayStyle(s); setPendingOverlay(s); setDirty(true); setSaved(false) }
   const updateCardOpacity = (v: number) => { applyCardOpacity(v); setPendingCardOpacity(v); setDirty(true); setSaved(false) }
-  const updateDotColor = (hex: string) => { applyDotColor(hex); setPendingDotColor(hex); setDirty(true); setSaved(false) }
+  const updateTheme = (t: ColorTheme) => {
+    applyColorTheme(t); setPendingTheme(t)
+    // 테마 선택 시 배경을 테마 추종(none = --c-bg)으로 리셋 — 이후 개별 변경 가능
+    const reset: BgConfig = { ...BG_DEFAULTS, type: 'none' }
+    setPendingBgLight(reset); setPendingBgDark(reset); applyBackground(reset)
+    setDirty(true); setSaved(false)
+  }
 
   // 마퀴 키워드
   const marqueeItems: string[] = settings.site_marquee_items ?? []
@@ -884,6 +913,7 @@ const Settings: React.FC = () => {
         ui_overlay_style: pendingOverlay,
         ui_card_opacity: pendingCardOpacity,
         ui_dot_color: pendingDotColor,
+        ui_color_theme: pendingTheme,
         ui_weather_icon_style: pendingWeatherIcon,
         memo_color_mode: pendingMemoColorMode,
       })
@@ -900,6 +930,7 @@ const Settings: React.FC = () => {
       applyOverlayStyle(pendingOverlay)
       applyCardOpacity(pendingCardOpacity)
       applyDotColor(pendingDotColor)
+      applyColorTheme(pendingTheme)
       saveWeatherIconStyle(pendingWeatherIcon)
       setDirty(false)
       setSaved(true)
@@ -919,7 +950,7 @@ const Settings: React.FC = () => {
     }).catch(() => {})
   }
 
-  if (loading) return <div className="py-8 text-center text-sm text-zinc-400">설정 로딩 중...</div>
+  if (loading) return <div className="py-8 text-center text-sm text-ink-4">설정 로딩 중...</div>
 
   const newsSchedule: Schedule = settings.news_schedule ?? {}
 
@@ -940,12 +971,12 @@ const Settings: React.FC = () => {
           {profile && (
             <div className="space-y-5">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-accent select-none">
+                <div className="w-14 h-14 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-ink-5 flex items-center justify-center text-accent select-none">
                   {getProfileIconNode(profile.profile_icon || 'user', 26)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{profile.display_name || '이름 미설정'}</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-sm font-semibold text-ink-0">{profile.display_name || '이름 미설정'}</p>
+                  <p className="text-xs text-ink-4 mt-0.5">
                     {profile.age != null ? `만 ${profile.age}세` : '생년월일 미설정'}
                     {profile.job ? ` · ${profile.job}` : ''}
                   </p>
@@ -953,7 +984,7 @@ const Settings: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs text-zinc-500 block mb-2">프로필 아이콘</label>
+                <label className="text-xs text-ink-3 block mb-2">프로필 아이콘</label>
                 <ProfileIconPicker value={profile.profile_icon || '👤'} onChange={icon => updateProfile({ profile_icon: icon })} />
               </div>
 
@@ -1000,17 +1031,18 @@ const Settings: React.FC = () => {
     // ── 외관 ────────────────────────────────────────────────
     {
       id: 'settings-colors', tab: 'appearance', group: '테마 색상', title: '색상',
-      keywords: ['색상', '등락', '상승', '하락', '빨강', '파랑', 'pnl', '포인트', '강조', 'dot'],
+      keywords: ['색상', '등락', '상승', '하락', '빨강', '파랑', 'pnl', '포인트', '강조', 'dot', '테마', '팔레트', 'theme', 'accent'],
       element: (
         <Card collapsible id="settings-colors" icon={<Palette size={16} />} title="색상" defaultOpen>
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">등락 색상</p>
-              <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
+              <p className="text-xs text-ink-3 mb-1.5">색상 테마</p>
+              <ThemePicker value={pendingTheme} onChange={updateTheme} />
+              <p className="text-2xs text-ink-4 mt-2">강조색·포인트·차트 색이 함께 바뀝니다. 다크/라이트는 상단 토글로 별도 전환.</p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">포인트 색상</p>
-              <DotColorPicker value={pendingDotColor} onChange={updateDotColor} />
+              <p className="text-xs text-ink-3 mb-1.5">등락 색상</p>
+              <PnlColorPicker value={pendingPnlColor} onChange={updatePnlColor} />
             </div>
           </div>
         </Card>
@@ -1062,11 +1094,11 @@ const Settings: React.FC = () => {
         <Card collapsible id="settings-branding" icon={<Shapes size={16} />} title="로고 · 날씨 · 메모" defaultOpen={false}>
           <div className="space-y-4">
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">로고 아이콘</p>
+              <p className="text-xs text-ink-3 mb-1.5">로고 아이콘</p>
               <LogoIconPicker svgValue={pendingLogoIcon} onSvg={updateLogoIcon} />
             </div>
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">날씨 아이콘</p>
+              <p className="text-xs text-ink-3 mb-1.5">날씨 아이콘</p>
               <WeatherIconStylePicker value={pendingWeatherIcon} onChange={icon => { setPendingWeatherIcon(icon); setDirty(true); setSaved(false) }} />
             </div>
             <SettingRow title="메모 색상" control={<MemoColorPicker value={pendingMemoColorMode} onChange={m => { setPendingMemoColorMode(m); setDirty(true); setSaved(false) }} />} />
@@ -1087,9 +1119,9 @@ const Settings: React.FC = () => {
             />
 
             <div>
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">마퀴 키워드</p>
+              <p className="text-xs font-medium text-ink-2 mb-2">마퀴 키워드</p>
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {marqueeItems.length === 0 && <span className="text-2xs text-zinc-400">키워드가 없습니다.</span>}
+                {marqueeItems.length === 0 && <span className="text-2xs text-ink-4">키워드가 없습니다.</span>}
                 {marqueeItems.map((kw, i) => (
                   <span key={i} className="tag tag-tonal flex items-center gap-1">
                     {kw}
@@ -1111,12 +1143,12 @@ const Settings: React.FC = () => {
 
             <div className="flex gap-6 flex-wrap">
               <div>
-                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">표시 형태</p>
+                <p className="text-xs font-medium text-ink-2 mb-2">표시 형태</p>
                 <Segmented value={settings.site_marquee_type ?? 'triple'} onChange={v => update('site_marquee_type', v)}
                   options={MARQUEE_TYPES.map(o => ({ value: o.id, label: o.label }))} />
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">표시 위치</p>
+                <p className="text-xs font-medium text-ink-2 mb-2">표시 위치</p>
                 <Segmented value={settings.site_marquee_position ?? 'top'} onChange={v => update('site_marquee_position', v)}
                   options={MARQUEE_POSITIONS.map(o => ({ value: o.id, label: o.label }))} />
               </div>
@@ -1173,7 +1205,7 @@ const Settings: React.FC = () => {
       element: (
         <Card collapsible id="settings-news-schedule" icon={<CalendarDays size={16} />} title="뉴스 조회 스케줄" defaultOpen={false}>
           <div className="space-y-3">
-            <p className="text-2xs text-zinc-400">활성화된 요일/시간대에만 뉴스를 자동 수집합니다.</p>
+            <p className="text-2xs text-ink-4">활성화된 요일/시간대에만 뉴스를 자동 수집합니다.</p>
             <ScheduleGrid label="뉴스 조회 활성 시간" scheduleKey="news_schedule" schedule={newsSchedule} onChange={update} dragState={dragState} />
           </div>
         </Card>
@@ -1196,47 +1228,47 @@ const Settings: React.FC = () => {
       id: 'settings-ai-usage', tab: 'data', title: 'Gemini AI 사용량',
       keywords: ['ai', '사용량', '토큰', 'rpd', 'rpm', 'gemini'],
       element: (
-        <Card collapsible id="settings-ai-usage" icon={<TrendingUp size={16} />} title="Gemini AI 사용량" right={aiUsage && <span className="text-2xs text-zinc-400">{aiUsage.model}</span>}>
+        <Card collapsible id="settings-ai-usage" icon={<TrendingUp size={16} />} title="Gemini AI 사용량" right={aiUsage && <span className="text-2xs text-ink-4">{aiUsage.model}</span>}>
           {aiUsage ? (
             <div className="space-y-3">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-500">일 요청 (RPD)</span>
-                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <span className="text-xs text-ink-3">일 요청 (RPD)</span>
+                  <span className="text-xs font-medium text-ink-1">
                     {aiUsage.rpd_used} / {aiUsage.rpd_limit}
-                    <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpd_remaining})</span>
+                    <span className="text-ink-4 font-normal ml-1">(남은 {aiUsage.rpd_remaining})</span>
                   </span>
                 </div>
                 <ProgressBar value={Math.min(100, (aiUsage.rpd_used / aiUsage.rpd_limit) * 100)} height="md" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-zinc-500">현재 분당 요청 (RPM)</span>
-                  <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                  <span className="text-xs text-ink-3">현재 분당 요청 (RPM)</span>
+                  <span className="text-xs font-medium text-ink-1">
                     {aiUsage.rpm_used} / {aiUsage.rpm_limit}
-                    <span className="text-zinc-400 font-normal ml-1">(남은 {aiUsage.rpm_remaining})</span>
+                    <span className="text-ink-4 font-normal ml-1">(남은 {aiUsage.rpm_remaining})</span>
                   </span>
                 </div>
                 <ProgressBar value={Math.min(100, (aiUsage.rpm_used / aiUsage.rpm_limit) * 100)} height="md" />
               </div>
               <div className="grid grid-cols-3 gap-3 pt-1">
                 <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">입력 토큰 (오늘)</p>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_in_today.toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4 mb-0.5">입력 토큰 (오늘)</p>
+                  <p className="text-xs font-semibold text-ink-1">{aiUsage.tokens_in_today.toLocaleString()}</p>
                 </div>
                 <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">출력 토큰 (오늘)</p>
-                  <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{aiUsage.tokens_out_today.toLocaleString()}</p>
+                  <p className="text-2xs text-ink-4 mb-0.5">출력 토큰 (오늘)</p>
+                  <p className="text-xs font-semibold text-ink-1">{aiUsage.tokens_out_today.toLocaleString()}</p>
                 </div>
                 <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                  <p className="text-2xs text-zinc-400 mb-0.5">누적 실패</p>
-                  <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-red-500' : 'text-zinc-700 dark:text-zinc-300'}`}>{aiUsage.failed_total}</p>
+                  <p className="text-2xs text-ink-4 mb-0.5">누적 실패</p>
+                  <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-red-500' : 'text-ink-1'}`}>{aiUsage.failed_total}</p>
                 </div>
               </div>
-              <p className="text-2xs text-zinc-400">무료 티어 기준 · 일 요청은 자정에 초기화 · 10초마다 갱신</p>
+              <p className="text-2xs text-ink-4">무료 티어 기준 · 일 요청은 자정에 초기화 · 10초마다 갱신</p>
             </div>
           ) : (
-            <p className="text-xs text-zinc-400">로딩 중...</p>
+            <p className="text-xs text-ink-4">로딩 중...</p>
           )}
         </Card>
       ),
@@ -1264,7 +1296,7 @@ const Settings: React.FC = () => {
               <>
                 <div className="flex items-center gap-2">
                   <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-amber-500' : 'text-green-500'}`} />
-                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">{calStatus.google_email}</span>
+                  <span className="text-sm font-medium text-ink-0">{calStatus.google_email}</span>
                   <span className={`tag text-xs ${calStatus.needs_reconnect ? 'tag-amber' : 'tag-tonal'}`}>
                     {calStatus.needs_reconnect ? '재연결 필요' : '연결됨'}
                   </span>
@@ -1274,16 +1306,16 @@ const Settings: React.FC = () => {
                 )}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-zinc-400 mb-0.5">동기화 일정</p>
-                    <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{calStatus.event_count}개</p>
+                    <p className="text-2xs text-ink-4 mb-0.5">동기화 일정</p>
+                    <p className="text-xs font-semibold text-ink-1">{calStatus.event_count}개</p>
                   </div>
                   <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-zinc-400 mb-0.5">Push 알림</p>
-                    <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-zinc-400'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
+                    <p className="text-2xs text-ink-4 mb-0.5">Push 알림</p>
+                    <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-ink-4'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
                   </div>
                   <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-zinc-400 mb-0.5">채널 만료</p>
-                    <p className="text-2xs font-medium text-zinc-600 dark:text-zinc-400 leading-tight">
+                    <p className="text-2xs text-ink-4 mb-0.5">채널 만료</p>
+                    <p className="text-2xs font-medium text-ink-2 leading-tight">
                       {calStatus.channel_expires ? new Date(calStatus.channel_expires).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '—'}
                     </p>
                   </div>
@@ -1308,7 +1340,7 @@ const Settings: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 text-zinc-400">
+                <div className="flex items-center gap-2 text-ink-4">
                   <WifiOff size={14} />
                   <span className="text-sm">Google Calendar가 연결되지 않았습니다.</span>
                 </div>
@@ -1325,7 +1357,7 @@ const Settings: React.FC = () => {
                 {calMsg.text}
               </div>
             )}
-            <p className="text-2xs text-zinc-400">연결 후 Push 알림으로 다른 기기 변경사항이 수 초 내 플래너에 반영됩니다.</p>
+            <p className="text-2xs text-ink-4">연결 후 Push 알림으로 다른 기기 변경사항이 수 초 내 플래너에 반영됩니다.</p>
           </div>
         </Card>
       ),
@@ -1341,12 +1373,20 @@ const Settings: React.FC = () => {
 
       {/* 스티키 저장 바 — 미저장 변경사항이 있을 때만 등장 */}
       {(dirty || saved) && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur border border-zinc-200 dark:border-zinc-700 shadow-lg">
+        <div className={`save-bar-pop fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 px-5 py-3 rounded-2xl bg-white dark:bg-zinc-900 backdrop-blur shadow-2xl ${
+          saved ? 'border border-ink-5' : 'border-2 border-accent ring-4 ring-accent/20'
+        }`}>
           {saved ? (
             <span className="flex items-center gap-1.5 text-sm text-accent font-medium px-1"><Check size={14} /> 저장되었습니다.</span>
           ) : (
             <>
-              <span className="text-xs text-amber-500 font-medium whitespace-nowrap pl-1">미저장 변경사항</span>
+              <span className="flex items-center gap-2 text-sm font-semibold whitespace-nowrap pl-1 text-ink-1">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                </span>
+                저장하지 않은 변경사항
+              </span>
               <Button variant="ghost" size="sm" onClick={handleRevert} disabled={saving}>되돌리기</Button>
               <Button size="sm" onClick={handleSave} loading={saving} loadingLabel="저장 중...">저장하기</Button>
             </>

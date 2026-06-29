@@ -45,6 +45,8 @@ DEFAULT_SETTINGS = {
     "ui_nav_mode": "top",           # 메뉴 방식 (top/sidebar)
     "ui_weather_icon_style": "fill", # 날씨 아이콘 스타일
     "ui_bg_config_dark": None,      # 다크모드 배경 설정 (JSON)
+    "ui_dot_color": None,           # 포인트(dot) 색상 — 레거시(ui_color_theme로 대체)
+    "ui_color_theme": "default",    # 색상 테마 팔레트 (default/amber/green/ocean/violet/noir/graphite/tealfull/kraft/plum/midnight)
     "ui_radius": "lg",              # 모서리 둥글기 (none/sm/md/lg/xl)
     "ui_overlay_style": "both",     # 모달 오버레이 (both/dim/blur/frosted/none)
     "ui_card_opacity": 1.0,         # 카드 투명도 (0.0~1.0)

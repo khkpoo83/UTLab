@@ -60,7 +60,7 @@ const SectorDonut: React.FC<SectorDonutProps> = ({
       </ResponsiveContainer>
       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
         {data.map((d, i) => (
-          <span key={d.name} className="flex items-center gap-1 text-2xs text-zinc-500">
+          <span key={d.name} className="flex items-center gap-1 text-2xs text-ink-3">
             <span className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: p[i % p.length] }} />
             {d.name} ({d.value.toFixed(1)}%)
           </span>

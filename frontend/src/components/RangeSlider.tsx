@@ -60,7 +60,7 @@ export default function RangeSlider({
                 <span className={`block w-0.5 rounded-full ${isSel ? 'h-2.5 bg-accent' : 'h-1.5 bg-zinc-300 dark:bg-zinc-600'}`} />
               )}
               {showLabel && (
-                <span className="text-2xs tabular-nums text-zinc-400">{v}</span>
+                <span className="text-2xs tabular-nums text-ink-4">{v}</span>
               )}
             </button>
           )

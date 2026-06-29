@@ -32,6 +32,14 @@ export default {
         sm: '13px',
         base: '14px',
       },
+      /* renewal elevation scale — 디자인 토큰(--shadow-*)에 매핑.
+         e1=카드, e2=raised, e3=popover/dropdown, e4=modal/overlay */
+      boxShadow: {
+        e1: 'var(--shadow-xs)',
+        e2: 'var(--shadow-sm)',
+        e3: 'var(--shadow-md)',
+        e4: 'var(--shadow-lg)',
+      },
       animation: {
         'spin-slow': 'spin 3s linear infinite',
       },

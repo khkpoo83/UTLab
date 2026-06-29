@@ -535,24 +535,24 @@ function Accordion({ title, defaultOpen = false, children, badge, tags, dragHand
         onClick={() => setOpen(!open)}
         className={`w-full flex items-center justify-between px-4 py-3 transition-colors ${
           open
-            ? 'bg-accent/5 dark:bg-accent/10 border-b border-zinc-100 dark:border-zinc-700'
+            ? 'bg-accent/5 dark:bg-accent/10 border-b border-[var(--divide)]'
             : 'surface-subtle hover:bg-zinc-100 dark:hover:bg-zinc-700'
         }`}
       >
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           {dragHandle}
-          <span className={`text-sm flex-shrink-0 ${open ? 'text-zinc-800 dark:text-zinc-100 font-medium' : 'text-zinc-700 dark:text-zinc-300'}`}>{title}</span>
+          <span className={`text-sm flex-shrink-0 ${open ? 'text-ink-0 font-medium' : 'text-ink-1'}`}>{title}</span>
           {badge}
         </div>
         <svg
-          className={`w-4 h-4 transition-transform flex-shrink-0 ml-2 ${open ? 'rotate-0 text-accent' : '-rotate-90 text-zinc-400'}`}
+          className={`w-4 h-4 transition-transform flex-shrink-0 ml-2 ${open ? 'rotate-0 text-accent' : '-rotate-90 text-ink-4'}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {tags && open && (
-        <div className="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5 border-b border-zinc-100 dark:border-zinc-700">
+        <div className="px-4 pt-2.5 pb-1 flex flex-wrap gap-1.5 border-b border-[var(--divide)]">
           {tags}
         </div>
       )}
@@ -617,7 +617,7 @@ function AiStatusBadge() {
   const cfg = {
     available: { dot: 'bg-accent', text: 'text-accent', label: 'AI 사용 가능' },
     limited:   { dot: 'bg-[color:var(--tag-amber-fg)]', text: 'text-[color:var(--tag-amber-fg)]', label: 'AI 한도 제한' },
-    error:     { dot: 'bg-zinc-400',  text: 'text-zinc-500',                       label: 'AI 상태 불명' },
+    error:     { dot: 'bg-zinc-400',  text: 'text-ink-3',                       label: 'AI 상태 불명' },
   }[status]
 
   const detail = countdown > 0
@@ -625,10 +625,10 @@ function AiStatusBadge() {
     : rpd
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg surface-subtle border border-zinc-200 dark:border-zinc-700">
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg surface-subtle border border-ink-5">
       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${cfg.dot} ${status === 'available' ? 'animate-pulse' : ''}`} />
       <span className={`text-xs font-medium ${cfg.text}`}>{cfg.label}</span>
-      <span className="text-xs text-zinc-400 dark:text-zinc-500 ml-auto tabular-nums">{detail}</span>
+      <span className="text-xs text-ink-4 ml-auto tabular-nums">{detail}</span>
     </div>
   )
 }
@@ -1019,10 +1019,10 @@ export default function Planner() {
   const retirementSlider = (
     <div className="card px-4 py-3">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">은퇴 나이 설정</h2>
+        <h2 className="text-xs font-semibold text-ink-1">은퇴 나이 설정</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-accent tabular-nums">만 {retirementAge}세</span>
-          <span className="text-xs text-zinc-400">{calc.retirementYear}년 · D-{calc.dYears}년</span>
+          <span className="text-xs text-ink-4">{calc.retirementYear}년 · D-{calc.dYears}년</span>
         </div>
       </div>
       {/* 슬라이더 */}
@@ -1063,10 +1063,10 @@ export default function Planner() {
               {showLabel && (
                 <div className="flex flex-col items-center leading-none">
                   <span className={`text-[9px] tabular-nums font-medium transition-all ${
-                    isSelected ? 'text-accent font-bold' : 'text-zinc-400 dark:text-zinc-500'
+                    isSelected ? 'text-accent font-bold' : 'text-ink-4'
                   }`}>{age}</span>
                   <span className={`text-[7px] tabular-nums transition-all ${
-                    isSelected ? 'text-accent/70' : 'text-zinc-400 dark:text-zinc-500'
+                    isSelected ? 'text-accent/70' : 'text-ink-4'
                   }`}>'{String(ageToYear(age)).slice(2)}</span>
                 </div>
               )}
@@ -1075,7 +1075,7 @@ export default function Planner() {
         })}
       </div>
       {/* 목표 월 생활비 */}
-      <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+      <div className="mt-3 pt-3 border-t border-[var(--divide)]">
         <StepField
           label="은퇴 후 목표 월 생활비"
           hint="세후 실수령액과 비교하여 공백기·흑적자 판단에 활용"
@@ -1116,7 +1116,7 @@ export default function Planner() {
   const OcrBtn = ({ item, title, hint }: { item: PlannerOcrItem; title: string; hint: string }) => (
     <button
       onClick={() => setOcrModal({ item, title, hint })}
-      className="flex items-center gap-1 px-2 py-1 rounded-lg text-2xs font-medium surface-subtle border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex-shrink-0"
+      className="flex items-center gap-1 px-2 py-1 rounded-lg text-2xs font-medium surface-subtle border border-ink-5 text-ink-3 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors flex-shrink-0"
     >
       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1160,7 +1160,7 @@ export default function Planner() {
 
         {/* ── 왼쪽 컬럼: 내 노후 자금 현황 ── */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 px-1">내 노후 자금 현황</h2>
+          <h2 className="text-sm font-semibold text-ink-1 px-1">내 노후 자금 현황</h2>
 
           <DndContext
             sensors={plannerSensors}
@@ -1193,7 +1193,7 @@ export default function Planner() {
               {/* ── 설정 ── */}
               <div className="card-inner p-3 space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">수익률 가정</span>
+                  <span className="text-xs font-medium text-ink-2">수익률 가정</span>
                   <div className="flex gap-1 flex-wrap justify-end">
                     {([0, 1, 1.5, 2, 3] as number[]).map(r => (
                       <ToggleChip key={r} size="xs"
@@ -1204,7 +1204,7 @@ export default function Planner() {
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">수령기간</span>
+                  <span className="text-xs font-medium text-ink-2">수령기간</span>
                   <div className="flex gap-1">
                     {[10, 15, 20, 25].map(yr => (
                       <ToggleChip key={yr} size="xs"
@@ -1218,23 +1218,23 @@ export default function Planner() {
               {/* ── 그래프 ── */}
               <div>
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                  <p className="text-xs text-ink-4">
                     수령기간별 합산 월수령액
-                    <span className="ml-1 text-zinc-500 dark:text-zinc-400">(수익률 {privatePensionRate}% · 납입예정액 포함)</span>
+                    <span className="ml-1 text-ink-3">(수익률 {privatePensionRate}% · 납입예정액 포함)</span>
                   </p>
                   <OcrBtn item="private_pension" title="개인연금 잔액" hint="각 보험사 앱의 적립금(평가금액) 화면을 업로드하세요. 상품명과 금액을 인식합니다." />
                 </div>
                 <PrivatePensionMiniChart ppDetails={calc.ppDetails} rate={privatePensionRate} />
               </div>
               {/* ── 상품별 카드 (2열) ── */}
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">기준: 각 상품 {PRIVATE_PENSIONS[0].date}</p>
+              <p className="text-xs text-ink-4">기준: 각 상품 {PRIVATE_PENSIONS[0].date}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {calc.ppDetails.map((pp, i) => (
                 <div key={i} className="card-inner p-3">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{pp.name}</span>
+                        <span className="text-xs font-semibold text-ink-0">{pp.name}</span>
                         {pp.monthlyContrib === 0
                           ? <span className="tag tag-green">완납</span>
                           : <span className="tag tag-amber">납입중</span>
@@ -1246,26 +1246,26 @@ export default function Planner() {
                           {Math.round(pp.monthlyContrib / 10000)}만원/월 · {pp.paidOffYM} 완납예정
                         </div>
                       )}
-                      <div className="text-xs text-zinc-400 mt-0.5">
+                      <div className="text-xs text-ink-4 mt-0.5">
                         현재 {Math.round(pp.current / 10000).toLocaleString()}만원
                         {pp.atStart > pp.current && (
-                          <span className="ml-1 text-zinc-500 dark:text-zinc-400">→ 개시시 {fmtEok(pp.atStart)} 예상</span>
+                          <span className="ml-1 text-ink-3">→ 개시시 {fmtEok(pp.atStart)} 예상</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1 mt-1">
-                        <span className="text-2xs text-zinc-400 flex-shrink-0">개시</span>
-                        <button onClick={() => updatePpStartAge(i, -1)} className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded surface-subtle border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-accent/10 hover:text-accent text-xs">−</button>
+                        <span className="text-2xs text-ink-4 flex-shrink-0">개시</span>
+                        <button onClick={() => updatePpStartAge(i, -1)} className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded surface-subtle border border-ink-5 text-ink-3 hover:bg-accent/10 hover:text-accent text-xs">−</button>
                         <div className="flex-1 text-center min-w-0">
-                          <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums whitespace-nowrap leading-tight">{pp.startAge}세 ~ {pp.startAge + payoutYears}세</div>
-                          <div className="text-2xs text-zinc-400 tabular-nums leading-tight">{ageToYear(pp.startAge)} ~ {ageToYear(pp.startAge + payoutYears)}년</div>
+                          <div className="text-xs font-semibold text-ink-1 tabular-nums whitespace-nowrap leading-tight">{pp.startAge}세 ~ {pp.startAge + payoutYears}세</div>
+                          <div className="text-2xs text-ink-4 tabular-nums leading-tight">{ageToYear(pp.startAge)} ~ {ageToYear(pp.startAge + payoutYears)}년</div>
                         </div>
-                        <button onClick={() => updatePpStartAge(i, +1)} className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded surface-subtle border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-accent/10 hover:text-accent text-xs">+</button>
+                        <button onClick={() => updatePpStartAge(i, +1)} className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded surface-subtle border border-ink-5 text-ink-3 hover:bg-accent/10 hover:text-accent text-xs">+</button>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-accent tabular-nums">{Math.round(pp.monthly / 10000)}만원/월</div>
-                      <div className="text-2xs text-zinc-400 tabular-nums">세후 {Math.round(pp.monthly / 10000 * (1 - calcPensionTaxRate(pp.startAge, payoutYears)))}만원</div>
-                      <div className="text-xs text-zinc-400 tabular-nums">개시시 {fmtEok(pp.atStart)}</div>
+                      <div className="text-2xs text-ink-4 tabular-nums">세후 {Math.round(pp.monthly / 10000 * (1 - calcPensionTaxRate(pp.startAge, payoutYears)))}만원</div>
+                      <div className="text-xs text-ink-4 tabular-nums">개시시 {fmtEok(pp.atStart)}</div>
                     </div>
                   </div>
                 </div>
@@ -1277,7 +1277,7 @@ export default function Planner() {
                   내 은퇴 나이(만 {retirementAge}세, {ageToYearMonth(retirementAge)})가 개인연금 첫 수령({calc.ppFirstStartAge}세)보다 빠릅니다.
                   공백기 <strong>{calc.ppFirstStartAge - retirementAge}년</strong> 동안 개인연금 수령 불가 —{' '}
                   {retirementAge < 55
-                    ? <>ISA로 대체 필요 <span className="text-zinc-400">(주택연금은 만 55세 이후 가능)</span></>
+                    ? <>ISA로 대체 필요 <span className="text-ink-4">(주택연금은 만 55세 이후 가능)</span></>
                     : 'ISA 또는 주택연금으로 대체 필요'
                   }
                 </div>
@@ -1290,19 +1290,19 @@ export default function Planner() {
                   <div className="notice notice-zinc text-xs">
                     <span className="font-semibold">납입 중 고정 지출</span>
                     {activeContribs.map((pp, i) => (
-                      <span key={i} className="ml-2 text-zinc-500 dark:text-zinc-400">
+                      <span key={i} className="ml-2 text-ink-3">
                         {pp.name.replace('삼성 ', '')} {Math.round(pp.monthlyContrib / 10000)}만({pp.paidOffYM}완납)
                       </span>
                     ))}
-                    <span className="ml-2 font-semibold text-zinc-700 dark:text-zinc-300">합계 {Math.round(totalContrib / 10000)}만원/월</span>
+                    <span className="ml-2 font-semibold text-ink-1">합계 {Math.round(totalContrib / 10000)}만원/월</span>
                   </div>
                 )
               })()}
-              <div className="flex justify-between items-center pt-2 border-t border-zinc-100 dark:border-zinc-800">
-                <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">{PRIVATE_PENSIONS.length}개 상품 합산 월수령액</span>
+              <div className="flex justify-between items-center pt-2 border-t border-[var(--divide)]">
+                <span className="text-xs font-semibold text-ink-2">{PRIVATE_PENSIONS.length}개 상품 합산 월수령액</span>
                 <div className="text-right">
                   <div className="text-base text-accent tabular-nums">{Math.round(calc.ppTotalMonthly / 10000)}만원/월</div>
-                  <div className="text-xs text-zinc-400">세후 약 {Math.round(calc.ppTotalMonthly / 10000 * (1 - calcPensionTaxRate(calc.ppFirstStartAge, payoutYears)))}만원</div>
+                  <div className="text-xs text-ink-4">세후 약 {Math.round(calc.ppTotalMonthly / 10000 * (1 - calcPensionTaxRate(calc.ppFirstStartAge, payoutYears)))}만원</div>
                 </div>
               </div>
             </div>
@@ -1339,7 +1339,7 @@ export default function Planner() {
                 <StepField label="운용 수익률 (연)" value={dcRate} step={0.5} min={0.5} max={15} unit="%"
                   onChange={v => { setDcRate(v); localStorage.setItem('planner_dc_rate', String(v)) }} />
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">수익률 프리셋</span>
+                  <span className="text-xs text-ink-3">수익률 프리셋</span>
                   <div className="flex gap-1">
                     {[{label:'보수적', v:3},{label:'중간', v:5},{label:'공격적', v:7}].map(p => (
                       <ToggleChip key={p.v} size="xs" active={dcRate === p.v}
@@ -1349,7 +1349,7 @@ export default function Planner() {
                   </div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">수령기간</span>
+                  <span className="text-xs font-medium text-ink-2">수령기간</span>
                   <div className="flex gap-1">
                     {[10, 15, 20, 25, 30].map(yr => (
                       <ToggleChip key={yr} size="xs" active={dcPayoutYears === yr}
@@ -1362,7 +1362,7 @@ export default function Planner() {
               {/* ── 그래프 ── */}
               <div>
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">나이별 예상잔액 추이 (60세 수령 기준선)</p>
+                  <p className="text-xs text-ink-4">나이별 예상잔액 추이 (60세 수령 기준선)</p>
                   <OcrBtn item="dc_irp" title="퇴직연금DC 잔액" hint="하나증권 앱의 퇴직연금(DC) 잔액 화면을 업로드하세요. 총 평가금액과 수익률을 인식합니다." />
                 </div>
                 <DCMiniChart rate={dcRate} retirementAge={retirementAge} monthlyContrib={dcMonthly} currentBalance={dcIrpBalance} />
@@ -1370,22 +1370,22 @@ export default function Planner() {
               {/* ── 결과 ── */}
               <div className="card-inner p-3 space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="text-xs text-ink-3">
                     현재 잔액
-                    <span className="ml-1 text-zinc-500 dark:text-zinc-400">({dcIrpDate} 기준)</span>
+                    <span className="ml-1 text-ink-3">({dcIrpDate} 기준)</span>
                     {dcIrpBalance !== DC_IRP_CURRENT && <span className="ml-1 tag tag-tonal text-2xs">갱신됨</span>}
                   </span>
                   <span className="text-sm text-accent tabular-nums">{Math.round(dcIrpBalance / 1e4).toLocaleString()}만원</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">{calc.dcReceiptAge}세({ageToYearMonth(calc.dcReceiptAge)}) 예상 잔액</span>
+                  <span className="text-xs text-ink-3">{calc.dcReceiptAge}세({ageToYearMonth(calc.dcReceiptAge)}) 예상 잔액</span>
                   <span className="text-sm text-accent tabular-nums">{fmtEok(calc.dcIrpAtReceipt)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">월 수령액 ({dcPayoutYears}년)</span>
+                  <span className="text-xs text-ink-3">월 수령액 ({dcPayoutYears}년)</span>
                   <div className="text-right">
                     <div className="text-sm text-accent tabular-nums">{Math.round(calc.dcIrpMonthly / 10000)}만원/월</div>
-                    <div className="text-2xs text-zinc-400 tabular-nums">세후 {Math.round(calc.dcIrpMonthly / 10000 * (1 - calcPensionTaxRate(calc.dcReceiptAge, dcPayoutYears)))}만원</div>
+                    <div className="text-2xs text-ink-4 tabular-nums">세후 {Math.round(calc.dcIrpMonthly / 10000 * (1 - calcPensionTaxRate(calc.dcReceiptAge, dcPayoutYears)))}만원</div>
                   </div>
                 </div>
               </div>
@@ -1433,12 +1433,12 @@ export default function Planner() {
                 <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 space-y-1.5">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="tag tag-tonal text-2xs">ISA ①</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">기존 계좌 · 해외ETF 위주</span>
+                    <span className="text-xs text-ink-3">기존 계좌 · 해외ETF 위주</span>
                     {isaLoaded && <span className="ml-auto text-xs text-accent tabular-nums font-semibold">{Math.round(isaBalance / 10000).toLocaleString()}만원</span>}
                   </div>
                   {isaActualPnlPct !== null && (
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">현재 계좌 누적 수익률</span>
+                      <span className="text-xs text-ink-3">현재 계좌 누적 수익률</span>
                       <span className={`text-xs font-semibold tabular-nums ${isaActualPnlPct >= 0 ? 'text-up' : 'text-down'}`}>
                         {isaActualPnlPct >= 0 ? '+' : ''}{isaActualPnlPct.toFixed(1)}%
                       </span>
@@ -1452,7 +1452,7 @@ export default function Planner() {
                 <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 space-y-1.5">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="tag tag-tonal text-2xs">ISA ②</span>
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">신규 · 국내 배당주 위주 (2026년 6월 예정)</span>
+                    <span className="text-xs text-ink-3">신규 · 국내 배당주 위주 (2026년 6월 예정)</span>
                   </div>
                   <StepField label="연수익률 가정" hint="시뮬레이션용" value={isa2Rate} step={0.5} min={1} max={15} unit="%"
                     onChange={v => { setIsa2Rate(v); localStorage.setItem('planner_isa2_rate', String(v)) }} />
@@ -1468,7 +1468,7 @@ export default function Planner() {
               </div>
               {/* ── 그래프 ── */}
               <div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5">나이별 ISA 잔액 추이 (파란=①해외ETF, 초록=②배당주)</p>
+                <p className="text-xs text-ink-4 mb-0.5">나이별 ISA 잔액 추이 (파란=①해외ETF, 초록=②배당주)</p>
                 <ISAMiniChart
                   isa1Balance={isaBalance}
                   isa1Monthly={isaMonthly * 10_000}
@@ -1481,11 +1481,11 @@ export default function Planner() {
               {/* ── 결과 ── */}
               <div className="card-inner p-3 space-y-1">
                 <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500">ISA① {retirementAge - CURRENT_AGE}년 운용 후 예상 (만 {retirementAge}세, {ageToYearMonth(retirementAge)})</span>
+                  <span className="text-ink-3">ISA① {retirementAge - CURRENT_AGE}년 운용 후 예상 (만 {retirementAge}세, {ageToYearMonth(retirementAge)})</span>
                   <span className="text-accent tabular-nums">{fmtEok(calc.isaAtRetirement)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-zinc-500">ISA② {retirementAge - CURRENT_AGE}년 운용 후 예상 (만 {retirementAge}세, {ageToYearMonth(retirementAge)})</span>
+                  <span className="text-ink-3">ISA② {retirementAge - CURRENT_AGE}년 운용 후 예상 (만 {retirementAge}세, {ageToYearMonth(retirementAge)})</span>
                   <span className="text-accent tabular-nums">{fmtEok(calcISA2Future(retirementAge, isa2Monthly * 10_000, isa2Rate / 100))}</span>
                 </div>
               </div>
@@ -1515,7 +1515,7 @@ export default function Planner() {
               {/* ── 설정 ── */}
               <div className="card-inner p-3 space-y-2.5">
                 <div>
-                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-2">수령 시점</label>
+                  <label className="text-xs font-medium text-ink-2 block mb-2">수령 시점</label>
                   <RangeSlider
                     value={npsReceiptAge}
                     min={60}
@@ -1526,11 +1526,11 @@ export default function Planner() {
                   />
                 </div>
                 {retirementAge < 65 && (
-                  <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-zinc-700">
+                  <div className="space-y-2 pt-2 border-t border-[var(--divide)]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-medium text-zinc-700 dark:text-zinc-200">임의계속가입 ({retirementAge}~65세, {ageToYear(retirementAge)}~{ageToYear(65)})</span>
-                        <p className="text-2xs text-zinc-400 mt-0.5">{65 - retirementAge}년 납부 가능 — 수령액 증가</p>
+                        <span className="text-xs font-medium text-ink-1">임의계속가입 ({retirementAge}~65세, {ageToYear(retirementAge)}~{ageToYear(65)})</span>
+                        <p className="text-2xs text-ink-4 mt-0.5">{65 - retirementAge}년 납부 가능 — 수령액 증가</p>
                       </div>
                       <button
                         onClick={() => setNpsVoluntaryCont(v => !v)}
@@ -1548,7 +1548,7 @@ export default function Planner() {
                           onChange={v => { setNpsVoluntaryMonthly(v); localStorage.setItem('planner_nps_voluntary_monthly', String(v)) }}
                         />
                         {calc.npsOptimalMonthly > 0 && (
-                          <p className={`text-2xs mt-0.5 ${npsVoluntaryMonthly >= calc.npsOptimalMonthly ? 'text-accent' : 'text-zinc-400'}`}>
+                          <p className={`text-2xs mt-0.5 ${npsVoluntaryMonthly >= calc.npsOptimalMonthly ? 'text-accent' : 'text-ink-4'}`}>
                             {npsVoluntaryMonthly >= calc.npsOptimalMonthly
                               ? `✓ 최적 납부액(${calc.npsOptimalMonthly}만원/월) 이상 — 최대 효과`
                               : `최적 납부액: ${calc.npsOptimalMonthly}만원/월 (이상 납부 시 최대 효과, 이후 증가 없음)`
@@ -1567,7 +1567,7 @@ export default function Planner() {
               {/* ── 그래프 ── */}
               <div>
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">수령나이별 월수령액 (선택 강조)</p>
+                  <p className="text-xs text-ink-4">수령나이별 월수령액 (선택 강조)</p>
                   <OcrBtn item="nps" title="국민연금 예상수령액" hint="국민연금 앱 '내 연금 알아보기' 화면을 업로드하세요. 65세 기준 예상 월수령액을 인식합니다." />
                 </div>
                 <NPSMiniChart selectedAge={npsReceiptAge} effectiveBase65={calc.npsEffective65} />
@@ -1583,7 +1583,7 @@ export default function Planner() {
                     내 은퇴(만 {retirementAge}세, {ageToYearMonth(retirementAge)})~국민연금 수령({npsReceiptAge}세, {ageToYearMonth(npsReceiptAge)}) 공백 <strong>{npsReceiptAge - retirementAge}년</strong> —{' '}
                     {sources.join('·')}으로 보완 필요
                     {unavailable.length > 0 && (
-                      <span className="text-zinc-400"> ({unavailable.join(', ')}은 공백기 시작 시점 불가)</span>
+                      <span className="text-ink-4"> ({unavailable.join(', ')}은 공백기 시작 시점 불가)</span>
                     )}
                   </div>
                 )
@@ -1591,33 +1591,33 @@ export default function Planner() {
               {/* ── 결과 ── */}
               <div className="card-inner p-3 space-y-1">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500">
+                  <span className="text-xs text-ink-3">
                     앱 확인값 (60세 납부 기준)
-                    <span className="ml-1 text-zinc-500 dark:text-zinc-400">({npsDate} 기준)</span>
+                    <span className="ml-1 text-ink-3">({npsDate} 기준)</span>
                     {npsBase !== NPS_BASE && <span className="ml-1 tag tag-tonal text-2xs">갱신됨</span>}
                   </span>
-                  <span className="text-xs text-zinc-700 dark:text-zinc-300 tabular-nums">{Math.round(npsBase / 10000)}만원/월</span>
+                  <span className="text-xs text-ink-1 tabular-nums">{Math.round(npsBase / 10000)}만원/월</span>
                 </div>
                 {retirementAge < 60 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500">{retirementAge}세({ageToYearMonth(retirementAge)}) 퇴직, 임의계속 없음</span>
-                    <span className="text-xs text-zinc-500 tabular-nums">{Math.round(calc.npsAtRetire65 / 10000)}만원/월</span>
+                    <span className="text-xs text-ink-3">{retirementAge}세({ageToYearMonth(retirementAge)}) 퇴직, 임의계속 없음</span>
+                    <span className="text-xs text-ink-3 tabular-nums">{Math.round(calc.npsAtRetire65 / 10000)}만원/월</span>
                   </div>
                 )}
                 {retirementAge < 65 && npsVoluntaryCont && calc.npsEffective65 !== calc.npsAtRetire65 && (
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500">임의계속가입 후 65세({ageToYear(65)}) 기준</span>
-                    <span className="text-xs text-zinc-500 tabular-nums">{Math.round(calc.npsEffective65 / 10000)}만원/월</span>
+                    <span className="text-xs text-ink-3">임의계속가입 후 65세({ageToYear(65)}) 기준</span>
+                    <span className="text-xs text-ink-3 tabular-nums">{Math.round(calc.npsEffective65 / 10000)}만원/월</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center">
-                  <span className="text-xs text-zinc-500">{npsReceiptAge}세({ageToYearMonth(npsReceiptAge)}) 수령 시</span>
+                  <span className="text-xs text-ink-3">{npsReceiptAge}세({ageToYearMonth(npsReceiptAge)}) 수령 시</span>
                   <span className="text-sm text-accent tabular-nums">{Math.round(calc.npsMonthly / 10000)}만원/월</span>
                 </div>
                 {npsReceiptAge < 65 && <p className="text-xs" style={{ color: 'var(--tag-amber-fg)' }}>조기수령 {(65 - npsReceiptAge) * 6}% 감액</p>}
                 {npsReceiptAge > 65 && <p className="text-xs" style={{ color: 'var(--tag-green-fg)' }}>연기수령 +{((npsReceiptAge - 65) * 7.2).toFixed(1)}% 가산</p>}
                 {retirementAge < 65 && !npsVoluntaryCont && (
-                  <p className="text-xs text-zinc-400">임의계속가입 미신청 → {Math.round(calc.npsAtRetire65 / 10000)}만원/월 ({Math.round((1 - calc.npsAtRetire65 / npsBase) * 100)}% 감소)</p>
+                  <p className="text-xs text-ink-4">임의계속가입 미신청 → {Math.round(calc.npsAtRetire65 / 10000)}만원/월 ({Math.round((1 - calc.npsAtRetire65 / npsBase) * 100)}% 감소)</p>
                 )}
               </div>
             </div>
@@ -1654,10 +1654,10 @@ export default function Planner() {
                 />
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">신청 시점 (만 55세 이상)</label>
+                    <label className="text-xs font-medium text-ink-2">신청 시점 (만 55세 이상)</label>
                     <button
                       onClick={() => setHousePensionTiming('retire')}
-                      className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-colors ${housePensionTiming === 'retire' ? 'bg-accent' : 'surface-subtle border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:bg-zinc-200'}`}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-colors ${housePensionTiming === 'retire' ? 'bg-accent' : 'surface-subtle border border-ink-5 text-ink-3 hover:bg-zinc-200'}`}
                       style={housePensionTiming === 'retire' ? { color: 'white' } : undefined}
                     >{retirementAge < 55 ? `55세(${ageToYear(55)}, 최소)` : '퇴직 즉시'}</button>
                   </div>
@@ -1672,7 +1672,7 @@ export default function Planner() {
               </div>
               {/* ── 그래프 ── */}
               <div>
-                <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-0.5">신청나이별 월수령액 · 시가(KB시세/실거래가) {housePrice}억 기준</p>
+                <p className="text-xs text-ink-4 mb-0.5">신청나이별 월수령액 · 시가(KB시세/실거래가) {housePrice}억 기준</p>
                 <HousingPensionMiniChart housePrice={housePrice} selectedAge={calc.effectiveHpAge} mortgageBalance={mortgageCurrentBalance} />
               </div>
               {/* ── 코멘트 ── */}
@@ -1690,10 +1690,10 @@ export default function Planner() {
               {/* ── 결과 ── */}
               <div className="card-inner p-3 space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">{calc.effectiveHpAge}세({ageToYearMonth(calc.effectiveHpAge)}) 신청 시 월수령액</span>
+                  <span className="text-ink-3">{calc.effectiveHpAge}세({ageToYearMonth(calc.effectiveHpAge)}) 신청 시 월수령액</span>
                   <span className="text-accent tabular-nums font-semibold">{Math.round(calc.housePensionMonthly / 10000)}만원/월</span>
                 </div>
-                <div className="text-zinc-400">
+                <div className="text-ink-4">
                   {mortgageCurrentBalance > 0
                     ? `순자산 ${((housePrice * 1e8 - mortgageCurrentBalance) / 1e8).toFixed(2)}억 × ${HOUSING_PENSION_RATES[calc.effectiveHpAge] ?? 15.3}만/억 (주담대 일시상환 후)`
                     : `시가 ${housePrice}억 × ${HOUSING_PENSION_RATES[calc.effectiveHpAge] ?? 15.3}만/억 (종신정액형)`
@@ -1710,7 +1710,7 @@ export default function Planner() {
             title="⑥ 주담대 현황"
             dragHandle={dragHandle}
             badge={
-              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs tabular-nums text-ink-3">
                 잔액 {fmtEok(calc.currentMortgage)}
               </span>
             }
@@ -1719,7 +1719,7 @@ export default function Planner() {
               {/* 그래프 맨 위 */}
               <div>
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">나이별 잔여 원금 추이 (현재 잔액 기준)</p>
+                  <p className="text-xs text-ink-4">나이별 잔여 원금 추이 (현재 잔액 기준)</p>
                   <OcrBtn item="mortgage" title="주담대 대출 현황" hint="은행 앱의 대출 상세 화면을 업로드하세요. 현재 잔여원금과 대출 개시일을 인식합니다." />
                 </div>
                 <MortgageMiniChart currentBalance={mortgageCurrentBalance} remainingMonths={calc.mortgageRemainingMonths} />
@@ -1729,8 +1729,8 @@ export default function Planner() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="flex items-center gap-1 mb-1.5">
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">현재 잔여원금</span>
-                    <span className="text-2xs text-zinc-400">({mortgageBalanceDate})</span>
+                    <span className="text-xs font-medium text-ink-2">현재 잔여원금</span>
+                    <span className="text-2xs text-ink-4">({mortgageBalanceDate})</span>
                     {mortgageCurrentBalance !== MORTGAGE_BALANCE_DEFAULT && <span className="tag tag-tonal text-2xs">갱신됨</span>}
                   </div>
                   <StepField
@@ -1740,17 +1740,17 @@ export default function Planner() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1">
+                  <label className="text-xs font-medium text-ink-2 block mb-1">
                     대출 개시일
                   </label>
                   <input
                     type="date"
                     value={mortgageStartDate}
                     onChange={e => setMortgageStartDate(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-xs tabular-nums text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-1.5 rounded-lg border border-ink-5 bg-white dark:bg-zinc-800 text-xs tabular-nums text-ink-0 focus:outline-none focus:border-accent"
                   />
                   {mortgageStartDate && (
-                    <p className="text-xs text-zinc-400 mt-0.5">경과 {calc.mortgageElapsedMonths}개월 · 잔여 {calc.mortgageRemainingMonths}개월</p>
+                    <p className="text-xs text-ink-4 mt-0.5">경과 {calc.mortgageElapsedMonths}개월 · 잔여 {calc.mortgageRemainingMonths}개월</p>
                   )}
                 </div>
               </div>
@@ -1758,11 +1758,11 @@ export default function Planner() {
               {/* 결과 2열 */}
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="card-inner px-3 py-2">
-                  <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">월 상환액</div>
-                  <div className="text-zinc-700 dark:text-zinc-300 tabular-nums font-semibold">{Math.round(calc.mortgagePaymentMonthly / 10000)}만원/월</div>
+                  <div className="text-ink-3 mb-0.5">월 상환액</div>
+                  <div className="text-ink-1 tabular-nums font-semibold">{Math.round(calc.mortgagePaymentMonthly / 10000)}만원/월</div>
                 </div>
                 <div className="card-inner px-3 py-2">
-                  <div className="text-zinc-500 dark:text-zinc-400 mb-0.5">완납 예정</div>
+                  <div className="text-ink-3 mb-0.5">완납 예정</div>
                   <div className="text-accent tabular-nums font-semibold">{calc.mortgagePaidOffAge}세 ({BIRTH_YEAR + calc.mortgagePaidOffAge}년)</div>
                 </div>
               </div>
@@ -1772,7 +1772,7 @@ export default function Planner() {
                   월 {Math.round(calc.mortgagePaymentMonthly / 10000)}만원 지출 유지
                 </div>
               )}
-              <div className="text-xs text-zinc-400 surface-subtle rounded-lg px-3 py-2">
+              <div className="text-xs text-ink-4 surface-subtle rounded-lg px-3 py-2">
                 <span className="tag tag-tonal mr-1">고정금리</span>
                 {(MORTGAGE_RATE_ANNUAL * 100).toFixed(2)}% · 전체 {MORTGAGE_MONTHS}개월 (30년, 2020-03-09 개시)
               </div>
@@ -1787,7 +1787,7 @@ export default function Planner() {
             dragHandle={dragHandle}
             badge={
               !irpLoaded
-                ? <span className="text-xs text-zinc-400">미개설</span>
+                ? <span className="text-xs text-ink-4">미개설</span>
                 : <span className="text-xs text-accent font-semibold tabular-nums">
                     60세({ageToYear(60)}) {Math.round(calc.personalIrpMonthlyReceipt / 10000)}만원/월
                   </span>
@@ -1804,13 +1804,13 @@ export default function Planner() {
               {irpLoaded ? (
                 <div className="rounded-lg bg-accent/10 p-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-600 dark:text-zinc-400 font-medium">포트폴리오 연동 잔액 (IRP)</span>
+                    <span className="text-xs text-ink-2 font-medium">포트폴리오 연동 잔액 (IRP)</span>
                     <span className="text-sm text-accent tabular-nums">
                       {Math.round(personalIrpBalance / 10000).toLocaleString()}만원
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">운용 수익률 (자동)</span>
+                    <span className="text-xs text-ink-3">운용 수익률 (자동)</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-accent tabular-nums">
                         {personalIrpRate.toFixed(1)}%
@@ -1827,12 +1827,12 @@ export default function Planner() {
                   </div>
                 </div>
               ) : (
-                <div className="card-inner px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
+                <div className="card-inner px-3 py-2 text-xs text-ink-3">
                   미개설 — 포트폴리오에 IRP 계좌 추가 시 자동연동됩니다.
                 </div>
               )}
               <div>
-                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block mb-1.5">
+                <label className="text-xs font-medium text-ink-2 block mb-1.5">
                   월납입액 (만원)
                 </label>
                 <input
@@ -1842,19 +1842,19 @@ export default function Planner() {
                   step={5}
                   value={personalIrpMonthly}
                   onChange={e => setPersonalIrpMonthly(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-sm tabular-nums text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-accent"
+                  className="w-full px-3 py-2 rounded-lg border border-ink-5 bg-white dark:bg-zinc-800 text-sm tabular-nums text-ink-0 focus:outline-none focus:border-accent"
                 />
               </div>
               {(irpLoaded || personalIrpMonthly > 0) && (
                 <div className="card-inner p-3 space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500">60세({ageToYear(60)}) 예상잔액</span>
+                    <span className="text-xs text-ink-3">60세({ageToYear(60)}) 예상잔액</span>
                     <span className="text-xs text-accent tabular-nums">
                       {fmtEok(calc.personalIrpAt60)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-500">월 수령액 (20년)</span>
+                    <span className="text-xs text-ink-3">월 수령액 (20년)</span>
                     <span className="text-xs text-accent tabular-nums">
                       {Math.round(calc.personalIrpMonthlyReceipt / 10000)}만원/월
                     </span>
@@ -1868,10 +1868,10 @@ export default function Planner() {
             </SortableContext>
             <DragOverlay>
               {activePlannerCardId && (
-                <div className="shadow-xl rounded-xl border border-zinc-200 dark:border-zinc-700 pointer-events-none card overflow-hidden">
+                <div className="shadow-xl rounded-xl border border-ink-5 pointer-events-none card overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 surface-subtle">
-                    <GripVertical size={13} className="text-zinc-300 dark:text-zinc-600" />
-                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    <GripVertical size={13} className="text-ink-5" />
+                    <span className="text-sm text-ink-1">
                       {PLANNER_CARD_TITLES[activePlannerCardId]}
                     </span>
                   </div>
@@ -1883,7 +1883,7 @@ export default function Planner() {
 
         {/* ── 오른쪽 컬럼: AI 은퇴 시나리오 ── */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 px-1">AI 은퇴 시나리오</h2>
+          <h2 className="text-sm font-semibold text-ink-1 px-1">AI 은퇴 시나리오</h2>
           <AiStatusBadge />
           <div className="card p-4">
             <PlannerChat request={chatRequest} />

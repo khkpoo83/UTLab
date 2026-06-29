@@ -5,7 +5,7 @@ import apiClient, { settingsApi } from '../api/client'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
-type PhotoSource = 'unsplash' | 'openverse' | 'wikimedia' | 'aic'
+type PhotoSource = 'naver' | 'google' | 'unsplash' | 'pexels' | 'pixabay' | 'openverse' | 'wikimedia' | 'aic'
 
 interface ArtWork {
   id: string
@@ -35,10 +35,33 @@ interface WikiPage {
 const DEFAULT_KEYWORD = 'nature landscape'
 
 const SRC_LABEL: Record<PhotoSource, string> = {
+  naver:     'NAVER',
+  google:    'Google',
   unsplash:  'Unsplash',
+  pexels:    'Pexels',
+  pixabay:   'Pixabay',
   openverse: 'Openverse',
   wikimedia: 'Wikimedia',
   aic:       'Art Institute',
+}
+
+// 매일 다른 3~4장 + 자동 순환
+const DAILY_COUNT     = 4
+const ROTATE_MS       = 12000   // 자동 다음 이미지 간격
+const DAILY_PAGES     = 8       // 날짜별로 이 범위 내 페이지를 순환 → 매일 다른 풀
+const DAILY_CACHE_KEY = 'photo_daily_v1'
+
+function todayKey(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+}
+function dayOfYear(): number {
+  const d = new Date()
+  const start = new Date(d.getFullYear(), 0, 0)
+  return Math.floor((d.getTime() - start.getTime()) / 86_400_000)
+}
+function shuffle<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5)
 }
 
 function stripHtml(s: string) {
@@ -221,8 +244,8 @@ function KeywordOverlay({
         </button>
       </div>
       <p className="text-white/45 text-[11px] mt-2.5 text-center leading-relaxed">
-        Unsplash · Openverse · Wikimedia · Art Institute<br />
-        <span className="text-white/30">한글 입력 OK (자동 번역) · 꽃 · 바다 · 추상 · 건축</span>
+        Google · Unsplash · Pexels · Pixabay<br />
+        <span className="text-white/30">연예인·고유명사 OK (예: 뉴진스, BTS) · 한글 그대로 입력</span>
       </p>
     </div>
   )
@@ -245,8 +268,6 @@ export default function PhotoWidget({
 
   const [keyword,      setKeyword]      = useState(DEFAULT_KEYWORD)
   const [artworks,     setArtworks]     = useState<ArtWork[]>([])
-  const [fromBackend,  setFromBackend]  = useState(false)
-  const [page,         setPage]         = useState(1)
   const [idx,          setIdx]          = useState(0)
   const [loading,      setLoading]      = useState(true)
   const [fetchError,   setFetchError]   = useState(false)
@@ -268,21 +289,46 @@ export default function PhotoWidget({
 
   const thumbW = Math.min(1200, Math.max(400, widgetW * 300))
 
-  const loadArtworks = useCallback(async (kw: string, tw: number, pg = 1) => {
+  const loadArtworks = useCallback(async (kw: string, tw: number, opts?: { force?: boolean }) => {
+    const force = opts?.force ?? false
+
+    // 오늘 캐시가 있으면 즉시 사용 (수동 새로고침 없이 자동 표시, 깜빡임 없음)
+    if (!force) {
+      try {
+        const raw = localStorage.getItem(DAILY_CACHE_KEY)
+        if (raw) {
+          const c = JSON.parse(raw) as { dayKey: string; keyword: string; items: ArtWork[] }
+          if (c.dayKey === todayKey() && c.keyword === kw && c.items?.length) {
+            setArtworks(c.items)
+            setIdx(Math.floor(Math.random() * c.items.length))
+            setLoading(false); setFetchError(false); setImgError(false)
+            return
+          }
+        }
+      } catch { /* 캐시 파싱 실패 시 그냥 새로 가져옴 */ }
+    }
+
     setLoading(true)
     setFetchError(false)
     setImgError(false)
+    // 날짜 기반 페이지 → 매일 다른 풀. 강제 새로고침은 임의 페이지로 새 이미지.
+    const pg = force
+      ? Math.floor(Math.random() * DAILY_PAGES) + 1
+      : (dayOfYear() % DAILY_PAGES) + 1
     try {
-      const { items, fromBackend: fb } = await fetchArtworks(kw, tw, widgetW, widgetH, pg)
+      const { items } = await fetchArtworks(kw, tw, widgetW, widgetH, pg)
       if (items.length === 0) {
         setFetchError(true)
         setArtworks([])
       } else {
-        // 백엔드 결과는 Unsplash 우선 순서 유지, 폴백(미술관)은 섞어서 다양화
-        setArtworks(fb ? items : [...items].sort(() => Math.random() - 0.5))
-        setFromBackend(fb)
-        setPage(pg)
+        // 매일 다른 3~4장을 랜덤 추출 후 자동 순환
+        const picked = shuffle(items).slice(0, DAILY_COUNT)
+        setArtworks(picked)
         setIdx(0)
+        // 강제 새로고침도 캐시에 반영 → 자동 로드와 표시 일관성 유지
+        try {
+          localStorage.setItem(DAILY_CACHE_KEY, JSON.stringify({ dayKey: todayKey(), keyword: kw, items: picked }))
+        } catch { /* localStorage quota */ }
       }
     } catch {
       setFetchError(true)
@@ -321,22 +367,23 @@ export default function PhotoWidget({
     return () => clearTimeout(t)
   }, [imgError, artworks.length])
 
+  // 자동 순환 — 일정 간격으로 다음 이미지 (편집/오류 중에는 멈춤)
+  useEffect(() => {
+    if (artworks.length <= 1 || editingKw || imgError) return
+    const t = setInterval(() => setIdx(i => (i + 1) % artworks.length), ROTATE_MS)
+    return () => clearInterval(t)
+  }, [artworks.length, editingKw, imgError])
+
   function refresh() {
-    if (artworks.length === 0) { loadArtworks(keyword, thumbW, 1); return }
+    // 강제 새로고침: 새 임의 페이지에서 다른 3~4장
     setImgError(false)
-    // 백엔드 소스: 마지막 이미지면 다음 페이지 로드, 아니면 다음으로 이동
-    if (fromBackend && idx >= artworks.length - 1) {
-      loadArtworks(keyword, thumbW, page + 1)
-    } else {
-      setIdx(i => (i + 1) % artworks.length)
-    }
+    loadArtworks(keyword, thumbW, { force: true })
   }
 
   function applyKeyword() {
     const kw = kwDraft.trim() || DEFAULT_KEYWORD
     setEditingKw(false)
-    if (kw === keyword) { loadArtworks(kw, thumbW, 1); return }
-    setPage(1)
+    if (kw === keyword) { loadArtworks(kw, thumbW, { force: true }); return }
     setKeyword(kw)
     settingsApi.update({ ui_photo_keyword: kw }).catch(console.error)
   }
@@ -425,7 +472,9 @@ export default function PhotoWidget({
                 )}
                 <div className="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between gap-2">
                   <div className="min-w-0">
-                    {current.source === 'unsplash' && current.artist ? (
+                    {/* 검색 소스(네이버/구글 등)의 제목은 뉴스 헤드라인처럼 보여 표시하지 않음.
+                        Unsplash는 라이선스상 저작자 표기가 필요해 유지 */}
+                    {current.source === 'unsplash' && current.artist && (
                       <p className="text-white/55 text-[10px] drop-shadow truncate leading-snug">
                         Photo by{' '}
                         <a
@@ -444,17 +493,6 @@ export default function PhotoWidget({
                           onClick={e => e.stopPropagation()}
                         >Unsplash</a>
                       </p>
-                    ) : (
-                      <>
-                        <p className="text-white text-sm font-semibold leading-snug drop-shadow line-clamp-2">
-                          {current.title}
-                        </p>
-                        {current.artist && (
-                          <p className="text-white/65 text-xs mt-0.5 drop-shadow truncate">
-                            {current.artist}
-                          </p>
-                        )}
-                      </>
                     )}
                   </div>
                   <div className="text-right flex-shrink-0">

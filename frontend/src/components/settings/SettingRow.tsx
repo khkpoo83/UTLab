@@ -11,8 +11,8 @@ export function SettingRow({ title, desc, control, className = '' }: SettingRowP
   return (
     <div className={`flex items-center justify-between gap-4 ${className}`}>
       <div className="min-w-0">
-        <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200">{title}</p>
-        {desc && <p className="text-2xs text-zinc-400 mt-0.5">{desc}</p>}
+        <p className="text-sm font-medium text-ink-1">{title}</p>
+        {desc && <p className="text-2xs text-ink-4 mt-0.5">{desc}</p>}
       </div>
       <div className="flex-shrink-0">{control}</div>
     </div>

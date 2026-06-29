@@ -295,7 +295,7 @@ export default function MemoPage() {
       <MemoTopBar count={notes.length} />
 
       {loading ? (
-        <div className="flex items-center justify-center py-32 text-zinc-400 text-sm">
+        <div className="flex items-center justify-center py-32 text-ink-4 text-sm">
           불러오는 중…
         </div>
       ) : notes.length === 0 ? (
@@ -346,7 +346,7 @@ function EmptyWall({ onAdd }: { onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-28 gap-4">
       <div className="text-5xl opacity-30 select-none">📌</div>
-      <p className="text-zinc-400 dark:text-zinc-500 text-sm">
+      <p className="text-ink-4 text-sm">
         아직 메모가 없어요. 아이디어를 붙여보세요!
       </p>
       <button
@@ -710,7 +710,7 @@ function MemoFAB({ onClick }: { onClick: () => void }) {
         transform: hover ? 'translateY(-2px)' : 'translateY(0)',
         transition: 'transform 150ms ease, box-shadow 150ms ease',
       }}
-      className="dark:bg-zinc-800 dark:border-zinc-600"
+      className="dark:bg-zinc-800 dark:border-ink-4"
     >
       <span style={{
         width: 22, height: 22, borderRadius: 999,
@@ -771,9 +771,9 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
         onClick={e => e.stopPropagation()}
       >
         {/* 상단 바 */}
-        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-zinc-100 dark:border-zinc-800">
-          <span className="font-mono text-[11px] tracking-widest uppercase text-zinc-400 dark:text-zinc-500">
-            memo / <span className="text-zinc-700 dark:text-zinc-200">{editing.isNew ? 'new' : 'edit'}</span>
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-[var(--divide)]">
+          <span className="font-mono text-[11px] tracking-widest uppercase text-ink-4">
+            memo / <span className="text-ink-1">{editing.isNew ? 'new' : 'edit'}</span>
           </span>
           <div className="flex items-center gap-3">
             <span className={`font-mono text-[11px] tracking-wide ${titleEmpty ? 'text-amber-500' : 'text-emerald-500'}`}>
@@ -785,7 +785,7 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
               onClick={onCloseSave}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
                 titleEmpty
-                  ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700'
+                  ? 'bg-zinc-100 dark:bg-zinc-800 text-ink-4 border border-ink-5'
                   : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
               }`}
             >
@@ -803,20 +803,20 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
             onChange={e => setEditing({ ...editing, title: e.target.value })}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); setTab('write') } }}
             placeholder="제목 (필수)"
-            className="w-full bg-transparent border-b border-zinc-200 dark:border-zinc-700 outline-none text-2xl font-bold tracking-tight pb-2 mb-1 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
+            className="w-full bg-transparent border-b border-[var(--line)] outline-none text-2xl font-bold tracking-tight pb-2 mb-1 text-ink-0 placeholder:text-ink-5"
           />
         </div>
 
         {/* 탭 */}
-        <div className="flex items-center gap-0 px-5 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center gap-0 px-5 border-b border-[var(--divide)]">
           {(['write', 'preview', 'guide'] as EditorTab[]).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 tab === t
-                  ? 'border-zinc-800 dark:border-zinc-100 text-zinc-900 dark:text-zinc-100'
-                  : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                  ? 'border-ink-0 text-ink-0'
+                  : 'border-transparent text-ink-4 hover:text-ink-2'
               }`}
             >
               {t === 'write' ? '작성' : t === 'preview' ? '미리보기' : '입력 가이드'}
@@ -824,7 +824,7 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
           ))}
           <div className="flex-1" />
           {tab === 'write' && (
-            <span className="font-mono text-[11px] text-zinc-400 pr-1">
+            <span className="font-mono text-[11px] text-ink-4 pr-1">
               {editing.body.length.toLocaleString()} chars
             </span>
           )}
@@ -837,7 +837,7 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
               value={editing.body}
               onChange={e => setEditing({ ...editing, body: e.target.value })}
               placeholder={'마크다운으로 작성하세요.\n「입력 가이드」 탭에서 명세서용 템플릿을 삽입할 수 있어요.\n\n## 목적 / 배경\n\n## 화면 구성\n'}
-              className="flex-1 w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 p-4 outline-none resize-y font-mono text-sm leading-relaxed"
+              className="flex-1 w-full bg-zinc-50 dark:bg-zinc-900 border border-ink-5 rounded-xl text-ink-0 p-4 outline-none resize-y font-mono text-sm leading-relaxed"
               style={{ minHeight: 380 }}
               spellCheck={false}
             />
@@ -849,18 +849,18 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
             <div className="flex-1 overflow-y-auto memo-md-preview" style={{ minHeight: 380 }}>
               {editing.body.trim()
                 ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                : <p className="text-zinc-400 italic text-sm">(미리볼 내용이 없습니다)</p>
+                : <p className="text-ink-4 italic text-sm">(미리볼 내용이 없습니다)</p>
               }
             </div>
           )}
         </div>
 
         {/* 푸터 */}
-        <div className="flex items-center justify-between px-5 py-2.5 border-t border-zinc-100 dark:border-zinc-800 text-xs text-zinc-400 font-mono">
+        <div className="flex items-center justify-between px-5 py-2.5 border-t border-[var(--divide)] text-xs text-ink-4 font-mono">
           <span className="flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[10px]">Esc</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border border-ink-5 bg-zinc-50 dark:bg-zinc-800 text-[10px]">Esc</kbd>
             저장 ·
-            <kbd className="px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-[10px]">⌘S</kbd>
+            <kbd className="px-1.5 py-0.5 rounded border border-ink-5 bg-zinc-50 dark:bg-zinc-800 text-[10px]">⌘S</kbd>
             저장
           </span>
           <span>{editing.isNew ? 'new note' : 'editing'}</span>
@@ -877,7 +877,7 @@ function GuideTab({ onInsert }: { onInsert: (build: () => string) => void }) {
     <div className="flex flex-col gap-5 overflow-y-auto" style={{ minHeight: 380 }}>
       {/* 템플릿 삽입 */}
       <div>
-        <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2.5">
+        <p className="text-[11px] font-semibold text-ink-4 uppercase tracking-wider mb-2.5">
           템플릿 삽입
         </p>
         <div className="flex flex-wrap gap-2">
@@ -885,22 +885,22 @@ function GuideTab({ onInsert }: { onInsert: (build: () => string) => void }) {
             <button
               key={t.id}
               onClick={() => onInsert(t.build)}
-              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors"
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm border border-ink-5 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-ink-5 transition-colors"
             >
               <span className="text-base leading-none">{t.emoji}</span>
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300">{t.label}</span>
-              <span className="text-[11px] text-zinc-400 font-mono">↵</span>
+              <span className="font-semibold text-ink-1">{t.label}</span>
+              <span className="text-[11px] text-ink-4 font-mono">↵</span>
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-2">
-          클릭하면 현재 본문에 삽입됩니다. 명세서 항목을 채워두면 <strong className="text-zinc-600 dark:text-zinc-300">「○○ 명세서 만들어줘」</strong> AI 호출 시 컨텍스트로 활용됩니다.
+        <p className="text-[11px] text-ink-4 mt-2">
+          클릭하면 현재 본문에 삽입됩니다. 명세서 항목을 채워두면 <strong className="text-ink-2">「○○ 명세서 만들어줘」</strong> AI 호출 시 컨텍스트로 활용됩니다.
         </p>
       </div>
 
       {/* 마크다운 문법 가이드 */}
-      <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4">
-        <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-3">
+      <div className="border-t border-[var(--divide)] pt-4">
+        <p className="text-[11px] font-semibold text-ink-4 uppercase tracking-wider mb-3">
           마크다운 문법
         </p>
         <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
@@ -942,15 +942,15 @@ function GuideTab({ onInsert }: { onInsert: (build: () => string) => void }) {
 
 function GuideBlock({ title, items }: { title: string; items: [string, string][] }) {
   return (
-    <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 overflow-hidden">
-      <div className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800/60 border-b border-zinc-100 dark:border-zinc-800">
-        <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">{title}</span>
+    <div className="rounded-xl surface border border-ink-5 overflow-hidden">
+      <div className="px-3 py-1.5 bg-zinc-50 dark:bg-zinc-800/60 border-b border-[var(--divide)]">
+        <span className="text-[10px] font-semibold text-ink-3 uppercase tracking-wide">{title}</span>
       </div>
-      <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+      <div className="divide-y divide-[var(--divide)]">
         {items.map(([code, desc], i) => (
           <div key={i} className="flex items-center gap-2.5 px-3 py-1.5">
-            <code className="text-[11px] font-mono text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded whitespace-pre shrink-0">{code}</code>
-            <span className="text-[11px] text-zinc-400 dark:text-zinc-500">{desc}</span>
+            <code className="text-[11px] font-mono text-ink-1 bg-zinc-50 dark:bg-zinc-800 px-1.5 py-0.5 rounded whitespace-pre shrink-0">{code}</code>
+            <span className="text-[11px] text-ink-4">{desc}</span>
           </div>
         ))}
       </div>
@@ -979,17 +979,17 @@ function ConfirmDeleteModal({ note, onCancel, onConfirm }: {
         className="w-full max-w-sm panel-surface border rounded-2xl shadow-2xl p-5"
         onClick={e => e.stopPropagation()}
       >
-        <p className="font-mono text-[11px] tracking-widest uppercase text-zinc-400 mb-3">
+        <p className="font-mono text-[11px] tracking-widest uppercase text-ink-4 mb-3">
           memo / <span className="text-red-500">delete</span>
         </p>
-        <p className="text-lg font-semibold mb-1 text-zinc-900 dark:text-zinc-100">이 메모를 삭제할까요?</p>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-5">
-          "<span className="font-semibold text-zinc-800 dark:text-zinc-200">{note.title}</span>" — 삭제하면 되돌릴 수 없어요.
+        <p className="text-lg font-semibold mb-1 text-ink-0">이 메모를 삭제할까요?</p>
+        <p className="text-sm text-ink-3 mb-5">
+          "<span className="font-semibold text-ink-0">{note.title}</span>" — 삭제하면 되돌릴 수 없어요.
         </p>
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm border border-ink-5 text-ink-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
           >
             취소
           </button>

@@ -492,7 +492,7 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
       <text x={textX}                         y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="currentColor">U</text>
       <text x={textX + uW}                    y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="#F59E0B">.</text>
       <text x={textX + uW + dotW}             y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="700" fill="currentColor">T</text>
-      <text x={textX + uW + dotW + tW}        y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="300" fill="currentColor" opacity="0.7"> Lab</text>
+      <text x={textX + uW + dotW + tW}        y={baseY} fontFamily="Pretendard,system-ui,sans-serif" fontSize={fs} fontWeight="300" fill="currentColor" opacity="0.7"> Lab4</text>
     </svg>
   )
 }
@@ -501,7 +501,7 @@ const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', iconStyle, ico
 function LogoWordmark({ fs }: { fs: number; ih?: number }) {
   return (
     <span style={{ fontSize: fs, fontWeight: 700, letterSpacing: '-0.025em', color: 'inherit', lineHeight: 1, fontFamily: 'Pretendard,system-ui,sans-serif' }}>
-      U<span style={{ color: '#F59E0B' }}>.</span>T<span style={{ fontWeight: 300, opacity: 0.72 }}> Lab</span>
+      U<span style={{ color: '#F59E0B' }}>.</span>T<span style={{ fontWeight: 300, opacity: 0.72 }}> Lab4</span>
     </span>
   )
 }

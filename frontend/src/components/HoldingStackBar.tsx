@@ -14,7 +14,7 @@ const HoldingStackBar: React.FC<HoldingStackBarProps> = ({ items, portfolioValue
 
   return (
     <div className="mb-3">
-      <p className="text-2xs text-zinc-400 mb-1">보유 종목</p>
+      <p className="text-2xs text-ink-4 mb-1">보유 종목</p>
       <div className="flex h-5 rounded overflow-hidden gap-px">
         {items.map((item, i) => {
           const w = total > 0 ? (values[i] / total * 100) : (100 / items.length)
@@ -34,7 +34,7 @@ const HoldingStackBar: React.FC<HoldingStackBarProps> = ({ items, portfolioValue
         {items.map((item, i) => {
           const w = total > 0 ? (values[i] / total * 100) : (100 / items.length)
           return (
-            <span key={item.ticker} className="flex items-center gap-1 text-2xs text-zinc-500">
+            <span key={item.ticker} className="flex items-center gap-1 text-2xs text-ink-3">
               <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: p[i % p.length] }} />
               {item.name} ({w.toFixed(1)}%)
             </span>

@@ -93,11 +93,59 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
   const yPad = Math.max((yMax - yMin) * 0.1, yMax * 0.05)
   const areaDomain: [number, number] = [Math.max(0, yMin - yPad), yMax + yPad]
 
-  const tooltipStyle = {
-    fontSize: 10, padding: '4px 8px', borderRadius: 6,
-    backgroundColor: 'var(--tooltip-bg)',
+  const tooltipBox: React.CSSProperties = {
+    background: 'var(--tooltip-bg)',
     border: '1px solid var(--tooltip-border)',
-    color: 'var(--tooltip-text)',
+    borderRadius: 10,
+    padding: '9px 11px',
+    boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
+    minWidth: 140,
+  }
+  const ttRow = (color: string, lbl: string, val: React.ReactNode) => (
+    <div key={lbl} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 11, lineHeight: 1.65 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--tooltip-label)' }}>
+        {color
+          ? <span style={{ width: 12, height: 0, borderTop: `2px ${color === DASH ? 'dashed' : 'solid'} ${color}`, display: 'inline-block', flexShrink: 0 }} />
+          : <span style={{ width: 12, flexShrink: 0 }} />}
+        {lbl}
+      </span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500, color: 'var(--tooltip-text)' }}>{val}</span>
+    </div>
+  )
+
+  // 차트1 툴팁: 평가금을 큰 글씨로
+  const renderAreaTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    const p = payload[0].payload
+    const diff = p.value - p.cost
+    const up = diff >= 0
+    return (
+      <div style={tooltipBox}>
+        <div style={{ fontSize: 10, color: 'var(--tooltip-label)', marginBottom: 5 }}>{label}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: 'var(--tooltip-text)' }}>
+          {fmtKRW(p.value)}
+        </div>
+        <div style={{ fontSize: 9.5, color: 'var(--tooltip-label)', marginTop: 1, marginBottom: 6 }}>평가금+실현손익</div>
+        {ttRow(DASH, '투자원금', fmtKRW(p.cost))}
+        {ttRow('', '평가손익', <span style={{ color: up ? UP : DN, fontWeight: 600 }}>{`${up ? '+' : ''}${fmtKRW(diff)}`}</span>)}
+      </div>
+    )
+  }
+
+  // 차트2 툴팁: 월별 손익을 큰 글씨로
+  const renderMonthlyTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null
+    const v = payload[0].payload.delta as number
+    const up = v >= 0
+    return (
+      <div style={tooltipBox}>
+        <div style={{ fontSize: 10, color: 'var(--tooltip-label)', marginBottom: 5 }}>{label}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: up ? UP : DN }}>
+          {up ? '+' : ''}{fmtKRW(v)}
+        </div>
+        <div style={{ fontSize: 9.5, color: 'var(--tooltip-label)', marginTop: 1 }}>월별 손익</div>
+      </div>
+    )
   }
 
   return (
@@ -114,8 +162,8 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
           {PERIODS.map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               className={`text-2xs px-1.5 py-0.5 rounded transition-colors ${period === p
-                ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium'
-                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}>
+                ? 'bg-zinc-200 dark:bg-zinc-700 text-ink-1 font-medium'
+                : 'text-ink-4 hover:text-ink-2'}`}>
               {PERIOD_LABELS[p]}
             </button>
           ))}
@@ -130,7 +178,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
             <Skeleton className="h-24 rounded" />
           </div>
         ) : !rawData.length ? (
-          <p className="text-xs text-zinc-400 text-center py-6">
+          <p className="text-xs text-ink-4 text-center py-6">
             히스토리 없음 · KIS 동기화 후 적립됩니다
           </p>
         ) : (
@@ -139,20 +187,20 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
             {stats && (
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3">
-                  <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-1 leading-tight">현재 수익금</p>
+                  <p className="text-2xs text-ink-3 mb-1 leading-tight">현재 수익금</p>
                   <p className={`text-sm font-bold tabular-nums leading-tight ${stats.currentPnl >= 0 ? 'text-up' : 'text-down'} ${pBlur}`}>
                     {stats.currentPnl >= 0 ? '+' : ''}{fmtKRW(stats.currentPnl)}
                   </p>
                 </div>
                 <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3">
-                  <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-1 leading-tight">최대 수익금</p>
+                  <p className="text-2xs text-ink-3 mb-1 leading-tight">최대 수익금</p>
                   <p className={`text-sm font-bold tabular-nums leading-tight text-up ${pBlur}`}>
                     +{fmtKRW(stats.maxPnl)}
                   </p>
                 </div>
                 <div className="bg-zinc-50 dark:bg-zinc-800/60 rounded-xl p-3">
-                  <p className="text-2xs text-zinc-500 dark:text-zinc-400 mb-1 leading-tight">최대 낙폭</p>
-                  <p className={`text-sm font-bold tabular-nums leading-tight ${stats.mdd < 0 ? 'text-down' : 'text-zinc-400'} ${pBlur}`}>
+                  <p className="text-2xs text-ink-3 mb-1 leading-tight">최대 낙폭</p>
+                  <p className={`text-sm font-bold tabular-nums leading-tight ${stats.mdd < 0 ? 'text-down' : 'text-ink-4'} ${pBlur}`}>
                     {stats.mdd < 0 ? fmtKRW(stats.mdd) : '—'}
                   </p>
                 </div>
@@ -161,7 +209,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
 
             {/* 차트 1: 투자원금 vs 평가금 */}
             <div>
-              <p className="text-2xs text-zinc-400 dark:text-zinc-500 mb-2 flex items-center gap-3">
+              <p className="text-2xs text-ink-4 mb-2 flex items-center gap-3">
                 <span>투자원금 vs 평가금</span>
                 <span className="flex items-center gap-1">
                   <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke={DASH} strokeWidth="1.5" strokeDasharray="4 2" /></svg>
@@ -180,15 +228,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
                     domain={areaDomain}
                     tickFormatter={fmtKRW}
                     tick={{ fontSize: 9, fill: TICK }} />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      fmtKRW(value),
-                      name === 'cost' ? '투자원금' : '평가금+실현손익',
-                    ]}
-                    contentStyle={tooltipStyle}
-                    itemStyle={{ color: 'var(--tooltip-text)', padding: '1px 0' }}
-                    labelStyle={{ color: 'var(--tooltip-label)', marginBottom: 2 }}
-                  />
+                  <Tooltip content={renderAreaTooltip} cursor={{ stroke: DASH, strokeOpacity: 0.5, strokeWidth: 1 }} />
                   {/* 평가금 영역 (배경 채움) */}
                   <Area type="monotone" dataKey="value"
                     fill={accentColor} stroke={accentColor}
@@ -201,7 +241,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
                     dot={false} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
-              <p className="text-2xs text-zinc-400 dark:text-zinc-500 mt-1">
+              <p className="text-2xs text-ink-4 mt-1">
                 점선(원금) 위 = 수익 구간 · 아래 = 손실 구간
               </p>
             </div>
@@ -209,7 +249,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
             {/* 차트 2: 월별 수익금 변동 */}
             {monthlyData.length >= 2 && (
               <div>
-                <p className="text-2xs text-zinc-400 dark:text-zinc-500 mb-2">월별 수익금 변동</p>
+                <p className="text-2xs text-ink-4 mb-2">월별 수익금 변동</p>
                 <ResponsiveContainer width="100%" height={90}>
                   <ComposedChart data={monthlyData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={GRID} strokeOpacity={0.7} vertical={false} />
@@ -219,15 +259,7 @@ const PortfolioReturnsCard: React.FC<Props> = ({ accountNo, privacyMode = false,
                       tick={{ fontSize: 9, fill: TICK }}
                       domain={[(v: number) => Math.min(v, 0), (v: number) => Math.max(v, 0)]} />
                     <ReferenceLine y={0} stroke={DASH} strokeWidth={1} />
-                    <Tooltip
-                      formatter={(value: number) => [
-                        `${value >= 0 ? '+' : ''}${fmtKRW(value)}`,
-                        '월별 손익',
-                      ]}
-                      contentStyle={tooltipStyle}
-                      itemStyle={{ color: 'var(--tooltip-text)', padding: '1px 0' }}
-                      labelStyle={{ color: 'var(--tooltip-label)', marginBottom: 2 }}
-                    />
+                    <Tooltip content={renderMonthlyTooltip} cursor={{ fill: TICK, fillOpacity: 0.08 }} />
                     <Bar dataKey="delta" barSize={20} radius={[2, 2, 0, 0]}>
                       {monthlyData.map((d, i) => (
                         <Cell key={i} fill={d.delta >= 0 ? UP : DN} fillOpacity={0.85} />

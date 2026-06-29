@@ -160,7 +160,7 @@ export interface PortfolioSummary {
 }
 
 export interface ChartPoint {
-  time: string          // "YYYY-MM-DD"
+  time: string | number // 일봉="YYYY-MM-DD" / 분봉(1d·1w)=unix초
   open: number | null
   high: number | null
   low: number | null
@@ -259,8 +259,11 @@ export const portfolioApi = {
     retryGet<{ ticker: string; name: string; exchange: string }[]>(
       `/api/portfolio/search?q=${encodeURIComponent(q)}`
     ),
-  chartByTicker: (ticker: string, period: string) =>
-    retryGet<ChartPoint[]>(`/api/portfolio/by-ticker/${ticker}/chart?period=${period}`),
+  chartByTicker: (ticker: string, period: string, before?: number) =>
+    retryGet<ChartPoint[]>(
+      `/api/portfolio/by-ticker/${ticker}/chart?period=${period}` +
+      (before != null ? `&before=${before}` : '')
+    ),
   newsByTicker: (ticker: string, name?: string) =>
     retryGet<NewsItem[]>(`/api/portfolio/by-ticker/${ticker}/news${name ? `?name=${encodeURIComponent(name)}` : ''}`),
   infoByTicker: (ticker: string) =>

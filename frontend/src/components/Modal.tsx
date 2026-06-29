@@ -50,12 +50,12 @@ export function ModalHeader({ title, subtitle, onClose }: ModalHeaderProps) {
   return (
     <div className="flex items-start justify-between gap-2 px-5 pt-5 pb-0">
       <div>
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
-        {subtitle && <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">{subtitle}</p>}
+        <h3 className="text-sm font-semibold text-ink-0">{title}</h3>
+        {subtitle && <p className="text-xs text-ink-3 mt-0.5">{subtitle}</p>}
       </div>
       <button
         onClick={onClose}
-        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors flex-shrink-0 mt-0.5"
+        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-ink-4 hover:text-ink-2 transition-colors flex-shrink-0 mt-0.5"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

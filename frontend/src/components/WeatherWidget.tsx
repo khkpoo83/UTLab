@@ -12,9 +12,10 @@ import { Card } from './Card'
 
 // ── 날씨 아이콘 스타일 ─────────────────────────────────────────────────────────
 
-export type WeatherIconStyle = 'fill' | 'flat' | 'line' | 'mono' | 'badge' | 'lucide'
+export type WeatherIconStyle = 'ut' | 'fill' | 'flat' | 'line' | 'mono' | 'badge' | 'lucide'
 
 export const WEATHER_ICON_STYLES: { id: WeatherIconStyle; label: string; desc: string }[] = [
+  { id: 'ut',     label: 'U.T Lab',  desc: '레이어드 블롭 글래스' },
   { id: 'fill',   label: 'Animated', desc: '컬러 애니메이션 아이콘' },
   { id: 'flat',   label: 'Flat',     desc: '플랫 컬러 스타일' },
   { id: 'line',   label: 'Line',     desc: '아웃라인 선 스타일' },
@@ -25,11 +26,11 @@ export const WEATHER_ICON_STYLES: { id: WeatherIconStyle; label: string; desc: s
 
 const ICON_STYLE_KEY = 'weather_icon_style'
 
-const VALID_ICON_STYLES = new Set<string>(['fill', 'flat', 'line', 'mono', 'badge', 'lucide'])
+const VALID_ICON_STYLES = new Set<string>(['ut', 'fill', 'flat', 'line', 'mono', 'badge', 'lucide'])
 
 export function getWeatherIconStyle(): WeatherIconStyle {
   const stored = localStorage.getItem(ICON_STYLE_KEY)
-  if (!stored || !VALID_ICON_STYLES.has(stored)) return 'fill'
+  if (!stored || !VALID_ICON_STYLES.has(stored)) return 'ut'
   return stored as WeatherIconStyle
 }
 
@@ -119,11 +120,40 @@ function WmoLucideIcon({ code, isNight, size, color }: {
   return <CloudLightning {...p} />
 }
 
+// ── U.T Lab 아이콘 매핑 (raw WMO code 기반) ───────────────────────────────────────
+// 세트: sunny, clear-night, partly, cloudy, cloudy-night, fog, rain, showers,
+//       snow, thunder, wind, dust + 강수강도 precip-light/moderate/heavy/downpour
+
+function wmoUtIcon(code: number, isNight: boolean): string {
+  if (code === 0)                 return isNight ? 'clear-night' : 'sunny'
+  if (code === 1 || code === 2)   return isNight ? 'cloudy-night' : 'partly'
+  if (code === 3)                 return isNight ? 'cloudy-night' : 'cloudy'
+  if (code === 45 || code === 48) return 'fog'
+  if (code >= 51 && code <= 67)   return 'rain'      // 이슬비·비·어는비
+  if (code >= 71 && code <= 77)   return 'snow'
+  if (code >= 80 && code <= 82)   return 'showers'   // 소나기
+  if (code === 85 || code === 86) return 'snow'
+  if (code >= 95)                 return 'thunder'   // 뇌우
+  return 'cloudy'
+}
+
+// 강수강도 아이콘 (WMO 코드 기반). 액체 강수가 아니면 null → 강수강도 아이콘 미표시
+function wmoPrecipIntensity(code: number): 'light' | 'moderate' | 'heavy' | 'downpour' | null {
+  switch (code) {
+    case 51: case 56: case 61: case 66: case 80: return 'light'      // 약한 비/이슬비/소나기
+    case 53: case 63: case 81: case 95:          return 'moderate'   // 보통 비/소나기/뇌우
+    case 55: case 57: case 65: case 67: case 82: case 96: return 'heavy'  // 강한 비/소나기
+    case 99:                                     return 'downpour'   // 폭우(우박 동반 뇌우)
+    default: return null
+  }
+}
+
 // ── Meteocons SVG 매핑 ──────────────────────────────────────────────────────────
 
 function wmoMeteocon(code: number, isNight: boolean, style: WeatherIconStyle = 'fill'): string {
   const g = wmoGroup(code)
   const dn = isNight ? 'night' : 'day'
+  if (style === 'ut') return `ut/${wmoUtIcon(code, isNight)}`
   // fill/mono/badge all use the root animated fill icons
   if (style === 'fill' || style === 'mono' || style === 'badge') {
     if (g === 'clear')   return isNight ? 'clear-night-v2' : 'clear-day-v2'
@@ -214,6 +244,26 @@ export function WeatherBadge({ code, isNight = false, size, iconStyle }: {
   )
 }
 
+// 강수 표시: 강수강도 아이콘(있을 때) + 강수확률 % 텍스트
+// 기존 💧 이모지 대체. 강도 아이콘은 U.T Lab precip 세트 사용(강도 세분화된 유일한 세트)
+function PrecipTag({ code, prob, iconSize = 14, className = '' }: {
+  code: number; prob: number; iconSize?: number; className?: string
+}) {
+  const intensity = wmoPrecipIntensity(code)
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-2xs text-blue-500 dark:text-blue-400 tabular-nums ${className}`}>
+      {intensity && (
+        <img
+          src={`/weather-icons/ut/precip-${intensity}.svg`}
+          width={iconSize} height={iconSize} alt=""
+          style={{ display: 'block', flexShrink: 0 }}
+        />
+      )}
+      {prob}%
+    </span>
+  )
+}
+
 // ── Data types ─────────────────────────────────────────────────────────────────
 
 interface HourlyPoint { hour: number; temp: number; precipProb: number; wmoCode: number }
@@ -253,9 +303,11 @@ function DayCol({ d, i, isSelected, onSelect, compact, iconStyle }: {
       } ${isSelected ? 'bg-accent/8 dark:bg-accent/12' : onSelect ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' : ''}`}
     >
       <span className="text-2xs font-medium truncate w-full text-center" style={{ color: 'var(--ink-3)' }}>{dayName}</span>
-      <WeatherBadge code={d.wmoCode} size={compact ? 20 : 28} iconStyle={iconStyle} />
-      <span className="text-2xs font-semibold tabular-nums" style={{ color: 'var(--ink-1)' }}>{d.tempMax}°</span>
-      <span className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
+      <WeatherBadge code={d.wmoCode} size={compact ? 40 : 48} iconStyle={iconStyle} />
+      <div className="flex items-baseline gap-1 tabular-nums leading-none">
+        <span className="text-2xs font-semibold" style={{ color: 'var(--ink-1)' }}>{d.tempMax}°</span>
+        <span className="text-2xs" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
+      </div>
     </div>
   )
 }
@@ -273,7 +325,7 @@ function FlatDayItem({ d, i, iconStyle }: { d: DayForecast; i: number; iconStyle
           <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: 'var(--ink-0)' }}>{d.tempMax}°</span>
         </div>
         <div className="flex items-center justify-between mt-px gap-1">
-          <span className="text-2xs text-blue-500 dark:text-blue-400 tabular-nums">💧{d.precipProbMax}%</span>
+          <PrecipTag code={d.wmoCode} prob={d.precipProbMax} iconSize={13} />
           <span className="text-2xs tabular-nums shrink-0" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
         </div>
       </div>
@@ -281,8 +333,8 @@ function FlatDayItem({ d, i, iconStyle }: { d: DayForecast; i: number; iconStyle
   )
 }
 
-// narrow 전용 — 큰 배지(왼쪽) + 날짜/기온 2줄(오른쪽)
-// compact=true: 배지 축소 + flex-1로 컨테이너 높이 균등 채움 (h=2일 때 7일 표시용)
+// narrow 전용 — 한 줄: [아이콘] [요일] … [강수] [최고°] [최저°]
+// compact=true: flex-1로 컨테이너 높이 균등 채움 (h=2일 때 7일 표시용)
 function NarrowDayItem({ d, i, isSelected, onSelect, compact, iconStyle }: {
   d: DayForecast; i: number; isSelected?: boolean; onSelect?: () => void; compact?: boolean; iconStyle?: WeatherIconStyle
 }) {
@@ -292,22 +344,16 @@ function NarrowDayItem({ d, i, isSelected, onSelect, compact, iconStyle }: {
     <div
       onClick={onSelect}
       className={`flex items-center gap-2 px-1 rounded-lg transition-colors select-none ${
-        compact ? 'flex-1 min-h-0' : 'py-0.5'
+        compact ? 'flex-1 min-h-0' : 'py-1'
       } ${onSelect ? 'cursor-pointer' : ''} ${
         isSelected ? 'bg-accent/8 dark:bg-accent/12' : onSelect ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' : ''
       }`}
     >
-      <WeatherBadge code={d.wmoCode} size={compact ? 28 : 40} iconStyle={iconStyle} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between">
-          <span className="text-xs font-semibold" style={{ color: 'var(--ink-1)' }}>{dayName}</span>
-          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--ink-0)' }}>{d.tempMax}°</span>
-        </div>
-        <div className="flex items-center justify-between mt-px">
-          <span className="text-2xs text-blue-500 dark:text-blue-400 tabular-nums">💧{d.precipProbMax}%</span>
-          <span className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
-        </div>
-      </div>
+      <WeatherBadge code={d.wmoCode} size={compact ? 30 : 38} iconStyle={iconStyle} />
+      <span className="text-xs font-semibold w-7 shrink-0" style={{ color: 'var(--ink-1)' }}>{dayName}</span>
+      <PrecipTag code={d.wmoCode} prob={d.precipProbMax} iconSize={15} className="ml-auto shrink-0" />
+      <span className="text-xs font-bold tabular-nums w-8 text-right shrink-0" style={{ color: 'var(--ink-0)' }}>{d.tempMax}°</span>
+      <span className="text-2xs tabular-nums w-7 text-right shrink-0" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
     </div>
   )
 }
@@ -319,7 +365,7 @@ function DayRow({ d, i, isSelected, onSelect, rangeMin, rangeSpan, compact, icon
   const dn      = new Date(d.date + 'T00:00:00')
   const dayName = i === 0 ? '내일' : DAY_KO[dn.getDay()]
   const barLeft  = ((d.tempMin - rangeMin) / rangeSpan) * 100
-  const barWidth = Math.max((d.tempMax - d.tempMin) / rangeSpan * 100, 8)
+  const barWidth = Math.max((d.tempMax - d.tempMin) / rangeSpan * 100, 12)
   const py = compact ? 'py-0.5' : 'py-1'
   return (
     <div
@@ -329,10 +375,12 @@ function DayRow({ d, i, isSelected, onSelect, rangeMin, rangeSpan, compact, icon
       } ${isSelected ? 'bg-accent/8 dark:bg-accent/12' : onSelect ? 'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' : ''} ${py}`}
     >
       <span className="text-2xs font-medium w-7 shrink-0" style={{ color: 'var(--ink-3)' }}>{dayName}</span>
-      <WeatherBadge code={d.wmoCode} size={24} iconStyle={iconStyle} />
-      <span className="text-2xs text-blue-500 dark:text-blue-400 w-7 text-right shrink-0 tabular-nums">{d.precipProbMax}%</span>
+      <WeatherBadge code={d.wmoCode} size={30} iconStyle={iconStyle} />
+      <span className="w-12 flex items-center justify-end shrink-0">
+        <PrecipTag code={d.wmoCode} prob={d.precipProbMax} iconSize={15} />
+      </span>
       <span className="text-2xs tabular-nums w-6 text-right shrink-0" style={{ color: 'var(--ink-4)' }}>{d.tempMin}°</span>
-      <div className="flex-1 h-1.5 rounded-full relative overflow-hidden mx-0.5" style={{ background: 'var(--mist)' }}>
+      <div className="flex-1 min-w-[28px] h-2 rounded-full relative overflow-hidden mx-1" style={{ background: 'var(--mist)' }}>
         <div className="absolute top-0 h-full rounded-full bg-accent" style={{ left: `${barLeft}%`, width: `${barWidth}%` }} />
       </div>
       <span className="text-2xs font-semibold tabular-nums w-6 shrink-0" style={{ color: 'var(--ink-1)' }}>{d.tempMax}°</span>
@@ -359,11 +407,15 @@ function HourlyChart({ hourly, dayLabel }: {
     return () => ro.disconnect()
   }, [])
 
+  // 디자인 토큰 기반 색상 (빨강=주식 전용이라 차트엔 사용 금지 → 온도=테마 accent)
   const isDark      = document.documentElement.classList.contains('dark')
-  const tempColor   = isDark ? '#f87171' : '#ef4444'   // 온도: 빨간 계열
-  const precipColor = isDark ? '#71717a' : '#9ca3af'   // 강수: 회색 계열
-  const tickFill    = isDark ? '#a1a1aa' : '#71717a'
-  const gridColor   = isDark ? '#52525b' : '#d4d4d8'
+  const cs          = getComputedStyle(document.documentElement)
+  const read        = (v: string, fb: string) => cs.getPropertyValue(v).trim() || fb
+  const accentRgb   = read('--c-accent-rgb', '26 158 255')
+  const tempColor   = `rgb(${accentRgb})`                              // 온도: 테마 accent
+  const precipColor = read('--ink-3', isDark ? '#71717a' : '#71717a') // 강수: 중립 회색
+  const tickFill    = read('--ink-4', isDark ? '#52525b' : '#a1a1aa')
+  const gridColor   = read('--line',  isDark ? '#2e2d33' : '#e8e7e2')
 
   const data = Array.from({ length: 24 }, (_, hr) => {
     const pt = hourly.find(h => h.hour === hr)
@@ -412,7 +464,7 @@ function HourlyChart({ hourly, dayLabel }: {
                 <stop offset="100%" stopColor={precipColor} stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke={gridColor} strokeOpacity={0.65} vertical={true} horizontal={true} />
+            <CartesianGrid stroke={gridColor} strokeDasharray="3 3" strokeOpacity={0.5} vertical={false} horizontal={true} />
             <XAxis dataKey="h" interval={0} tick={xTick} tickLine={false} axisLine={false} height={18} />
             <YAxis
               yAxisId="temp"
@@ -446,10 +498,11 @@ function HourlyChart({ hourly, dayLabel }: {
             {/* precip 먼저 렌더 → temp 선이 위에 표시됨 */}
             <Area
               yAxisId="precip"
-              type="linear"
+              type="monotone"
               dataKey="precip"
               stroke={precipColor}
               strokeWidth={1.5}
+              strokeDasharray="4 3"
               fill="url(#wPrecipGrad)"
               dot={false}
               connectNulls
@@ -457,7 +510,7 @@ function HourlyChart({ hourly, dayLabel }: {
             />
             <Area
               yAxisId="temp"
-              type="linear"
+              type="monotone"
               dataKey="temp"
               stroke={tempColor}
               strokeWidth={2}
@@ -596,9 +649,6 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
     ? `${DAY_KO[new Date(selDay.date + 'T00:00:00').getDay()]}요일`
     : ''
 
-  // medium: w에 따라 일별예보 컬럼 너비 조정 (chart 공간 균형)
-  const medDailyW = w >= 4 ? 260 : w >= 3 ? 210 : 180
-
   return (
     <Card
       icon={<WmoLucideIcon code={wmo} isNight={isNight} size={14} />}
@@ -633,8 +683,8 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
                 <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
                 <div className="flex gap-2 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
-                  <span>💧{cache.humidity}%</span>
-                  <span>🌧{cache.precipitation}㎜</span>
+                  <span>습도 {cache.humidity}%</span>
+                  <span>강수 {cache.precipitation}㎜</span>
                 </div>
               </div>
             </div>
@@ -682,7 +732,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
                   <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
                   {h >= 3 && (
-                    <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>💧{cache.humidity}% · 🌧{cache.precipitation}㎜</div>
+                    <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>습도 {cache.humidity}% · 강수 {cache.precipitation}㎜</div>
                   )}
                 </div>
               </div>
@@ -724,7 +774,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                     <span className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</span>
                   </div>
                   <div className="text-2xs tabular-nums mt-0.5" style={{ color: 'var(--ink-4)' }}>
-                    ↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}° · 💧{cache.humidity}% · 💨{cache.windSpeed}㎞/h
+                    ↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}° · 습도 {cache.humidity}% · 풍속 {cache.windSpeed}㎞/h
                   </div>
                 </div>
               </div>
@@ -753,14 +803,14 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                 <div className="text-xs" style={{ color: 'var(--ink-3)' }}>{wmoLabel(wmo)}</div>
                 <div className="text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</div>
                 <div className="mt-auto flex flex-col gap-0.5 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
-                  <span>💧{cache.humidity}%</span>
-                  <span>🌧{cache.precipitation}㎜</span>
-                  <span>💨{cache.windSpeed}㎞/h</span>
+                  <span>습도 {cache.humidity}%</span>
+                  <span>강수 {cache.precipitation}㎜</span>
+                  <span>풍속 {cache.windSpeed}㎞/h</span>
                 </div>
               </div>
               <div
-                className="flex flex-col justify-between border-l pl-3 shrink-0 overflow-hidden"
-                style={{ width: medDailyW, borderColor: 'var(--line)' }}
+                className="flex flex-col justify-between border-l pl-3 flex-1 min-w-0 overflow-hidden"
+                style={{ borderColor: 'var(--line)' }}
               >
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <DayRow
@@ -772,8 +822,10 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   />
                 ))}
               </div>
-              <div className="flex-1 min-h-0 min-w-0 border-l pl-3 overflow-hidden" style={{ borderColor: 'var(--line)' }}>
-                <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
+              <div className="shrink-0 min-h-0 border-l pl-3 overflow-hidden flex flex-col justify-center" style={{ width: 'clamp(240px, 34%, 340px)', borderColor: 'var(--line)' }}>
+                <div style={{ height: 'clamp(140px, 82%, 200px)' }}>
+                  <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
+                </div>
               </div>
             </div>
           )}
@@ -795,13 +847,13 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   </div>
                   <div className="flex gap-3 mt-0.5 text-2xs tabular-nums" style={{ color: 'var(--ink-4)' }}>
                     <span>↑{cache.daily[0]?.tempMax}° ↓{cache.daily[0]?.tempMin}°</span>
-                    <span>💧{cache.humidity}%</span>
-                    <span>🌧{cache.precipitation}㎜</span>
-                    <span>💨{cache.windSpeed}㎞/h</span>
+                    <span>습도 {cache.humidity}%</span>
+                    <span>강수 {cache.precipitation}㎜</span>
+                    <span>풍속 {cache.windSpeed}㎞/h</span>
                   </div>
                 </div>
               </div>
-              <div className="flex flex-col gap-0 border-t pt-1 shrink-0" style={{ borderColor: 'var(--line)' }}>
+              <div className="flex flex-col gap-0 border-t pt-1 flex-1 justify-between" style={{ borderColor: 'var(--line)' }}>
                 {cache.daily.slice(1, 8).map((d, i) => (
                   <DayRow
                     key={d.date} d={d} i={i} compact
@@ -812,7 +864,7 @@ export default function WeatherWidget({ widgetW, widgetH, title, dragHandle, min
                   />
                 ))}
               </div>
-              <div className="flex-1 min-h-0 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
+              <div className="shrink-0 min-h-0 border-t pt-2" style={{ height: 'clamp(112px, 20%, 165px)', borderColor: 'var(--line)' }}>
                 <HourlyChart hourly={selDay?.hourly ?? []} dayLabel={selDayLabel} />
               </div>
             </div>

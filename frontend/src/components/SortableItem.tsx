@@ -31,7 +31,7 @@ export function SortableItem({
     <span
       {...attributes}
       {...listeners}
-      className="text-zinc-300 dark:text-zinc-600 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
+      className="text-ink-5 cursor-grab active:cursor-grabbing flex-shrink-0 touch-none"
       onClick={(e) => e.stopPropagation()}
     >
       <GripVertical size={13} />

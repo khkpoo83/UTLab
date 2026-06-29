@@ -35,7 +35,7 @@ function Clock() {
     return () => clearInterval(t)
   }, [])
   return (
-    <span className="text-xs tabular-nums text-zinc-400 dark:text-zinc-500 hidden sm:inline">
+    <span className="text-xs tabular-nums text-ink-4 hidden sm:inline">
       {time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
     </span>
   )
@@ -52,7 +52,7 @@ function ProfileBtn() {
   return (
     <button
       onClick={() => navigate('/settings')}
-      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-accent hover:border-accent transition-colors"
+      className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-ink-5 flex items-center justify-center text-ink-3 hover:text-accent hover:border-accent transition-colors"
       title="설정"
     >
       {getProfileIconNode(iconId, 14)}
@@ -65,7 +65,7 @@ function FavStar({ active, onClick }: { active: boolean; onClick: () => void }) 
     <button
       onClick={e => { e.stopPropagation(); onClick() }}
       className={`absolute top-0.5 right-0 p-0.5 transition-all ${
-        active ? 'text-amber-400 opacity-100' : 'text-zinc-300 dark:text-zinc-600 opacity-0 group-hover/tab:opacity-100 hover:text-amber-400'
+        active ? 'text-amber-400 opacity-100' : 'text-ink-5 opacity-0 group-hover/tab:opacity-100 hover:text-amber-400'
       }`}
     >
       <svg className="w-2.5 h-2.5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
@@ -124,10 +124,10 @@ export function TopBar() {
     navigate('/login')
   }
 
-  const utilBtnCls = 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors p-1'
+  const utilBtnCls = 'text-ink-4 hover:text-ink-2 transition-colors p-1'
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800">
+    <header className="sticky top-0 z-50 bg-[var(--nav-bg)] backdrop-blur-md border-b border-[var(--nav-border)]">
       {/* 메인 행: 로고 | 구분선 | 탭 | 구분선 | 관리영역 | 구분선 | 유저컨트롤 */}
       <div className="flex items-center h-11 px-3 gap-2">
         {/* 로고 */}
@@ -136,7 +136,7 @@ export function TopBar() {
           onClick={() => navigate(homeTab)}
           title="홈으로"
         >
-          <Logo size="sm" className="text-zinc-900 dark:text-zinc-100" />
+          <Logo size="sm" className="text-ink-0" />
         </div>
 
         {/* 세로 구분선 */}
@@ -154,7 +154,7 @@ export function TopBar() {
                   className={`flex items-center gap-1.5 px-2.5 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
                     isActive
                       ? 'border-accent text-accent font-medium'
-                      : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                      : 'border-transparent text-ink-3 hover:text-ink-1'
                   }`}
                 >
                   <group.Icon size={13} />
@@ -204,7 +204,7 @@ export function TopBar() {
           <ProfileBtn />
           <button
             onClick={handleLogout}
-            className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors px-1 hidden sm:block"
+            className="text-xs text-ink-4 hover:text-ink-1 transition-colors px-1 hidden sm:block"
           >
             로그아웃
           </button>
@@ -213,7 +213,7 @@ export function TopBar() {
 
       {/* 서브탭 행 (그룹에 children 있을 때) */}
       {hasSubNav && (
-        <div className="flex px-3 overflow-x-auto scrollbar-none bg-zinc-50/80 dark:bg-zinc-900/80 border-t border-zinc-100 dark:border-zinc-800/60">
+        <div className="flex px-3 overflow-x-auto scrollbar-none bg-[var(--nav-bg-2)] border-t border-[var(--nav-border)]">
           {activeGroup!.children!.map(item => (
             <div key={item.to} className="relative flex-shrink-0 group/tab">
               <NavLink
@@ -222,7 +222,7 @@ export function TopBar() {
                   `flex items-center gap-1.5 px-2.5 py-1.5 text-xs border-b-2 transition-colors whitespace-nowrap ${
                     isActive
                       ? 'border-accent text-accent font-medium'
-                      : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                      : 'border-transparent text-ink-4 hover:text-ink-2'
                   }`
                 }
               >

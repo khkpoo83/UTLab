@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ComposedChart, Area, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -16,6 +16,50 @@ interface PortfolioHistoryChartProps {
   /** 외부에서 수익률/금액 보기를 제어할 때 사용. 지정 시 내부 "금액" 토글 버튼 숨김 */
   showSource?: boolean
 }
+
+// ── 뷰포트 인식 툴팁 ──────────────────────────────────────────────────────
+// Recharts 기본 툴팁은 plot 영역(140px) 안으로만 클램프하므로, 내용이 길면
+// 차트보다 커져 Summary 카드 밖으로 삐져나간다. 커서 좌표를 받아 body 포털에
+// fixed 로 띄우고, 화면 경계에 닿으면 위/옆으로 뒤집어 항상 화면 안에 둔다.
+interface TipState { payload: any; label: any; cx: number; cy: number }
+export interface SmartTooltipHandle { set: (t: TipState) => void; clear: () => void }
+
+const SmartTooltip = forwardRef<SmartTooltipHandle, { render: (p: any, l: any) => React.ReactNode }>(
+  ({ render }, ref) => {
+    const [tip, setTip] = useState<TipState | null>(null)
+    useImperativeHandle(ref, () => ({ set: setTip, clear: () => setTip(null) }), [])
+
+    const boxRef = useRef<HTMLDivElement | null>(null)
+    const [size, setSize] = useState({ w: 160, h: 120 })
+    useLayoutEffect(() => {
+      if (!boxRef.current) return
+      const r = boxRef.current.getBoundingClientRect()
+      if (Math.abs(r.width - size.w) > 1 || Math.abs(r.height - size.h) > 1) {
+        setSize({ w: r.width, h: r.height })
+      }
+    }, [tip, size.w, size.h])
+
+    if (!tip) return null
+    const node = render(tip.payload, tip.label)
+    if (!node) return null
+
+    const PAD = 14
+    let left = tip.cx + PAD
+    let top = tip.cy + PAD
+    if (left + size.w > window.innerWidth - 8) left = tip.cx - size.w - PAD
+    if (left < 8) left = 8
+    if (top + size.h > window.innerHeight - 8) top = tip.cy - size.h - PAD
+    if (top < 8) top = 8
+
+    return createPortal(
+      <div ref={boxRef} style={{ position: 'fixed', left, top, zIndex: 10000, pointerEvents: 'none' }}>
+        {node}
+      </div>,
+      document.body,
+    )
+  },
+)
+SmartTooltip.displayName = 'SmartTooltip'
 
 // 금액 축 compact 포맷
 const fmtAmt = (v: number): string => {
@@ -45,6 +89,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
   const modalTitleRef = useRef<HTMLInputElement>(null)
   const lastClickRef = useRef<{ label: string; time: number } | null>(null)
   const sourceChartRef = useRef<HTMLDivElement>(null)
+  const smartTipRef = useRef<SmartTooltipHandle>(null)
 
   // 금액 보기를 벗어나면 레이어 선택 해제
   useEffect(() => {
@@ -238,7 +283,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
   if (!base.length) return (
     <div>
       {tagList}{markModal}
-      <p className="text-2xs text-zinc-400 text-center py-4">히스토리 없음 · KIS 동기화 후 적립됩니다</p>
+      <p className="text-2xs text-ink-4 text-center py-4">히스토리 없음 · KIS 동기화 후 적립됩니다</p>
     </div>
   )
 
@@ -251,7 +296,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
           <p className={`text-2xl font-bold tabular-nums ${pnl >= 0 ? 'text-up' : 'text-down'}`}>
             {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}%
           </p>
-          <p className="text-2xs text-zinc-400 mt-1">오늘 기준 · 매일 동기화 후 히스토리 적립</p>
+          <p className="text-2xs text-ink-4 mt-1">오늘 기준 · 매일 동기화 후 히스토리 적립</p>
         </div>
       </div>
     )
@@ -374,6 +419,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
   const INK4      = cs.getPropertyValue('--ink-4').trim() || '#A8A6A0'
   const DOT_COLOR = cs.getPropertyValue('--dot').trim()   || '#F59E0B'
   const GRID_COLOR = isDark ? '#3f3f46' : '#d1d5db'
+  const AXIS_COLOR = isDark ? '#52525b' : '#9ca3af' // 축 실선
   const fadeId = `ink0Fade_${accountNo ?? 'total'}`
 
   // ── 4-레이어 색상 ─────────────────────────────────────────────────────────
@@ -413,8 +459,91 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
       )
     }
 
+  // ── 커스텀 툴팁 ────────────────────────────────────────────────────────────
+  const tooltipBox: React.CSSProperties = {
+    background: 'var(--tooltip-bg)',
+    border: '1px solid var(--tooltip-border)',
+    borderRadius: 10,
+    padding: '9px 11px',
+    boxShadow: '0 6px 20px rgba(0,0,0,0.18)',
+    minWidth: 140,
+  }
+  const ttDate: React.CSSProperties = { fontSize: 10, color: 'var(--tooltip-label)', marginBottom: 5 }
+  const ttRow = (color: string, lbl: string, val: string, opacity = 1) => (
+    <div key={lbl} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 11, lineHeight: 1.65, color: 'var(--tooltip-text)' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+        {color
+          ? <span style={{ width: 7, height: 7, borderRadius: 2, background: color, opacity, display: 'inline-block', flexShrink: 0 }} />
+          : <span style={{ width: 7, flexShrink: 0 }} />}
+        <span style={{ color: 'var(--tooltip-label)' }}>{lbl}</span>
+      </span>
+      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 500 }}>{val}</span>
+    </div>
+  )
+
+  // 수익률 차트 툴팁: 누적 수익률을 큰 글씨로
+  const pnlTipBox = (p: any, label: any) => {
+    if (!p) return null
+    const pct = p.pnl_pct as number
+    const up = pct >= 0
+    const dayChg = p.day_chg as number | null
+    return (
+      <div style={tooltipBox}>
+        <div style={ttDate}>{label}{p.markTitle ? `  📌 ${p.markTitle}` : ''}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: up ? 'var(--c-up)' : 'var(--c-down)' }}>
+          {up ? '+' : ''}{pct.toFixed(2)}%
+        </div>
+        <div style={{ fontSize: 9.5, color: 'var(--tooltip-label)', marginTop: 1, marginBottom: dayChg != null ? 6 : 0 }}>누적 수익률</div>
+        {dayChg != null && ttRow('', '일별 등락', `${dayChg >= 0 ? '+' : ''}${dayChg.toFixed(2)}%`)}
+      </div>
+    )
+  }
+
+  // 출처별 스택 바 툴팁: 평가자산을 큰 글씨로
+  const sourceTipBox = (p: any, label: any) => {
+    if (!p || !(p.equity > 0)) return null
+    const rows: React.ReactNode[] = []
+    if (p.p_bar > 0) rows.push(ttRow(SRC_PRINCIPAL, '원금(투자분)', fmtAmt(p.p_bar), SRC_PRINCIPAL_OPACITY))
+    if (p.r_bar > 0) rows.push(ttRow(SRC_REINVEST, '재투자(주식)', fmtAmt(p.r_bar), SRC_REINVEST_OPACITY))
+    if (p.u_bar > 0) rows.push(ttRow(SRC_UNREALIZED, '미실현', `+${fmtAmt(p.u_bar)}`, SRC_UNREALIZED_OPACITY))
+    if (p.loss > 0)  rows.push(ttRow('var(--c-down)', '평가손실', `-${fmtAmt(p.loss)}`))
+    if (p.cash_balance > 0) rows.push(ttRow(SRC_CASH, '예수금', fmtAmt(p.cash_balance), SRC_CASH_OPACITY))
+    return (
+      <div style={tooltipBox}>
+        <div style={ttDate}>{label}{p.markTitle ? `  📌 ${p.markTitle}` : ''}{p.resid_flag ? '  ⚠️' : ''}</div>
+        <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: 'var(--ink-0)' }}>
+          {fmtAmt(p.equity)}
+        </div>
+        <div style={{ fontSize: 9.5, color: 'var(--tooltip-label)', marginTop: 1, marginBottom: 6 }}>평가자산</div>
+        {rows}
+        {(p.net_deposits > 0 || p.realized_pnl !== 0) && (
+          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--tooltip-border)' }}>
+            {p.net_deposits > 0 && ttRow('', '순입금', fmtAmt(p.net_deposits))}
+            {p.realized_pnl !== 0 && ttRow('', '실현손익', `${p.realized_pnl > 0 ? '+' : ''}${fmtAmt(p.realized_pnl)}`)}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const chartDateSet = new Set(chartData.map(d => d.date))
   const visibleMarks = marks.filter(m => chartDateSet.has(m.date.slice(5)))
+
+  // 차트 hover → 포털 툴팁에 커서 좌표 전달 (부모 리렌더 없이 imperative 갱신)
+  const tipRender = showSource ? sourceTipBox : pnlTipBox
+  const handleTipMove = (state: any, e: any) => {
+    if (state?.isTooltipActive && state.activePayload?.length && e) {
+      smartTipRef.current?.set({
+        payload: state.activePayload[0].payload,
+        label: state.activeLabel,
+        cx: e.clientX,
+        cy: e.clientY,
+      })
+    } else {
+      smartTipRef.current?.clear()
+    }
+  }
+  const handleTipLeave = () => smartTipRef.current?.clear()
 
   return (
     <div>
@@ -425,8 +554,8 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
             {!externalPeriod && ([7, 30, 90, 180, 365] as const).map(p => (
               <button key={p} onClick={() => setPeriod(p)}
                 className={`text-2xs px-1.5 py-0.5 rounded ${period === p
-                  ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium'
-                  : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}>
+                  ? 'bg-zinc-200 dark:bg-zinc-700 text-ink-1 font-medium'
+                  : 'text-ink-4 hover:text-ink-2'}`}>
                 {p === 7 ? '7일' : p === 30 ? '1개월' : p === 90 ? '3개월' : p === 180 ? '6개월' : '1년'}
               </button>
             ))}
@@ -435,8 +564,8 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
             <button
               onClick={() => { if (showSource) setActiveLegend(null); setShowSource(!showSource) }}
               className={`text-2xs px-1.5 py-0.5 rounded ${showSource
-                ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium'
-                : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}
+                ? 'bg-zinc-200 dark:bg-zinc-700 text-ink-1 font-medium'
+                : 'text-ink-4 hover:text-ink-2'}`}
             >
               금액
             </button>
@@ -448,10 +577,12 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
       {showSource ? (
         /* ── 출처별 스택 바 차트 ────────────────────────────────────────── */
         <ResponsiveContainer width="100%" height={140}>
-          <ComposedChart data={sourceChartData} margin={{ top: 14, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} strokeOpacity={0.5} />
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: INK4 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
-            <YAxis yAxisId="src" axisLine={false} tickLine={false} width={38} domain={srcDomain} tickCount={4} tick={renderYTick(fmtAmt)} />
+          <ComposedChart data={sourceChartData} margin={{ top: 14, right: 4, left: 0, bottom: 0 }}
+          onMouseMove={handleTipMove} onMouseLeave={handleTipLeave}>
+            {/* 격자 제거: 엷은 가로 가이드 실선만 (세로 없음) */}
+            <CartesianGrid stroke={GRID_COLOR} strokeOpacity={0.22} vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 9, fill: INK4 }} tickLine={false} axisLine={{ stroke: AXIS_COLOR }} interval="preserveStartEnd" />
+            <YAxis yAxisId="src" axisLine={{ stroke: AXIS_COLOR }} tickLine={false} width={38} domain={srcDomain} tickCount={4} tick={renderYTick(fmtAmt)} />
             {visibleMarks.map(mark => (
               <ReferenceLine key={mark.id} x={mark.date.slice(5)} yAxisId="src" strokeOpacity={0}
                 label={(props: any) => {
@@ -490,39 +621,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
               /* 단일 레이어 선택 — baseline(0)부터 해당 영역만으로 바 그래프 재구성 */
               <Bar yAxisId="src" dataKey={activeLegend} fill={LAYER_STYLE[activeLegend].fill} fillOpacity={LAYER_STYLE[activeLegend].opacity} isAnimationActive={false} cursor="pointer" onClick={() => toggleLayer(activeLegend)} radius={[2, 2, 0, 0]} />
             )}
-            <Tooltip
-              formatter={(value: number, name: string, props: any): [string, string] => {
-                if (name === 'c_bar') {
-                  // c_bar 바가 작거나 0이어도 실제 cash_balance로 표시
-                  const cashAmt: number = props?.payload?.cash_balance ?? value
-                  if (cashAmt <= 0) return ['-', '']
-                  return [cashAmt.toLocaleString('ko-KR') + '원', '예수금']
-                }
-                if (value <= 0) return ['-', '']
-                const labels: Record<string, string> = {
-                  p_bar: '원금(투자분)',
-                  r_bar: '재투자(주식)',
-                  u_bar: '미실현',
-                }
-                return [value.toLocaleString('ko-KR') + '원', labels[name] ?? name]
-              }}
-              labelFormatter={(l: string, payload: any[]) => {
-                const p = payload?.[0]?.payload
-                if (!p) return l
-                const E    = p.equity       > 0 ? fmtAmt(p.equity)      : '-'
-                const D    = p.net_deposits > 0 ? fmtAmt(p.net_deposits) : '-'
-                const R    = p.realized_pnl !== 0 ? `${p.realized_pnl > 0 ? '+' : ''}${fmtAmt(p.realized_pnl)}` : '0'
-                const U    = p.unrealized_pnl !== 0 ? `${p.unrealized_pnl > 0 ? '+' : ''}${fmtAmt(p.unrealized_pnl)}` : '0'
-                const Cash = p.cash_balance > 0 ? fmtAmt(p.cash_balance) : '-'
-                const warn = p.resid_flag ? ' ⚠️' : ''
-                const mark = p.markTitle ? `  📌 ${p.markTitle}` : ''
-                const lossStr = p.loss > 0 ? `  손실 -${fmtAmt(p.loss)}` : ''
-                return `${l}${mark}${warn}  평가 ${E} | 예수금 ${Cash} | 순입금 ${D} | 실현 ${R} | 미실현 ${U}${lossStr}`
-              }}
-              contentStyle={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, backgroundColor: 'var(--tooltip-bg)', border: '1px solid var(--tooltip-border)', color: 'var(--tooltip-text)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' }}
-              itemStyle={{ color: 'var(--tooltip-text)', padding: '1px 0' }}
-              labelStyle={{ color: 'var(--tooltip-label)', marginBottom: 2 }}
-            />
+            <Tooltip content={() => null} cursor={{ fill: INK4, fillOpacity: 0.08 }} />
           </ComposedChart>
         </ResponsiveContainer>
       ) : (
@@ -532,6 +631,8 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
           data={chartData}
           margin={{ top: 14, right: 4, left: 0, bottom: 0 }}
           onClick={handleChartClick}
+          onMouseMove={handleTipMove}
+          onMouseLeave={handleTipLeave}
         >
           <defs>
             <linearGradient id={fadeId} x1="0" y1="0" x2="0" y2="1">
@@ -539,12 +640,13 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
               <stop offset="100%" stopColor={INK0} stopOpacity="0.01" />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} strokeOpacity={0.5} />
-          <XAxis dataKey="date" tick={{ fontSize: 9, fill: INK4 }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+          {/* 격자 제거: 엷은 가로 가이드 실선만 (세로 없음) */}
+          <CartesianGrid stroke={GRID_COLOR} strokeOpacity={0.22} vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 9, fill: INK4 }} tickLine={false} axisLine={{ stroke: AXIS_COLOR }} interval="preserveStartEnd" />
 
           {/* 좌측 Y축: 수익률 */}
           <YAxis
-            yAxisId="left" axisLine={false} tickLine={false} width={38}
+            yAxisId="left" axisLine={{ stroke: AXIS_COLOR }} tickLine={false} width={38}
             domain={[domainMin, domainMax]}
             tick={renderYTick(v => `${v.toFixed(1)}%`, true)}
           />
@@ -584,19 +686,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
             />
           ))}
 
-          <Tooltip
-            formatter={(value: number, name: string): [string, string] => ([
-              `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`,
-              name === 'pnl_pct' ? '누적 수익률' : '일별 등락',
-            ])}
-            labelFormatter={(l: string, payload: any[]) => {
-              const markTitle = payload?.[0]?.payload?.markTitle
-              return markTitle ? `${l}  📌 ${markTitle}` : l
-            }}
-            contentStyle={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, backgroundColor: 'var(--tooltip-bg)', border: '1px solid var(--tooltip-border)', color: 'var(--tooltip-text)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' }}
-            itemStyle={{ color: 'var(--tooltip-text)', padding: '1px 0' }}
-            labelStyle={{ color: 'var(--tooltip-label)', marginBottom: 2 }}
-          />
+          <Tooltip content={() => null} cursor={{ stroke: INK4, strokeOpacity: 0.3, strokeWidth: 1 }} />
 
           {/* Bar, Area는 마지막에 — 금액 라인 위에 렌더링 */}
           <Bar yAxisId="bar" dataKey="day_chg" barSize={8} radius={[2, 2, 0, 0]}>
@@ -677,6 +767,7 @@ const PortfolioHistoryChart: React.FC<PortfolioHistoryChartProps> = ({
 
       {tagList}
       {markModal}
+      <SmartTooltip ref={smartTipRef} render={tipRender} />
     </div>
   )
 }

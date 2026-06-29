@@ -87,7 +87,7 @@ const Login: React.FC = () => {
         <div className="mb-8">
           <h1 className="font-bold tracking-tight" style={{ fontSize: '18px', color: t.textPrimary, letterSpacing: '-0.025em' }}>
             U<span style={{ color: t.accent }}>.</span>T
-            <span style={{ fontWeight: 300, opacity: 0.75 }}> Lab</span>
+            <span style={{ fontWeight: 300, opacity: 0.75 }}> Lab4</span>
           </h1>
         </div>
 

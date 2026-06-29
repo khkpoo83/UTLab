@@ -177,15 +177,15 @@ export default function BlogWrite() {
   return (
     <div className="h-full flex flex-col">
       {/* ── 상단 헤더 ── */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex-shrink-0">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 text-sm flex-shrink-0">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--divide)] bg-white dark:bg-zinc-900 flex-shrink-0">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-ink-3 hover:text-ink-1 text-sm flex-shrink-0">
           <ArrowLeft size={16} /> 뒤로
         </button>
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="제목을 입력하세요"
-          className="flex-1 text-lg font-bold bg-transparent outline-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-600 min-w-0"
+          className="flex-1 text-lg font-bold bg-transparent outline-none text-ink-0 placeholder-ink-5 min-w-0"
         />
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* 미리보기 토글 */}
@@ -195,7 +195,7 @@ export default function BlogWrite() {
             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
               previewMode
                 ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-ink-2 hover:bg-zinc-200 dark:hover:bg-zinc-700'
             }`}
           >
             {previewMode ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -206,7 +206,7 @@ export default function BlogWrite() {
             className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
               aiPanel
                 ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
-                : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                : 'bg-zinc-100 dark:bg-zinc-800 text-ink-2 hover:bg-zinc-200 dark:hover:bg-zinc-700'
             }`}
           >
             <Sparkles size={14} /> AI
@@ -241,13 +241,13 @@ export default function BlogWrite() {
                 <span className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full ${
                   visibility === 'public'
                     ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                    : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800'
+                    : 'bg-zinc-100 text-ink-3 dark:bg-zinc-800'
                 }`}>
                   {visibility === 'public' ? <Globe size={10} /> : <Lock size={10} />}
                   {visibility === 'public' ? '공개' : '비공개'}
                 </span>
               </div>
-              <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-100 mb-6 leading-tight">
+              <h1 className="text-3xl font-bold text-ink-0 mb-6 leading-tight">
                 {title || '(제목 없음)'}
               </h1>
               {content ? (
@@ -256,7 +256,7 @@ export default function BlogWrite() {
                   dangerouslySetInnerHTML={{ __html: content }}
                 />
               ) : (
-                <p className="text-zinc-400 text-sm italic">내용이 없습니다.</p>
+                <p className="text-ink-4 text-sm italic">내용이 없습니다.</p>
               )}
             </div>
           ) : (
@@ -267,12 +267,12 @@ export default function BlogWrite() {
         </div>
 
         {/* 우측 사이드바 */}
-        <div className="w-64 border-l border-zinc-200 dark:border-zinc-700 overflow-y-auto p-4 space-y-5 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0">
+        <div className="w-64 border-l border-ink-5 overflow-y-auto p-4 space-y-5 bg-zinc-50 dark:bg-zinc-900/60 flex-shrink-0">
 
           {/* 커버 이미지 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">커버 이미지</p>
+              <p className="text-xs font-semibold text-ink-3">커버 이미지</p>
               <button
                 onClick={handleGenerateCover}
                 disabled={generatingCover || !title}
@@ -296,7 +296,7 @@ export default function BlogWrite() {
             ) : (
               <button
                 onClick={() => coverInputRef.current?.click()}
-                className="w-full h-28 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-accent hover:text-accent transition-colors"
+                className="w-full h-28 border-2 border-dashed border-ink-5 rounded-lg flex flex-col items-center justify-center gap-2 text-ink-4 hover:border-accent hover:text-accent transition-colors"
               >
                 <ImageIcon size={20} />
                 <span className="text-xs">이미지 업로드</span>
@@ -307,7 +307,7 @@ export default function BlogWrite() {
             {coverError && <p className="mt-1 text-[11px] text-red-500">{coverError}</p>}
             {coverGenError && <p className="mt-1 text-[11px] text-red-500">{coverGenError}</p>}
             {coverGenPrompt && !coverGenError && (
-              <p className="mt-1 text-[10px] text-zinc-400 leading-snug line-clamp-2" title={coverGenPrompt}>
+              <p className="mt-1 text-[10px] text-ink-4 leading-snug line-clamp-2" title={coverGenPrompt}>
                 ✦ {coverGenPrompt}
               </p>
             )}
@@ -315,14 +315,14 @@ export default function BlogWrite() {
 
           {/* 공개 설정 */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">공개 설정</p>
+            <p className="text-xs font-semibold text-ink-3 mb-2">공개 설정</p>
             <div className="flex gap-2">
               <button
                 onClick={() => setVisibility('private')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${
                   visibility === 'private'
                     ? 'border-accent bg-accent/10 text-accent'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                    : 'border-ink-5 text-ink-3 hover:border-ink-5'
                 }`}
               >
                 <Lock size={12} /> 비공개
@@ -332,7 +332,7 @@ export default function BlogWrite() {
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs rounded-lg border transition-colors ${
                   visibility === 'public'
                     ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600'
-                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                    : 'border-ink-5 text-ink-3 hover:border-ink-5'
                 }`}
               >
                 <Globe size={12} /> 공개
@@ -342,7 +342,7 @@ export default function BlogWrite() {
 
           {/* 태그 */}
           <div>
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">태그</p>
+            <p className="text-xs font-semibold text-ink-3 mb-2">태그</p>
             <div className="flex gap-1 flex-wrap mb-2">
               {tags.map(tag => (
                 <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-accent/10 text-accent text-xs rounded-full">
@@ -357,9 +357,9 @@ export default function BlogWrite() {
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag() } }}
                 placeholder="태그 입력 후 Enter"
-                className="flex-1 text-xs px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-accent text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
+                className="flex-1 text-xs px-2 py-1.5 border border-ink-5 rounded-lg bg-white dark:bg-zinc-800 outline-none focus:border-accent text-ink-1 placeholder-ink-4"
               />
-              <button onClick={addTag} className="px-2 py-1.5 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-600">
+              <button onClick={addTag} className="px-2 py-1.5 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 text-ink-2">
                 <Tag size={12} />
               </button>
             </div>
@@ -374,26 +374,26 @@ export default function BlogWrite() {
 
               {/* 주제 보충 */}
               <div>
-                <p className="text-[11px] text-zinc-500 mb-1">주제 보충 설명 (선택)</p>
+                <p className="text-[11px] text-ink-3 mb-1">주제 보충 설명 (선택)</p>
                 <textarea
                   value={aiTopic}
                   onChange={e => setAiTopic(e.target.value)}
                   placeholder="어떤 내용을 쓸지 추가 설명..."
                   rows={2}
-                  className="w-full text-xs px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none resize-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
+                  className="w-full text-xs px-2 py-1.5 border border-ink-5 rounded-lg bg-white dark:bg-zinc-800 outline-none resize-none text-ink-1 placeholder-ink-4"
                 />
               </div>
 
               {/* 문체 */}
               <div>
-                <p className="text-[11px] text-zinc-500 mb-1">문체</p>
+                <p className="text-[11px] text-ink-3 mb-1">문체</p>
                 <div className="grid grid-cols-2 gap-1">
                   {STYLES.map(s => (
                     <button key={s.value} onClick={() => setAiStyle(s.value)}
                       className={`py-1 text-[11px] rounded-md border transition-colors ${
                         aiStyle === s.value
                           ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                          : 'border-ink-5 text-ink-3 hover:border-ink-5'
                       }`}>
                       {s.label}
                     </button>
@@ -403,14 +403,14 @@ export default function BlogWrite() {
 
               {/* 분량 */}
               <div>
-                <p className="text-[11px] text-zinc-500 mb-1">분량</p>
+                <p className="text-[11px] text-ink-3 mb-1">분량</p>
                 <div className="flex flex-col gap-1">
                   {LENGTHS.map(l => (
                     <button key={l.value} onClick={() => setAiLength(l.value)}
                       className={`py-1 text-[11px] rounded-md border transition-colors ${
                         aiLength === l.value
                           ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                          : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                          : 'border-ink-5 text-ink-3 hover:border-ink-5'
                       }`}>
                       {l.label}
                     </button>
@@ -431,14 +431,14 @@ export default function BlogWrite() {
                 <div className="space-y-3 pt-1 border-t border-purple-200 dark:border-purple-800/60">
                   {/* 언어 */}
                   <div>
-                    <p className="text-[11px] text-zinc-500 mb-1">언어</p>
+                    <p className="text-[11px] text-ink-3 mb-1">언어</p>
                     <div className="flex gap-1">
                       {[{ value: 'ko', label: '한국어' }, { value: 'en', label: 'English' }].map(l => (
                         <button key={l.value} onClick={() => setAiLanguage(l.value)}
                           className={`flex-1 py-1 text-[11px] rounded-md border transition-colors ${
                             aiLanguage === l.value
                               ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                              : 'border-ink-5 text-ink-3 hover:border-ink-5'
                           }`}>
                           {l.label}
                         </button>
@@ -448,14 +448,14 @@ export default function BlogWrite() {
 
                   {/* 타겟 독자 */}
                   <div>
-                    <p className="text-[11px] text-zinc-500 mb-1">타겟 독자</p>
+                    <p className="text-[11px] text-ink-3 mb-1">타겟 독자</p>
                     <div className="grid grid-cols-2 gap-1">
                       {AUDIENCES.map(a => (
                         <button key={a.value} onClick={() => setAiAudience(a.value)}
                           className={`py-1 text-[11px] rounded-md border transition-colors ${
                             aiAudience === a.value
                               ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                              : 'border-ink-5 text-ink-3 hover:border-ink-5'
                           }`}>
                           {a.label}
                         </button>
@@ -465,14 +465,14 @@ export default function BlogWrite() {
 
                   {/* 구조 */}
                   <div>
-                    <p className="text-[11px] text-zinc-500 mb-1">글 구조</p>
+                    <p className="text-[11px] text-ink-3 mb-1">글 구조</p>
                     <div className="grid grid-cols-2 gap-1">
                       {STRUCTURES.map(s => (
                         <button key={s.value} onClick={() => setAiStructure(s.value)}
                           className={`py-1 text-[11px] rounded-md border transition-colors ${
                             aiStructure === s.value
                               ? 'border-purple-400 bg-purple-100 dark:bg-purple-900/30 text-purple-600'
-                              : 'border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300'
+                              : 'border-ink-5 text-ink-3 hover:border-ink-5'
                           }`}>
                           {s.label}
                         </button>
@@ -482,12 +482,12 @@ export default function BlogWrite() {
 
                   {/* 키워드 */}
                   <div>
-                    <p className="text-[11px] text-zinc-500 mb-1">키워드 (쉼표 구분)</p>
+                    <p className="text-[11px] text-ink-3 mb-1">키워드 (쉼표 구분)</p>
                     <input
                       value={aiKeywords}
                       onChange={e => setAiKeywords(e.target.value)}
                       placeholder="예: React, 성능최적화, hooks"
-                      className="w-full text-xs px-2 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-800 outline-none text-zinc-700 dark:text-zinc-300 placeholder-zinc-400"
+                      className="w-full text-xs px-2 py-1.5 border border-ink-5 rounded-lg bg-white dark:bg-zinc-800 outline-none text-ink-1 placeholder-ink-4"
                     />
                   </div>
 
@@ -500,7 +500,7 @@ export default function BlogWrite() {
                         onChange={e => setAiIncludeExamples(e.target.checked)}
                         className="w-3 h-3 accent-purple-500"
                       />
-                      <span className="text-[11px] text-zinc-600 dark:text-zinc-400">예시·사례 포함</span>
+                      <span className="text-[11px] text-ink-2">예시·사례 포함</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -509,7 +509,7 @@ export default function BlogWrite() {
                         onChange={e => setAiAppendMode(e.target.checked)}
                         className="w-3 h-3 accent-purple-500"
                       />
-                      <span className="text-[11px] text-zinc-600 dark:text-zinc-400">현재 내용에 이어서 추가</span>
+                      <span className="text-[11px] text-ink-2">현재 내용에 이어서 추가</span>
                     </label>
                   </div>
                 </div>
@@ -544,26 +544,26 @@ export default function BlogWrite() {
           onClick={() => setConfirmDialog(false)}
         >
           <div
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-5 w-full max-w-sm shadow-2xl border border-zinc-200 dark:border-zinc-700"
+            className="bg-white dark:bg-zinc-900 rounded-2xl p-5 w-full max-w-sm shadow-2xl border border-ink-5"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center gap-3 mb-5">
               {visibility === 'public'
                 ? <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0"><Globe size={18} className="text-green-600" /></div>
-                : <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0"><Lock size={18} className="text-zinc-500" /></div>
+                : <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center flex-shrink-0"><Lock size={18} className="text-ink-3" /></div>
               }
               <div>
-                <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
+                <p className="font-semibold text-sm text-ink-0">
                   {visibility === 'public' ? '공개 글로 저장합니다' : '비공개로 저장합니다'}
                 </p>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                <p className="text-xs text-ink-3 mt-0.5">
                   {visibility === 'public' ? '누구나 이 글을 볼 수 있습니다' : '나만 볼 수 있습니다'}
                 </p>
               </div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => setConfirmDialog(false)}
-                className="flex-1 py-2.5 text-sm rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                className="flex-1 py-2.5 text-sm rounded-xl bg-zinc-100 dark:bg-zinc-800 text-ink-2 font-medium hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
                 취소
               </button>
               <button onClick={doSave}

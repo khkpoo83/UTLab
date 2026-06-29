@@ -5,7 +5,7 @@ interface SparklineProps {
 }
 
 const Sparkline: React.FC<SparklineProps> = ({ data }) => {
-  if (!data.length) return <span className="text-zinc-400 dark:text-zinc-500">-</span>
+  if (!data.length) return <span className="text-ink-4">-</span>
   const min = Math.min(...data)
   const max = Math.max(...data)
   const range = max - min || 1

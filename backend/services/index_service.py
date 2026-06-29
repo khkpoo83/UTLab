@@ -17,6 +17,7 @@ INDICES = [
     {"symbol": "^GSPC", "name": "S&P500", "yahoo_symbol": "%5EGSPC"},
     {"symbol": "^IXIC", "name": "NASDAQ", "yahoo_symbol": "%5EIXIC"},
     {"symbol": "^DJI",  "name": "DOW",    "yahoo_symbol": "%5EDJI"},
+    {"symbol": "^SOX",  "name": "SOX",    "yahoo_symbol": "%5ESOX"},
 ]
 
 _HEADERS = {

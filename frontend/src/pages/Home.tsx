@@ -351,11 +351,11 @@ function ResizeHandle({
   return (
     <div
       onPointerDown={onResizeStart}
-      className="absolute bottom-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md cursor-nwse-resize z-30 touch-none select-none bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-accent/10 hover:border-accent/50 transition-colors"
+      className="absolute bottom-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md cursor-nwse-resize z-30 touch-none select-none bg-white/90 dark:bg-zinc-900/90 border border-ink-5 shadow-sm hover:bg-accent/10 hover:border-accent/50 transition-colors"
       title="드래그로 크기 조절"
     >
       {/* 코너 리사이즈 아이콘: 왼쪽 상단 + 오른쪽 하단 L자 화살표 */}
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-zinc-400 dark:text-zinc-500">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-ink-4">
         <polyline points="5,1 1,1 1,5"  stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
         <polyline points="9,13 13,13 13,9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
         <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeDasharray="2 2"/>
@@ -396,12 +396,12 @@ function WidgetPanel({
         className="relative w-full sm:w-[22rem] panel-surface border rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[80vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--divide)]">
           <div className="flex items-center gap-2">
             <LayoutGrid size={14} className="text-accent" />
-            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">위젯 표시 설정</span>
+            <span className="text-sm font-semibold text-ink-0">위젯 표시 설정</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg text-ink-4 hover:text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -412,7 +412,7 @@ function WidgetPanel({
             if (!meta) return null
             return (
               <div key={w.id} className="flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                <span className="text-zinc-400 dark:text-zinc-500 flex-shrink-0">{meta.icon}</span>
+                <span className="text-ink-4 flex-shrink-0">{meta.icon}</span>
                 <div className="flex-1 min-w-0">
                   <input
                     key={w.id + '|' + (w.customTitle ?? '')}
@@ -420,10 +420,10 @@ function WidgetPanel({
                     placeholder={meta.label}
                     onBlur={e => commitTitle(w.id, e.currentTarget.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commitTitle(w.id, e.currentTarget.value) } }}
-                    className="w-full text-sm text-zinc-700 dark:text-zinc-300 bg-transparent outline-none border-b border-transparent focus:border-accent/50 pb-px truncate"
+                    className="w-full text-sm text-ink-1 bg-transparent outline-none border-b border-transparent focus:border-accent/50 pb-px truncate"
                   />
                   {w.customTitle && w.customTitle !== meta.label && (
-                    <p className="text-2xs text-zinc-400 dark:text-zinc-500 truncate">{meta.label}</p>
+                    <p className="text-2xs text-ink-4 truncate">{meta.label}</p>
                   )}
                 </div>
                 <div
@@ -439,7 +439,7 @@ function WidgetPanel({
           })}
         </div>
 
-        <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800 text-2xs text-zinc-400 text-center">
+        <div className="px-4 py-3 border-t border-[var(--divide)] text-2xs text-ink-4 text-center">
           타이틀 클릭으로 이름 변경 · 편집 모드에서 드래그해 배치
         </div>
       </div>
@@ -474,7 +474,7 @@ class WidgetErrorBoundary extends React.Component<
     if (this.state.hasError) {
       return (
         <div className="h-full card-surface border rounded-xl flex flex-col items-center justify-center gap-2">
-          <p className="text-xs text-zinc-400">위젯 오류</p>
+          <p className="text-xs text-ink-4">위젯 오류</p>
           <button
             className="text-2xs text-accent underline"
             onClick={() => this.setState({ hasError: false })}
@@ -507,10 +507,10 @@ class HomeErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-zinc-500">
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-ink-3">
           <p className="text-sm">레이아웃 오류가 발생했습니다.</p>
           {this.state.msg && (
-            <p className="text-xs text-zinc-400 max-w-sm text-center">{this.state.msg}</p>
+            <p className="text-xs text-ink-4 max-w-sm text-center">{this.state.msg}</p>
           )}
           <button
             className="text-sm text-accent underline"
@@ -1214,14 +1214,14 @@ function HomeContent() {
               {/* 위젯 표시 */}
               <button
                 onClick={() => setShowPanel(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-zinc-500 dark:text-zinc-400 surface hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-ink-3 surface hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-ink-5 transition-colors"
               >
                 <LayoutGrid size={12} /> 위젯 설정
               </button>
               {/* 기본값 복원 */}
               <button
                 onClick={() => { setWidgets(DEFAULT_WIDGETS); }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-2xs text-zinc-400 surface hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 transition-colors"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-2xs text-ink-4 surface hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-ink-5 transition-colors"
                 title="기본 레이아웃으로 초기화"
               >
                 초기화
@@ -1235,7 +1235,7 @@ function HomeContent() {
             <>
               <button
                 onClick={() => exitEditMode(false)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-2xs text-zinc-500 surface border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-2xs text-ink-3 surface border border-ink-5 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 <X size={12} /> 취소
               </button>
@@ -1249,7 +1249,7 @@ function HomeContent() {
           ) : (
             <button
               onClick={enterEditMode}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-zinc-400 hover:text-accent surface hover:bg-accent/8 border border-zinc-200 dark:border-zinc-700 hover:border-accent/30 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-ink-4 hover:text-accent surface hover:bg-accent/8 border border-ink-5 hover:border-accent/30 transition-colors"
             >
               <LayoutGrid size={12} />
               레이아웃 편집
@@ -1319,7 +1319,7 @@ function HomeContent() {
                   gridRow: `${nextY + 1} / span 1`,
                   minHeight: GRID_ROW_H + 'px',
                 }}
-                className="border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl flex flex-col items-center justify-center gap-2 text-zinc-400 hover:border-accent/40 hover:text-accent transition-colors cursor-pointer"
+                className="border-2 border-dashed border-ink-5 rounded-xl flex flex-col items-center justify-center gap-2 text-ink-4 hover:border-accent/40 hover:text-accent transition-colors cursor-pointer"
                 onClick={() => addWidget(w.id)}
               >
                 <Plus size={18} />

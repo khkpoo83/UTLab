@@ -24,7 +24,7 @@ export function RangeField({
 }: RangeFieldProps) {
   return (
     <div className="flex items-center gap-3">
-      <label className="text-xs text-zinc-500 flex-shrink-0" style={{ width: labelWidth }}>
+      <label className="text-xs text-ink-3 flex-shrink-0" style={{ width: labelWidth }}>
         {label}
       </label>
       <input
@@ -37,7 +37,7 @@ export function RangeField({
         className="flex-1"
         style={{ cursor: 'pointer', accentColor: 'var(--c-accent)' }}
       />
-      <span className="text-xs text-zinc-400 w-12 text-right tabular-nums">{display ?? value}</span>
+      <span className="text-xs text-ink-4 w-12 text-right tabular-nums">{display ?? value}</span>
     </div>
   )
 }

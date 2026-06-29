@@ -2,7 +2,7 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { loadBgConfig, applyBackground, saveBgConfig, getCurrentMode } from './utils/background'
-import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, applyCardOpacity, applyDotColor } from './utils/settings-utils'
+import { applySeasonTheme, applyPnlColors, loadPnlColorConfig, applyUiRadius, UiRadius, applyCardOpacity, applyDotColor, applyColorTheme, ColorTheme } from './utils/settings-utils'
 import { saveWeatherIconStyle } from './components/WeatherWidget'
 import { setLogoIconStyle } from './components/Logo'
 import { applyOverlayStyle } from './utils/overlay'
@@ -170,6 +170,8 @@ function MainLayout() {
       if (data.ui_overlay_style) applyOverlayStyle(data.ui_overlay_style)
       if (data.ui_card_opacity != null) applyCardOpacity(data.ui_card_opacity)
       if (data.ui_dot_color) applyDotColor(data.ui_dot_color as string)
+      // 색상 테마(팔레트)는 dot 이후 적용 — 인라인 dot 오버라이드 제거하고 팔레트가 제어
+      if (data.ui_color_theme) applyColorTheme(data.ui_color_theme as ColorTheme)
       if (data.ui_weather_icon_style) saveWeatherIconStyle(data.ui_weather_icon_style)
     }).catch(() => {})
   }, [])
@@ -253,7 +255,7 @@ function MainLayout() {
             /* ── 사이드바 레이아웃 ──────────────────────────────────────── */
             <>
               {/* 모바일 슬림 상단바 (lg에서는 숨김) */}
-              <header className="lg:hidden h-11 sticky top-0 z-50 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md border-b border-zinc-100 dark:border-zinc-800 flex items-center px-3 gap-2">
+              <header className="lg:hidden h-11 sticky top-0 z-50 bg-[var(--nav-bg)] backdrop-blur-md border-b border-[var(--nav-border)] flex items-center px-3 gap-2">
                 <SidebarToggle onClick={() => setSidebarOpen(v => !v)} />
                 <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">U.T Lab4</span>
               </header>

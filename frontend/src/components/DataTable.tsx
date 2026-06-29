@@ -168,7 +168,7 @@ function PctBar({ value, max = 100 }: { value: number; max?: number }) {
         {value.toFixed(1)}%
       </span>
       <div style={{ width: '100%', height: 4, background: 'var(--cream)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--ink-1)', borderRadius: 2 }} />
+        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--viz-2)', borderRadius: 2 }} />
       </div>
     </div>
   )
@@ -203,14 +203,14 @@ function CellContent<T>({ col, row }: { col: ColDef<T>; row: T }) {
     }
     case 'pct-bar': {
       const n = raw as number | null | undefined
-      if (n == null) return <span className="text-zinc-400">-</span>
+      if (n == null) return <span className="text-ink-4">-</span>
       return <PctBar value={n} max={col.barMax} />
     }
     case 'sparkline':
       return <Sparkline data={(raw as number[]) ?? []} />
     case 'number': {
       const n = raw as number | null | undefined
-      if (n == null) return <span className="text-zinc-400">-</span>
+      if (n == null) return <span className="text-ink-4">-</span>
       return <span className="tabular-nums">{n.toLocaleString('ko-KR')}</span>
     }
     default:
@@ -245,7 +245,7 @@ function FilterCell<T = any>({
       .slice(0, 8)
   }, [ft, value, suggestions])
 
-  const cellCls = 'border-b border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 last:border-r-0'
+  const cellCls = 'border-b border-r border-ink-5 bg-zinc-50 dark:bg-zinc-800 last:border-r-0'
 
   if (!ft) {
     return <td className={`${cellCls} px-2 py-1`} />
@@ -258,7 +258,7 @@ function FilterCell<T = any>({
         <div className="flex items-center justify-end gap-1 min-w-0">
           {hasValue && (
             <button onMouseDown={() => onFilter(col.key, null)}
-              className="shrink-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors">
+              className="shrink-0 text-ink-5 hover:text-ink-3 transition-colors">
               <X size={10} />
             </button>
           )}
@@ -268,7 +268,7 @@ function FilterCell<T = any>({
             value={value}
             onChange={e => onFilter(col.key, { operator, value: e.target.value })}
             placeholder="숫자"
-            className="flex-1 min-w-0 text-2xs text-right bg-transparent border-0 outline-none text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-300 dark:placeholder:text-zinc-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            className="flex-1 min-w-0 text-2xs text-right bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-5 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
           {/* 연산자 선택 버튼 */}
           <div className="relative shrink-0">
@@ -282,7 +282,7 @@ function FilterCell<T = any>({
               <ChevronDown size={8} className="opacity-60" />
             </button>
             {showOpMenu && (
-              <div className="absolute right-0 top-full mt-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-30 overflow-hidden min-w-[90px]">
+              <div className="absolute right-0 top-full mt-0.5 bg-white dark:bg-zinc-900 border border-ink-5 rounded-xl shadow-lg z-30 overflow-hidden min-w-[90px]">
                 {NUM_OPS.map(op => (
                   <button
                     key={op}
@@ -290,11 +290,11 @@ function FilterCell<T = any>({
                     className={`w-full text-left px-2.5 py-1.5 text-xs flex items-center gap-2 transition-colors ${
                       op === operator
                         ? 'bg-accent/10 text-accent font-semibold'
-                        : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800'
+                        : 'text-ink-1 hover:bg-zinc-50 dark:hover:bg-zinc-800'
                     }`}
                   >
                     <span className="font-bold w-4 text-center tabular-nums">{OP_LABEL[op]}</span>
-                    <span className="text-zinc-400 dark:text-zinc-500">{OP_DESC[op]}</span>
+                    <span className="text-ink-4">{OP_DESC[op]}</span>
                   </button>
                 ))}
               </div>
@@ -309,7 +309,7 @@ function FilterCell<T = any>({
   return (
     <td className={`${cellCls} px-1.5 py-1 relative`}>
       <div className="flex items-center gap-1 min-w-0">
-        <Search size={10} className="shrink-0 text-zinc-300 dark:text-zinc-600" />
+        <Search size={10} className="shrink-0 text-ink-5" />
         <input
           ref={inputRef}
           type="text"
@@ -318,22 +318,22 @@ function FilterCell<T = any>({
           onFocus={() => setShowSugg(true)}
           onBlur={() => setTimeout(() => setShowSugg(false), 120)}
           placeholder="검색"
-          className="flex-1 min-w-0 text-2xs bg-transparent border-0 outline-none text-zinc-700 dark:text-zinc-300 placeholder:text-zinc-300 dark:placeholder:text-zinc-600"
+          className="flex-1 min-w-0 text-2xs bg-transparent border-0 outline-none text-ink-1 placeholder:text-ink-5"
         />
         {hasValue && (
           <button onMouseDown={() => onFilter(col.key, null)}
-            className="shrink-0 text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors">
+            className="shrink-0 text-ink-5 hover:text-ink-3 transition-colors">
             <X size={10} />
           </button>
         )}
       </div>
       {showSugg && matched.length > 0 && (
-        <div className="absolute left-0 top-full mt-0.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-30 w-48 py-1 overflow-hidden">
+        <div className="absolute left-0 top-full mt-0.5 bg-white dark:bg-zinc-900 border border-ink-5 rounded-xl shadow-lg z-30 w-48 py-1 overflow-hidden">
           {matched.map(s => (
             <button
               key={s}
               onMouseDown={() => { onFilter(col.key, { operator, value: s }); setShowSugg(false) }}
-              className="w-full text-left px-3 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-accent/10 truncate"
+              className="w-full text-left px-3 py-1.5 text-xs text-ink-1 hover:bg-accent/10 truncate"
             >
               {s}
             </button>
@@ -389,7 +389,7 @@ function SortableTh<T>({
       onClick={isSortable ? (e) => onSort(col.key, e.shiftKey) : undefined}
     >
       <div className={`flex items-center gap-1 ${align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : ''}`}>
-        <GripVertical size={10} className="text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-70 shrink-0 transition-opacity" />
+        <GripVertical size={10} className="text-ink-5 opacity-0 group-hover:opacity-70 shrink-0 transition-opacity" />
         <span className="truncate">{col.label}</span>
         {isSortable && (
           <span className="flex items-center gap-0.5 shrink-0 ml-0.5">
@@ -403,7 +403,7 @@ function SortableTh<T>({
                 )}
               </>
             ) : (
-              <ChevronsUpDown size={11} className="text-zinc-300 dark:text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <ChevronsUpDown size={11} className="text-ink-5 opacity-0 group-hover:opacity-100 transition-opacity" />
             )}
           </span>
         )}
@@ -596,22 +596,22 @@ export function DataTable<T = Record<string, unknown>>({
     <div className={className}>
 
       {/* 툴바 */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800 min-h-[32px]">
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-[var(--divide)] min-h-[32px]">
         {/* 좌: 정렬 표시 OR 기본 힌트 */}
         <div className="flex items-center gap-2 min-w-0">
           {sortState.length > 1 ? (
             <>
-              <span className="text-2xs text-zinc-400 truncate">
+              <span className="text-2xs text-ink-4 truncate">
                 {sortState.map((s, i) => (
                   <span key={s.key} className="inline-flex items-center gap-0.5">
-                    {i > 0 && <span className="text-zinc-300 dark:text-zinc-600 mx-1">›</span>}
+                    {i > 0 && <span className="text-ink-5 mx-1">›</span>}
                     <span className="text-accent font-medium">{columns.find(c => c.key === s.key)?.label}</span>
                     <span>{s.dir === 'asc' ? '↑' : '↓'}</span>
                   </span>
                 ))}
               </span>
               <button onClick={() => setSortState([])}
-                className="shrink-0 text-2xs text-zinc-400 hover:text-accent transition-colors">
+                className="shrink-0 text-2xs text-ink-4 hover:text-accent transition-colors">
                 초기화
               </button>
             </>
@@ -628,7 +628,7 @@ export function DataTable<T = Record<string, unknown>>({
             className={`flex items-center gap-1 px-2 py-1 rounded text-2xs transition-colors ${
               showFilter || activeFilterCount > 0
                 ? 'bg-accent/10 text-accent'
-                : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                : 'text-ink-4 hover:text-ink-1 hover:bg-zinc-100 dark:hover:bg-zinc-700'
             }`}
             title="필터"
           >
@@ -642,7 +642,7 @@ export function DataTable<T = Record<string, unknown>>({
           <div className="relative">
             <button
               onClick={() => setShowColMenu(v => !v)}
-              className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+              className="p-1 rounded text-ink-4 hover:text-ink-1 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
               title="컬럼 설정"
             >
               <Settings2 size={13} />
@@ -650,8 +650,8 @@ export function DataTable<T = Record<string, unknown>>({
             {showColMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowColMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-20 w-40 py-1.5 overflow-hidden">
-                  <p className="text-2xs text-zinc-400 px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800">
+                <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-ink-5 rounded-xl shadow-lg z-20 w-40 py-1.5 overflow-hidden">
+                  <p className="text-2xs text-ink-4 px-3 py-1.5 border-b border-[var(--divide)]">
                     컬럼 표시 / 숨기기
                   </p>
                   {columns.map(col => (
@@ -667,7 +667,7 @@ export function DataTable<T = Record<string, unknown>>({
                           )
                         }
                       />
-                      <span className="text-xs text-zinc-700 dark:text-zinc-300">{col.label}</span>
+                      <span className="text-xs text-ink-1">{col.label}</span>
                     </label>
                   ))}
                 </div>
@@ -734,7 +734,7 @@ export function DataTable<T = Record<string, unknown>>({
                   ))
                 ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleCols.length} className="text-center py-10 text-sm text-zinc-400">
+                    <td colSpan={visibleCols.length} className="text-center py-10 text-sm text-ink-4">
                       {activeFilterCount > 0 ? (
                         <span>
                           필터 결과 없음
@@ -792,7 +792,7 @@ export function DataTable<T = Record<string, unknown>>({
               pointerEvents: 'none',
               zIndex: 9999,
             }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-accent/70 rounded-lg shadow-xl text-xs font-semibold text-zinc-700 dark:text-zinc-200 select-none"
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-900 border border-accent/70 rounded-lg shadow-xl text-xs font-semibold text-ink-1 select-none"
           >
             <GripVertical size={11} className="text-accent/60 shrink-0" />
             <span>{activeCol.label}</span>
@@ -803,8 +803,8 @@ export function DataTable<T = Record<string, unknown>>({
 
       {/* 필터 활성 시 하단 요약 */}
       {activeFilterCount > 0 && (
-        <div className="flex items-center justify-between px-3 py-1.5 border-t border-zinc-100 dark:border-zinc-800 bg-accent/5">
-          <span className="text-2xs text-zinc-500">
+        <div className="flex items-center justify-between px-3 py-1.5 border-t border-[var(--divide)] bg-accent/5">
+          <span className="text-2xs text-ink-3">
             {filteredRows.length} / {data.length}개 표시
           </span>
           <button onClick={() => setFilters({})}

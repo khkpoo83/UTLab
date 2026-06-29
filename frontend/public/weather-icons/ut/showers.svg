@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="512" height="512">
+<defs>
+<linearGradient id="blobMain" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5277DD"></stop>
+      <stop offset="1" stop-color="#28A4F0"></stop>
+    </linearGradient>
+    <radialGradient id="sunGrad" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#FFE873"></stop>
+      <stop offset="0.55" stop-color="#FFC42B"></stop>
+      <stop offset="1" stop-color="#FBA417"></stop>
+    </radialGradient>
+    <radialGradient id="sunGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFE699" stop-opacity="0.85"></stop>
+      <stop offset="1" stop-color="#FFE699" stop-opacity="0"></stop>
+    </radialGradient>
+    <linearGradient id="cloudGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"></stop>
+      <stop offset="1" stop-color="#DCE8F4"></stop>
+    </linearGradient>
+    <linearGradient id="cloudGradShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EAF1FA"></stop>
+      <stop offset="1" stop-color="#C2D3E6"></stop>
+    </linearGradient>
+    <linearGradient id="dropGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7CC4F8"></stop>
+      <stop offset="1" stop-color="#2F8FE6"></stop>
+    </linearGradient>
+    <linearGradient id="boltGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD64A"></stop>
+      <stop offset="1" stop-color="#FB9F1C"></stop>
+    </linearGradient>
+    <radialGradient id="moonGrad" cx="0.4" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#FFF6CF"></stop>
+      <stop offset="1" stop-color="#FBD968"></stop>
+    </radialGradient>
+    <g id="blobBg">
+      <path d="M100,32 C128,32 150,40 158,66 C168,98 170,120 150,148 C132,172 100,170 100,170 C100,170 68,172 50,148 C30,120 32,98 42,66 C50,40 72,32 100,32 Z" transform="rotate(8 100 100) translate(100 100) scale(1.22) translate(-100 -100)" fill="#B6DBFA" opacity="0.45"></path>
+      <path d="M100,32 C128,32 150,40 158,66 C168,98 170,120 150,148 C132,172 100,170 100,170 C100,170 68,172 50,148 C30,120 32,98 42,66 C50,40 72,32 100,32 Z" transform="rotate(58 100 100) translate(100 100) scale(1.12) translate(-100 -100)" fill="#93C8F8" opacity="0.5"></path>
+      <path d="M100,32 C128,32 150,40 158,66 C168,98 170,120 150,148 C132,172 100,170 100,170 C100,170 68,172 50,148 C30,120 32,98 42,66 C50,40 72,32 100,32 Z" transform="rotate(112 100 100) translate(100 100) scale(1.19) translate(-100 -100)" fill="#6CA8F2" opacity="0.5"></path>
+      <path d="M100,32 C128,32 150,40 158,66 C168,98 170,120 150,148 C132,172 100,170 100,170 C100,170 68,172 50,148 C30,120 32,98 42,66 C50,40 72,32 100,32 Z" transform="rotate(160 100 100) translate(100 100) scale(1.08) translate(-100 -100)" fill="#5B93EC" opacity="0.55"></path>
+      <path d="M100,32 C128,32 150,40 158,66 C168,98 170,120 150,148 C132,172 100,170 100,170 C100,170 68,172 50,148 C30,120 32,98 42,66 C50,40 72,32 100,32 Z" transform="rotate(-14 100 100) translate(100 100) scale(1.02) translate(-100 -100)" fill="url(#blobMain)" opacity="1"></path>
+    </g>
+    <g id="cloudFront">
+      <ellipse cx="100" cy="150" rx="50" ry="9" fill="#1a2a4a" opacity="0.06"></ellipse>
+      <circle cx="72" cy="121" r="22" fill="url(#cloudGrad)"></circle>
+      <circle cx="101" cy="106" r="29" fill="url(#cloudGrad)"></circle>
+      <circle cx="130" cy="123" r="21" fill="url(#cloudGrad)"></circle>
+      <rect x="50" y="119" width="104" height="31" rx="15.5" fill="url(#cloudGrad)"></rect>
+    </g>
+    <g id="cloudBack">
+      <circle cx="72" cy="121" r="22" fill="url(#cloudGradShade)"></circle>
+      <circle cx="101" cy="106" r="29" fill="url(#cloudGradShade)"></circle>
+      <circle cx="130" cy="123" r="21" fill="url(#cloudGradShade)"></circle>
+      <rect x="50" y="119" width="104" height="31" rx="15.5" fill="url(#cloudGradShade)"></rect>
+    </g>
+    <path id="star" d="M0,-6 L1.7,-1.7 L6,0 L1.7,1.7 L0,6 L-1.7,1.7 L-6,0 L-1.7,-1.7 Z"></path>
+</defs>
+<use href="#blobBg" opacity="1"></use>
+            <g>
+              <circle cx="126" cy="74" r="48" fill="url(#sunGlow)"></circle>
+              <circle cx="126" cy="74" r="28" fill="url(#sunGrad)"></circle>
+            </g>
+            <g transform="translate(-14,2)"><g><use href="#cloudFront"></use></g></g>
+            <g stroke="url(#dropGrad)" stroke-width="6" stroke-linecap="round">
+              <line x1="70" y1="158" x2="65" y2="174"></line>
+              <line x1="92" y1="164" x2="87" y2="180"></line>
+              <line x1="114" y1="158" x2="109" y2="174"></line>
+            </g>
+</svg>

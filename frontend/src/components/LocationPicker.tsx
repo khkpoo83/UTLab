@@ -136,7 +136,7 @@ export default function LocationPicker({
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); runSearch() } }}
             placeholder="장소·주소 검색"
-            className="flex-1 px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg outline-none focus:border-accent transition-colors"
+            className="flex-1 px-3 py-2 text-sm bg-zinc-50 dark:bg-zinc-800 border border-ink-5 rounded-lg outline-none focus:border-accent transition-colors"
           />
           <button
             type="button"
@@ -150,17 +150,17 @@ export default function LocationPicker({
 
         {/* 검색 결과 드롭다운 */}
         {searched && (
-          <div className="absolute z-[1000] left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-xl max-h-44 overflow-y-auto">
-            {searching && <p className="text-xs text-zinc-400 text-center py-3">검색 중...</p>}
+          <div className="absolute z-[1000] left-0 right-0 mt-1 bg-white dark:bg-zinc-900 border border-ink-5 rounded-lg shadow-xl max-h-44 overflow-y-auto">
+            {searching && <p className="text-xs text-ink-4 text-center py-3">검색 중...</p>}
             {!searching && results.length === 0 && (
-              <p className="text-xs text-zinc-400 text-center py-3">검색 결과 없음</p>
+              <p className="text-xs text-ink-4 text-center py-3">검색 결과 없음</p>
             )}
             {results.map(r => (
               <button
                 key={r.place_id}
                 type="button"
                 onClick={() => selectResult(r)}
-                className="w-full text-left px-3 py-2 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors leading-snug flex items-start gap-1.5"
+                className="w-full text-left px-3 py-2 text-xs text-ink-1 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors leading-snug flex items-start gap-1.5"
               >
                 <MapPin size={12} className="mt-0.5 flex-shrink-0 text-accent" />
                 <span className="min-w-0">{r.display_name}</span>
@@ -171,7 +171,7 @@ export default function LocationPicker({
       </div>
 
       {/* 지도 */}
-      <div className="relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700" style={{ height }}>
+      <div className="relative rounded-lg overflow-hidden border border-ink-5" style={{ height }}>
         <MapContainer
           center={center}
           zoom={coords ? 15 : 11}
@@ -207,10 +207,10 @@ export default function LocationPicker({
       </div>
 
       {/* 선택된 주소 */}
-      <div className="text-xs text-zinc-500 dark:text-zinc-400 min-h-[1.25rem] leading-snug break-words">
+      <div className="text-xs text-ink-3 min-h-[1.25rem] leading-snug break-words">
         {value
           ? <span className="flex items-start gap-1"><MapPin size={12} className="mt-0.5 flex-shrink-0 text-accent" />{value}</span>
-          : <span className="text-zinc-400">위치가 지정되지 않음</span>}
+          : <span className="text-ink-4">위치가 지정되지 않음</span>}
       </div>
     </div>
   )

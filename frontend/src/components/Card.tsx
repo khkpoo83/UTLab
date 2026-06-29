@@ -77,7 +77,7 @@ export function Card({
 
   const headerStyle: React.CSSProperties = {
     padding: '14px 20px',
-    borderBottom: isOpen ? '1px solid var(--line, #E8E7E2)' : 'none',
+    borderBottom: 'none', /* 카드 내부 단일 면색 — 헤더 구분선 제거 */
     background: 'transparent',
     display: 'flex',
     alignItems: 'center',

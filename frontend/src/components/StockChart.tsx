@@ -16,7 +16,12 @@ interface StockChartProps {
   period?: string
   loading?: boolean
   height?: number
+  /** 차트 왼쪽 끝(과거)에 도달했을 때 호출 — 더 예전 데이터 lazy-load */
+  onLoadMore?: () => void
 }
+
+// 보이는 logical range의 왼쪽 끝이 이 인덱스보다 작아지면 과거 데이터 요청
+const LOAD_MORE_THRESHOLD = 6
 
 const PERIODS = ['1d', '1w', '1m', '3m', '1y'] as const
 type Period = (typeof PERIODS)[number]
@@ -58,8 +63,15 @@ const StockChart: React.FC<StockChartProps> = ({
   period = '3m',
   loading = false,
   height = 280,
+  onLoadMore,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  // 최신 onLoadMore를 ref로 보관 (차트 생성 effect의 stale closure 방지)
+  const onLoadMoreRef = useRef<(() => void) | undefined>(onLoadMore)
+  onLoadMoreRef.current = onLoadMore
+  // 직전 데이터의 가장 이른 막대 시간 + 기간 — prepend(과거 추가) 감지용
+  const prevFirstTimeRef = useRef<string | null>(null)
+  const prevPeriodRef = useRef<string | undefined>(period)
   const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
   const lineSeriesRef = useRef<ISeriesApi<'Line'> | null>(null)
@@ -136,6 +148,9 @@ const StockChart: React.FC<StockChartProps> = ({
         borderColor,
         timeVisible: true,
         secondsVisible: false,
+        // 줌아웃/스크롤 시 최신 봉을 우측 끝에 고정 (과거는 왼쪽으로 펼쳐짐)
+        fixRightEdge: true,
+        rightBarStaysOnScroll: true,
       },
       width: containerRef.current.clientWidth,
       height,
@@ -199,9 +214,12 @@ const StockChart: React.FC<StockChartProps> = ({
         setTooltip(null)
         return
       }
+      // 일봉: 'YYYY-MM-DD' 문자열 / 분봉: unix초(number) → 날짜+시각 포맷
       const timeStr = typeof param.time === 'string'
         ? param.time
-        : String(param.time)
+        : new Date((param.time as number) * 1000).toLocaleString('ko-KR', {
+            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+          })
       setTooltip({
         time: timeStr,
         open: barData.open ?? null,
@@ -212,10 +230,17 @@ const StockChart: React.FC<StockChartProps> = ({
       })
     })
 
+    // 왼쪽 끝(과거) 도달 시 더 예전 데이터 lazy-load 트리거
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (range && range.from < LOAD_MORE_THRESHOLD) {
+        onLoadMoreRef.current?.()
+      }
+    })
+
     const resizeObserver = new ResizeObserver(() => {
       if (containerRef.current) {
         chart.applyOptions({ width: containerRef.current.clientWidth })
-        chart.timeScale().fitContent()
+        // resize 시 fitContent하면 lazy-load한 과거 구간이 초기화되므로 폭만 갱신
       }
     })
     resizeObserver.observe(containerRef.current)
@@ -250,6 +275,22 @@ const StockChart: React.FC<StockChartProps> = ({
     const validData = data.filter(
       (d) => d.open !== null && d.high !== null && d.low !== null && d.close !== null
     )
+
+    // ── prepend(과거 lazy-load) 감지: 기간 변경이 아니고 첫 막대가 더 과거로 이동했을 때 ──
+    const periodChanged = prevPeriodRef.current !== period
+    prevPeriodRef.current = period
+    const newFirst = validData.length > 0 ? (validData[0].time as string) : null
+    const prevFirst = prevFirstTimeRef.current
+    const isPrepend =
+      !periodChanged && prevFirst != null && newFirst != null && newFirst < prevFirst
+    const addedFront = isPrepend
+      ? validData.filter((d) => (d.time as string) < prevFirst!).length
+      : 0
+    // setData 호출 전 현재(이전 데이터 기준) 보이는 logical range 캡처
+    const prevRange = isPrepend
+      ? chartRef.current?.timeScale().getVisibleLogicalRange()
+      : null
+    prevFirstTimeRef.current = newFirst
 
     type T = import('lightweight-charts').Time
     const candleData = validData.map((d) => ({
@@ -318,7 +359,15 @@ const StockChart: React.FC<StockChartProps> = ({
       avgPriceLineOwnerRef.current = desiredOwner
     }
 
-    if (validData.length > 0) chartRef.current?.timeScale().fitContent()
+    // prepend면 시야 유지(추가된 막대 수만큼 인덱스 시프트), 아니면 전체 맞춤
+    if (isPrepend && prevRange) {
+      chartRef.current?.timeScale().setVisibleLogicalRange({
+        from: (prevRange.from + addedFront) as any,
+        to: (prevRange.to + addedFront) as any,
+      })
+    } else if (validData.length > 0) {
+      chartRef.current?.timeScale().fitContent()
+    }
     setTooltip(null)
   }, [data, chartType, avgPrice, showMA, isDark])
 
@@ -338,7 +387,7 @@ const StockChart: React.FC<StockChartProps> = ({
               className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
                 period === p
                   ? 'bg-accent text-white'
-                  : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100'
+                  : 'text-ink-3 hover:text-ink-0'
               }`}
             >
               {PERIOD_LABELS[p]}
@@ -352,7 +401,7 @@ const StockChart: React.FC<StockChartProps> = ({
             className={`px-2 py-0.5 text-xs rounded-md transition-colors border ${
               showMA
                 ? 'border-amber-400/50 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-500/10'
-                : 'border-transparent text-zinc-400 hover:text-zinc-600'
+                : 'border-transparent text-ink-4 hover:text-ink-2'
             }`}
           >
             MA20
@@ -362,8 +411,8 @@ const StockChart: React.FC<StockChartProps> = ({
             onClick={() => setChartType('candlestick')}
             className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
               chartType === 'candlestick'
-                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-400'
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-ink-0'
+                : 'text-ink-4'
             }`}
           >
             캔들
@@ -372,8 +421,8 @@ const StockChart: React.FC<StockChartProps> = ({
             onClick={() => setChartType('line')}
             className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
               chartType === 'line'
-                ? 'bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100'
-                : 'text-zinc-400'
+                ? 'bg-zinc-100 dark:bg-zinc-800 text-ink-0'
+                : 'text-ink-4'
             }`}
           >
             라인
@@ -385,15 +434,15 @@ const StockChart: React.FC<StockChartProps> = ({
       <div className="h-5 flex items-center gap-3 text-2xs tabular-nums overflow-hidden">
         {tooltip ? (
           <>
-            <span className="text-zinc-400 flex-shrink-0">{tooltip.time}</span>
-            {tooltip.open  != null && <span>시<span className="ml-0.5 text-zinc-700 dark:text-zinc-300">{formatPrice(tooltip.open)}</span></span>}
+            <span className="text-ink-4 flex-shrink-0">{tooltip.time}</span>
+            {tooltip.open  != null && <span>시<span className="ml-0.5 text-ink-1">{formatPrice(tooltip.open)}</span></span>}
             {tooltip.high  != null && <span>고<span className="ml-0.5 text-up">{formatPrice(tooltip.high)}</span></span>}
             {tooltip.low   != null && <span>저<span className="ml-0.5 text-down">{formatPrice(tooltip.low)}</span></span>}
             {tooltip.close != null && <span>종<span className={`ml-0.5 font-semibold ${tooltip.close >= (tooltip.open ?? tooltip.close) ? 'text-up' : 'text-down'}`}>{formatPrice(tooltip.close)}</span></span>}
-            {tooltip.volume != null && tooltip.volume > 0 && <span className="text-zinc-400">량<span className="ml-0.5 text-zinc-500 dark:text-zinc-400">{Math.round(tooltip.volume).toLocaleString()}</span></span>}
+            {tooltip.volume != null && tooltip.volume > 0 && <span className="text-ink-4">량<span className="ml-0.5 text-ink-3">{Math.round(tooltip.volume).toLocaleString()}</span></span>}
           </>
         ) : (
-          <span className="text-zinc-400 dark:text-zinc-500">캔들 위에 커서를 올려보세요</span>
+          <span className="text-ink-4">캔들 위에 커서를 올려보세요</span>
         )}
       </div>
 
@@ -401,7 +450,7 @@ const StockChart: React.FC<StockChartProps> = ({
       <div className="relative">
         <div
           ref={containerRef}
-          className="w-full rounded-lg overflow-hidden border border-zinc-100 dark:border-zinc-800"
+          className="w-full rounded-lg overflow-hidden border border-ink-5"
         />
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-zinc-900/70 rounded-lg">
@@ -410,8 +459,8 @@ const StockChart: React.FC<StockChartProps> = ({
         )}
         {!loading && !hasData && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg pointer-events-none">
-            <span className="text-xs text-zinc-400">차트 데이터를 불러올 수 없습니다</span>
-            <span className="text-2xs text-zinc-400 dark:text-zinc-500">잠시 후 다시 시도해 주세요</span>
+            <span className="text-xs text-ink-4">차트 데이터를 불러올 수 없습니다</span>
+            <span className="text-2xs text-ink-4">잠시 후 다시 시도해 주세요</span>
           </div>
         )}
       </div>

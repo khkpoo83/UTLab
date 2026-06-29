@@ -44,7 +44,7 @@ const SectorBar: React.FC<SectorBarProps> = ({
             className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
             style={{ backgroundColor: palette[i % palette.length] }}
           />
-          <span className="text-xs text-zinc-600 dark:text-zinc-400 w-28 flex-shrink-0 truncate">{s.name}</span>
+          <span className="text-xs text-ink-2 w-28 flex-shrink-0 truncate">{s.name}</span>
           <div className="flex-1 h-4 bg-zinc-100 dark:bg-zinc-800 rounded overflow-hidden">
             <div
               className="h-full rounded transition-all"

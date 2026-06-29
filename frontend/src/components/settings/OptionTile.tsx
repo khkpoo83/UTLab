@@ -52,7 +52,7 @@ export function OptionTile({
       } ${
         active
           ? ''
-          : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+          : 'border-ink-5 hover:border-ink-5'
       } ${className}`}
     >
       {preview}
@@ -60,14 +60,14 @@ export function OptionTile({
         <span className="flex flex-col items-center gap-0.5 leading-tight">
           {label != null && (
             <span
-              className={`text-xs font-medium text-center ${active ? '' : 'text-zinc-700 dark:text-zinc-300'}`}
+              className={`text-xs font-medium text-center ${active ? '' : 'text-ink-1'}`}
               style={active ? { color: 'var(--c-accent)' } : {}}
             >
               {label}
             </span>
           )}
           {desc != null && (
-            <span className="text-2xs text-zinc-400 dark:text-zinc-500 text-center leading-tight">{desc}</span>
+            <span className="text-2xs text-ink-4 text-center leading-tight">{desc}</span>
           )}
         </span>
       )}

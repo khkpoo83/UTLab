@@ -8,110 +8,106 @@ interface IntradayPoint {
   close: number
 }
 
-const MiniSparkline = memo(function MiniSparkline({ data, isKorean = false }: { data: IntradayPoint[]; isKorean?: boolean }) {
+const KOREAN_SYMBOLS = new Set(['^KS11', '^KQ11'])
+
+// unix초(UTC) → KST 날짜/시각 파트
+function kstParts(ts: number): { md: string; hm: string; ymd: string } {
+  const d = new Date((ts + 9 * 3600) * 1000) // 9h 미리 더하고 UTC 게터 사용
+  const mm = (n: number) => String(n).padStart(2, '0')
+  return {
+    md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`,
+    hm: `${mm(d.getUTCHours())}:${mm(d.getUTCMinutes())}`,
+    ymd: `${d.getUTCFullYear()}-${mm(d.getUTCMonth() + 1)}-${mm(d.getUTCDate())}`,
+  }
+}
+
+interface SparkGeo {
+  line: string
+  area: string
+  endX: number
+  endY: number
+  timeLabel: string // 거래시간(KST, 날짜 포함)
+  live: boolean
+}
+
+// 인트라데이 데이터 → SVG path(240x60) + 거래시간(KST) + 장중여부
+function buildGeometry(data: IntradayPoint[], isKorean: boolean): SparkGeo | null {
   if (data.length < 2) return null
+  const W = 240, H = 60, PAD = 4
 
-  const W = 100, CHART_H = 30
-  const lineColor = 'var(--ink-3)'
-  const dotColor = 'var(--dot)'
-  const isDark = document.documentElement.classList.contains('dark')
-  const labelColor = isDark ? '#71717a' : '#a1a1aa'
-
-  let xMin: number, xMax: number
+  let xMin: number, xMax: number, timeLabel: string
+  let visible = data
   if (isKorean) {
-    // 오늘이 아닌 첫 데이터 포인트의 날짜 기준으로 계산 (장 마감 후 데이터가 전일자인 경우 대응)
-    const kstStr = new Date(data[0].time * 1000 + 9 * 3600 * 1000).toISOString().slice(0, 10)
-    xMin = new Date(`${kstStr}T09:00:00+09:00`).getTime() / 1000
-    xMax = new Date(`${kstStr}T15:30:00+09:00`).getTime() / 1000
+    // 데이터 첫 포인트의 KST 날짜 기준 09:00~15:30 고정 도메인
+    const p0 = kstParts(data[0].time)
+    xMin = new Date(`${p0.ymd}T09:00:00+09:00`).getTime() / 1000
+    xMax = new Date(`${p0.ymd}T15:30:00+09:00`).getTime() / 1000
+    visible = data.filter(d => d.time >= xMin && d.time <= xMax)
+    timeLabel = `${p0.md} 09:00–15:30`
   } else {
     xMin = data[0].time
     xMax = data[data.length - 1].time
+    const a = kstParts(xMin), b = kstParts(xMax)
+    // 세션 시작 날짜(KST)를 붙여 미국 야간 세션도 언제 거래된 건지 명확히
+    timeLabel = `${a.md} ${a.hm}–${b.hm}`
   }
+  if (visible.length < 2) return null
+
   const xRange = xMax - xMin || 1
-  const toX = (ts: number) => (ts - xMin) / xRange * W
+  const toX = (ts: number) => PAD + ((ts - xMin) / xRange) * (W - PAD * 2)
 
-  const visibleData = isKorean
-    ? data.filter(d => d.time >= xMin && d.time <= xMax)
-    : data
-
-  if (visibleData.length < 2) return null
-
-  const closes = visibleData.map(d => d.close)
+  const closes = visible.map(d => d.close)
   const vMin = Math.min(...closes)
   const vMax = Math.max(...closes)
   const vRange = vMax - vMin || 1
-  const toY = (v: number) => CHART_H - 1 - ((v - vMin) / vRange) * (CHART_H - 4)
-  const points = visibleData.map(d => `${toX(d.time)},${toY(d.close)}`).join(' ')
+  const toY = (v: number) => PAD + (1 - (v - vMin) / vRange) * (H - PAD * 2)
 
-  const nowTs = Date.now() / 1000
-  const currentX = toX(nowTs)
-  const showCurrentLine = isKorean && currentX > 0 && currentX < W
+  const pts = visible.map(d => `${toX(d.time).toFixed(1)} ${toY(d.close).toFixed(1)}`)
+  const line = 'M' + pts.join(' L')
+  const first = visible[0], last = visible[visible.length - 1]
+  const area = `${line} L${toX(last.time).toFixed(1)} ${H} L${toX(first.time).toFixed(1)} ${H} Z`
 
-  // 시간 레이블 (HTML로 분리해서 stretching 방지)
-  const timeLabels: { pct: number; label: string; align: 'left' | 'center' | 'right' }[] = isKorean
-    ? [
-        { pct: 0,   label: '09:00', align: 'left' },
-        { pct: 50,  label: '12:15', align: 'center' },
-        { pct: 100, label: '15:30', align: 'right' },
-      ]
-    : [0, Math.floor(visibleData.length / 2), visibleData.length - 1].map((i, li) => {
-        const d = new Date(visibleData[i].time * 1000)
-        const label = `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-        return {
-          pct: li === 0 ? 0 : li === 2 ? 100 : 50,
-          label,
-          align: (li === 0 ? 'left' : li === 2 ? 'right' : 'center') as 'left' | 'center' | 'right',
-        }
-      })
+  const live = (Date.now() / 1000 - last.time) < 15 * 60
 
-  const lastPt = visibleData[visibleData.length - 1]
-  const dotX = toX(lastPt.time)
-  const dotY = toY(lastPt.close)
+  return { line, area, endX: toX(last.time), endY: toY(last.close), timeLabel, live }
+}
 
+const IndexSpark = memo(function IndexSpark({ data, isKorean }: { data: IntradayPoint[]; isKorean: boolean }) {
+  const geo = buildGeometry(data, isKorean)
+  if (!geo) return null
+  const gid = `gi-grad-${Math.round(geo.endX)}-${Math.round(geo.endY)}-${data.length}`
   return (
-    <div className="w-full flex flex-col gap-0">
-      <svg
-        width="100%" height={CHART_H + 1}
-        viewBox={`0 0 ${W} ${CHART_H + 1}`}
-        preserveAspectRatio="none"
-        className="w-full overflow-visible"
-      >
-        <polyline
-          fill="none"
-          stroke={lineColor}
-          strokeWidth="1.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-          opacity="0.7"
-        />
-        {showCurrentLine && (
-          <line x1={currentX} y1={0} x2={currentX} y2={CHART_H}
-            stroke={lineColor} strokeWidth="0.6" strokeDasharray="2,1.5" opacity="0.35" />
-        )}
-        <circle cx={dotX} cy={dotY} r={2.5} fill={dotColor} />
-      </svg>
-      <div className="relative w-full flex justify-between" style={{ height: 9 }}>
-        {timeLabels.map(({ label, align }, i) => (
-          <span key={i} style={{ fontSize: 7, color: labelColor, lineHeight: '9px', textAlign: align }}
-            className={i === 1 ? 'flex-1 text-center' : 'shrink-0'}>
-            {label}
-          </span>
-        ))}
-      </div>
-    </div>
+    <svg viewBox="0 0 240 60" preserveAspectRatio="none" width="100%" height="44"
+      style={{ display: 'block', overflow: 'visible', color: 'var(--gi-c)' }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="currentColor" stopOpacity="0.26" />
+          <stop offset="1" stopColor="currentColor" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={geo.area} fill={`url(#${gid})`} stroke="none" />
+      <path className="gi-glow" d={geo.line} fill="none" stroke="currentColor"
+        strokeWidth="1.7" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={geo.endX} cy={geo.endY} r={3} fill="var(--dot)" />
+    </svg>
   )
 })
 
 const IndexPanel: React.FC = () => {
   const [indices, setIndices] = useState<MarketIndex[]>([])
   const [intradays, setIntradays] = useState<Record<string, IntradayPoint[]>>({})
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
       try {
         const { data } = await indicesApi.get()
         setIndices(data)
+        // 가장 최근 갱신 시각(기준시각)
+        const ts = data
+          .map(d => (d.updated_at ? Date.parse(d.updated_at.endsWith('Z') ? d.updated_at : d.updated_at + 'Z') : 0))
+          .filter(n => n > 0)
+        if (ts.length) setUpdatedAt(new Date(Math.max(...ts)).toISOString())
         // 병렬로 intraday 데이터 fetch
         const results = await Promise.allSettled(
           data.map(idx =>
@@ -137,20 +133,34 @@ const IndexPanel: React.FC = () => {
 
   if (indices.length === 0) return null
 
+  // 기준시각 KST "M/D HH:MM:SS"
+  let refLabel: string | null = null
+  if (updatedAt) {
+    const d = new Date(Date.parse(updatedAt) + 9 * 3600 * 1000)
+    refLabel = `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.toISOString().slice(11, 19)}`
+  }
+
   return (
     <Card
       collapsible
       id="index-panel"
       icon={<Globe size={15} />}
       title="Global Index"
-
-      contentClassName=""
+      right={refLabel ? (
+        <span className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 500 }}>
+          {refLabel} 기준
+        </span>
+      ) : undefined}
+      contentClassName="px-4 pb-4 pt-1"
     >
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-zinc-100 dark:divide-white/[.07]">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {indices.map((idx) => {
           const isUp = (idx.change_pct ?? 0) > 0
           const isDown = (idx.change_pct ?? 0) < 0
+          const giColor = isUp ? 'var(--up)' : isDown ? 'var(--down)' : 'var(--ink-4)'
           const intradayData = intradays[idx.symbol] ?? []
+          const isKorean = KOREAN_SYMBOLS.has(idx.symbol)
+          const geo = intradayData.length > 1 ? buildGeometry(intradayData, isKorean) : null
           const absChange = idx.change !== null ? Math.abs(idx.change) : null
           const changeFmt = absChange !== null
             ? absChange.toLocaleString('ko-KR', { minimumFractionDigits: absChange >= 100 ? 0 : 2, maximumFractionDigits: absChange >= 100 ? 0 : 2 })
@@ -158,44 +168,60 @@ const IndexPanel: React.FC = () => {
           return (
             <div
               key={idx.symbol}
-              className="px-3 py-3 flex flex-col justify-between overflow-hidden hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors cursor-default"
-              style={{ gap: 6 }}
+              className="gi-card flex flex-col"
+              style={{ ['--gi-c' as any]: giColor }}
             >
-              {/* 지수명 eyebrow */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="ut-eyebrow" style={{ fontSize: 10 }}>{idx.name}</span>
-                {idx.change_pct !== null && (
-                  <span style={{ fontSize: 10, fontWeight: 600, color: isUp ? 'var(--up)' : isDown ? 'var(--down)' : 'var(--ink-4)' }}>
-                    {isUp ? '▲' : isDown ? '▼' : ''}{Math.abs(idx.change_pct).toFixed(2)}%
+              <div className="flex flex-col" style={{ padding: '13px 14px 0', gap: 6 }}>
+                {/* 지수명 + 장중표시 / pill 뱃지 */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+                    <span className="ut-eyebrow" style={{ fontSize: 10.5, letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idx.name}</span>
+                    {geo?.live && (
+                      <span title="장중" style={{ width: 6, height: 6, borderRadius: 9999, background: '#22c55e', flexShrink: 0, boxShadow: '0 0 5px #22c55e' }} />
+                    )}
                   </span>
-                )}
-              </div>
+                  {idx.change_pct !== null && (
+                    <span className="gi-pill ut-mono" style={{ flexShrink: 0 }}>
+                      {isUp ? '▲' : isDown ? '▼' : ''} {Math.abs(idx.change_pct).toFixed(2)}%
+                    </span>
+                  )}
+                </div>
 
-              {idx.price !== null ? (
-                <>
-                  {/* 큰 숫자 */}
-                  <div className="ut-mono" style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink-0)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                {idx.price !== null ? (
+                  /* 큰 숫자 */
+                  <div className="ut-mono" style={{ fontSize: 23, fontWeight: 700, color: 'var(--ink-0)', letterSpacing: '-0.02em', lineHeight: 1 }}>
                     {idx.price >= 1000
                       ? Math.round(idx.price).toLocaleString('ko-KR')
                       : idx.price.toFixed(2)}
                   </div>
-                  {/* 등락값 + 스파크라인 */}
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: isUp ? 'var(--up)' : isDown ? 'var(--down)' : 'var(--ink-4)', flexShrink: 0 }}>
-                      {isUp ? '+' : ''}{changeFmt ?? '-'}
-                    </span>
-                    {intradayData.length > 1 && (
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <MiniSparkline
-                          data={intradayData}
-                          isKorean={idx.symbol === '^KS11' || idx.symbol === '^KQ11'}
-                        />
-                      </div>
-                    )}
+                ) : (
+                  <p className="text-xs" style={{ color: 'var(--ink-4)' }}>-</p>
+                )}
+              </div>
+
+              {/* 영역+라인 그래프 (글로우 + endpoint 점) */}
+              {idx.price !== null && (
+                geo ? (
+                  <div style={{ marginTop: 9 }}>
+                    <IndexSpark data={intradayData} isKorean={isKorean} />
                   </div>
-                </>
-              ) : (
-                <p className="text-xs" style={{ color: 'var(--ink-4)' }}>-</p>
+                ) : (
+                  <div style={{ height: 44, marginTop: 9 }} />
+                )
+              )}
+
+              {/* 하단 한 줄: 등락값 + 거래시간(KST, 날짜 포함) */}
+              {idx.price !== null && (
+                <div className="ut-mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, padding: '6px 14px 10px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: giColor, flexShrink: 0 }}>
+                    {isUp ? '+' : isDown ? '-' : ''}{changeFmt ?? '-'}
+                  </span>
+                  {geo && (
+                    <span style={{ fontSize: 9.5, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {geo.timeLabel}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )

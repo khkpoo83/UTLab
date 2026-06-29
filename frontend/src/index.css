@@ -14,12 +14,8 @@
 }
 
 html {
-  @apply bg-white dark:bg-zinc-950;
-}
-
-/* 다크모드: 순수 검정 대신 남색 톤이 섞인 따뜻한 다크 배경 */
-html.dark {
-  background-color: #0c0d16 !important;
+  /* 페이지 배경 = 테마 면색(--c-bg). 사용자 커스텀 배경(bgConfig)은 body 인라인으로 덮음 */
+  background-color: var(--c-bg);
 }
 
 body {
@@ -27,12 +23,8 @@ body {
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
-  @apply bg-white dark:bg-zinc-950;
+  background-color: var(--c-bg);
   color: var(--c-text-base);
-}
-
-.dark body {
-  background-color: #0c0d16;
 }
 
 #content-main {
@@ -161,8 +153,9 @@ body {
   /* 브랜드 — RGB 형태 별도 보관 (Tailwind /opacity 변형용) */
   --c-accent-rgb:    26 158 255;
   --c-accent:        #1A9EFF;
-  --c-accent-dim:    rgb(26 158 255 / 0.09);
-  --c-accent-border: rgb(26 158 255 / 0.25);
+  /* dim/border는 --c-accent-rgb 기반 파생 → 색상테마 팔레트가 rgb만 바꿔도 자동 추종 */
+  --c-accent-dim:    rgb(var(--c-accent-rgb) / 0.09);
+  --c-accent-border: rgb(var(--c-accent-rgb) / 0.25);
   --c-up:            #F0507A;
   --c-down:          #1A9EFF;
 
@@ -678,35 +671,32 @@ body {
  * --c-surface / --c-surface-subtle: card-opacity를 따르는 공통 배경색 변수
  * .surface 클래스: JSX에서 bg-white dark:bg-zinc-900 대신 사용
  */
+/* surface = 색상테마 --paper/--cream 에서 파생(팔레트·모드 자동 추종). card-opacity 알파 유지 */
 :root {
-  --c-surface:        rgb(255 255 255 / var(--card-opacity));
-  --c-surface-subtle: rgb(250 250 250 / var(--card-opacity));
-}
-.dark {
-  /* renewal 다크 페이퍼 #131312 = rgb(19 19 18) */
-  --c-surface:        rgb(19 19 18 / var(--card-opacity));
-  --c-surface-subtle: rgb(29 28 26 / var(--card-opacity));
+  --c-surface:        rgb(from var(--paper) r g b / var(--card-opacity));
+  --c-surface-subtle: rgb(from var(--cream) r g b / var(--card-opacity));
+
+  /* 면 위계 — 전부 팔레트 토큰 추종(10팔레트 × 라이트/다크 자동). 한 곳만 정의.
+     카드=paper(단일 면색) / 페이지배경=cream / 메뉴=mist */
+  --c-bg:       var(--cream);   /* 페이지 배경 = 테마 면색 */
+  --nav-bg:     var(--mist);    /* 상단/좌측 메뉴 면 */
+  --nav-bg-2:   color-mix(in srgb, var(--mist) 60%, var(--paper)); /* 서브메뉴 면 — 메뉴/콘텐츠 사이 톤 */
+  --nav-border: transparent; /* 메뉴 구분선 — 색 제거(면색 차로만 구분) */
+  --divide:     transparent; /* 카드/패널 내부 영역 구분선 — 색/여백으로 구분(선 제거). 한 곳에서 제어 */
+  --hairline:   color-mix(in srgb, var(--paper) 88%, var(--ink-4)); /* 거의 안 보이는 선 */
 }
 .surface        { background-color: var(--c-surface); }
 .surface-subtle { background-color: var(--c-surface-subtle); }
 
 .card-surface {
   background-color: var(--c-surface);
-  border-color: rgb(228 228 231 / max(var(--card-opacity), 0.3)); /* zinc-200 */
-}
-.dark .card-surface {
-  background-color: var(--c-surface);
-  border-color: rgb(42 41 37 / max(var(--card-opacity), 0.3)); /* #2A2925 renewal */
+  border-color: var(--line); /* 카드 완전외곽선 — 테마색(기존 유지) */
 }
 /* ── 패널(모달·슬라이드) 투명도 시스템 ── 카드보다 +0.05 더 불투명 ── */
 :root {
   --panel-opacity: min(calc(var(--card-opacity) + 0.05), 1);
-  --c-panel:        rgb(255 255 255 / var(--panel-opacity));
-  --c-panel-subtle: rgb(250 250 250 / var(--panel-opacity));
-}
-.dark {
-  --c-panel:        rgb(19 19 18 / var(--panel-opacity));
-  --c-panel-subtle: rgb(29 28 26 / var(--panel-opacity));
+  --c-panel:        rgb(from var(--paper) r g b / var(--panel-opacity));
+  --c-panel-subtle: rgb(from var(--cream) r g b / var(--panel-opacity));
 }
 .panel-surface {
   background-color: var(--c-panel);
@@ -818,14 +808,27 @@ body {
   --paper:  #FFFFFF;
   --cream:  #FAFAF7;
   --mist:   #F4F3EF;
-  --line:   rgba(0,0,0,0.05);
-  --line-2: rgba(0,0,0,0.03);
+  --line:   #E8E7E2;  /* solid 보더(색상테마가 팔레트별로 덮어씀) */
+  --line-2: #F0EFEA;
 
-  /* 공개 페이지 (로그인 전) */
-  --pub-header-bg: rgba(250,250,247,0.88);
+  /* 공개 페이지 헤더(로그인 전) — 테마 메뉴면(mist) 반투명. 라이트/다크 자동추종 */
+  --pub-header-bg: rgb(from var(--mist) r g b / 0.85);
 
   /* 브랜드 — amber dot 시그니처 */
   --dot: #F59E0B;
+
+  /* 큰 다크 면(랜딩 CTA·캘린더 밴드·로고 마크)용 — 기본은 ink-0 추종.
+     color-templates.css의 볼드 팔레트가 별도 값으로 덮어씀. */
+  --band: var(--ink-0);
+
+  /* 데이터 시각화 램프(비중 바·도넛·차트) — accent(--c-accent-rgb) opacity 계단.
+     팔레트/모드에 자동 추종(getTonalPalette와 동일 단계). */
+  --viz-1: rgb(var(--c-accent-rgb) / 1.00);
+  --viz-2: rgb(var(--c-accent-rgb) / 0.78);
+  --viz-3: rgb(var(--c-accent-rgb) / 0.58);
+  --viz-4: rgb(var(--c-accent-rgb) / 0.42);
+  --viz-5: rgb(var(--c-accent-rgb) / 0.30);
+  --viz-6: rgb(var(--c-accent-rgb) / 0.20);
 
   /* P&L — renewal 기준 (기존 --c-up/down과 별개) */
   --up:   #D74A4A;
@@ -858,14 +861,18 @@ html.dark {
   --ink-3: #71717A;
   --ink-4: #52525B;
   --ink-5: #3F3F46;
-  --paper:  #09090B;
-  --cream:  #18181B;
-  --mist:   #27272A;
-  --line:   rgba(255,255,255,0.05);
-  --line-2: rgba(255,255,255,0.03);
-  --pub-header-bg: rgba(9,9,11,0.88);
+  /* 면 위계: cream=페이지배경(최암, 기존 #0c0d16 톤) < paper=카드 < mist=메뉴.
+     팔레트 다크 관례와 동일(카드가 배경 위로 떠 보이게) */
+  --paper:  #18181B;  /* 카드 면 */
+  --cream:  #0E0F14;  /* 페이지 배경(따뜻한 다크) */
+  --mist:   #222329;  /* 메뉴 면 */
+  --line:   #2E2D33;  /* solid 다크 보더(색상테마가 팔레트별로 덮어씀) */
+  --line-2: #232227;
+  /* --pub-header-bg 는 :root에서 rgb(from var(--mist)…)로 모드 자동추종 → 다크 별도정의 불필요 */
   --up:     #FF7A97;
   --down:   #4DBFFF;
+  /* viz는 --c-accent-rgb 기반이라 다크에서도 자동 추종(별도 정의 불필요).
+     --band은 var(--ink-0) 추종이라 자동 반전 */
   --shadow-xs: 0 1px 2px rgba(0,0,0,0.18);
   --shadow-sm: 0 2px 6px rgba(0,0,0,0.22), 0 1px 2px rgba(0,0,0,0.18);
   --shadow-md: 0 8px 28px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.20);
@@ -1004,3 +1011,33 @@ html.dark {
   animation: memo-shake 320ms ease;
 }
 
+
+/* ════════════════════════════════════════════════════════
+   Global Index 패널 (IndexPanel) — 외곽 카드형(시안B) + 내부 배치(시안C)
+   각 셀에 --gi-c (등락 색상)를 인라인으로 지정해 사용
+   ════════════════════════════════════════════════════════ */
+.gi-card {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+/* pill 뱃지: 컬러 글씨 + 틴트 배경(시안C) */
+.gi-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10.5px; font-weight: 700;
+  padding: 2px 7px; border-radius: 9999px;
+  color: var(--gi-c);
+  background: color-mix(in srgb, var(--gi-c) 14%, transparent);
+}
+
+/* 라인 글로우: 다크모드(시안C 터미널 느낌)에서만 */
+.dark .gi-glow { filter: drop-shadow(0 0 4px var(--gi-c)); }
+
+/* 설정 저장 바 — 진입 강조 애니메이션 */
+@keyframes save-bar-pop {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.save-bar-pop { animation: save-bar-pop 0.28s cubic-bezier(0.4, 0, 0.2, 1); }

@@ -69,16 +69,16 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
     <div>
       {/* 검색 */}
       <div className="relative mb-5">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="설정 검색…"
-          className="w-full pl-9 pr-9 py-2.5 text-sm rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full pl-9 pr-9 py-2.5 text-sm rounded-xl border border-ink-5 bg-white dark:bg-zinc-900 text-ink-0 placeholder-ink-4 focus:outline-none focus:ring-2 focus:ring-accent"
         />
         {query && (
-          <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600">
+          <button onClick={() => setQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 hover:text-ink-2">
             <X size={15} />
           </button>
         )}
@@ -99,7 +99,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
                       tabActive
                         ? 'bg-accent/10 text-accent'
-                        : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        : 'text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                     }`}
                     style={tabActive ? { color: 'var(--c-accent)' } : {}}
                   >
@@ -109,13 +109,13 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
 
                   {/* 서브그룹 — 활성 탭에 그룹이 있을 때만 */}
                   {tabHasGroups && (
-                    <div className="ml-3 pl-3 border-l border-zinc-200 dark:border-zinc-700 mt-0.5 mb-1 flex flex-col gap-0.5">
+                    <div className="ml-3 pl-3 border-l border-ink-5 mt-0.5 mb-1 flex flex-col gap-0.5">
                       <button
                         onClick={() => selectGroup(null)}
                         className={`px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition-all ${
                           !activeGroup
                             ? 'text-accent bg-accent/8'
-                            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                            : 'text-ink-3 hover:text-ink-1 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                         }`}
                         style={!activeGroup ? { color: 'var(--c-accent)', backgroundColor: 'rgb(var(--c-accent-rgb)/0.08)' } : {}}
                       >
@@ -130,7 +130,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
                             className={`px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition-all ${
                               gActive
                                 ? 'text-accent'
-                                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                : 'text-ink-3 hover:text-ink-1 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                             }`}
                             style={gActive ? { color: 'var(--c-accent)', backgroundColor: 'rgb(var(--c-accent-rgb)/0.08)' } : {}}
                           >
@@ -160,7 +160,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0 ${
                       active
                         ? 'bg-accent/10 text-accent'
-                        : 'text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800'
+                        : 'text-ink-3 bg-zinc-100 dark:bg-zinc-800'
                     }`}
                     style={active ? { color: 'var(--c-accent)' } : {}}
                   >
@@ -180,7 +180,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
                 className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                   !activeGroup
                     ? 'text-white'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-ink-2'
                 }`}
                 style={!activeGroup ? { backgroundColor: 'var(--c-accent)' } : {}}
               >
@@ -195,7 +195,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
                     className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
                       gActive
                         ? 'text-white'
-                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-ink-2'
                     }`}
                     style={gActive ? { backgroundColor: 'var(--c-accent)' } : {}}
                   >
@@ -209,7 +209,7 @@ export function SettingsLayout({ tabs, sections }: SettingsLayoutProps) {
           {/* ── 콘텐츠 ── */}
           {searching ? (
             <>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-ink-4">
                 검색 결과 {visible.length}건{visible.length === 0 ? ' — 일치하는 설정이 없습니다.' : ''}
               </p>
               <div className="space-y-3">

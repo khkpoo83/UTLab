@@ -113,15 +113,15 @@ function AddEditModal({ mode, initial, onClose, onSave }: AddEditModalProps) {
               autoFocus
             />
             {searchResults.length > 0 && (
-              <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden">
+              <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white dark:bg-zinc-800 border border-ink-5 rounded-lg shadow-lg overflow-hidden">
                 {searchResults.map((r) => (
                   <button
                     key={r.ticker}
                     onClick={() => handleSelect(r)}
                     className="w-full px-3 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-700 flex items-center justify-between"
                   >
-                    <span className="text-zinc-800 dark:text-zinc-200 font-medium">{r.name}</span>
-                    <span className="text-2xs text-zinc-400 tabular-nums">{r.ticker}</span>
+                    <span className="text-ink-0 font-medium">{r.name}</span>
+                    <span className="text-2xs text-ink-4 tabular-nums">{r.ticker}</span>
                   </button>
                 ))}
               </div>
@@ -227,7 +227,7 @@ const Watchlist: React.FC = () => {
       {loading ? (
         <div className="border rounded-xl overflow-hidden card-surface">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
+            <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-[var(--divide)] last:border-0">
               <Skeleton className="h-4 w-28 rounded" />
               <Skeleton className="h-4 w-20 rounded" />
               <Skeleton className="h-4 w-16 rounded" />
@@ -238,11 +238,11 @@ const Watchlist: React.FC = () => {
         </div>
       ) : items.length === 0 ? (
         <div className="border border-dashed rounded-xl py-16 flex flex-col items-center gap-3 text-center card-surface">
-          <svg className="w-10 h-10 text-zinc-300 dark:text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-10 h-10 text-ink-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
           </svg>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">관심 종목을 추가해보세요</p>
+          <p className="text-sm text-ink-3">관심 종목을 추가해보세요</p>
           <Button
             variant="primary" size="md"
             onClick={() => setShowAdd(true)}
@@ -264,13 +264,13 @@ const Watchlist: React.FC = () => {
             return (
               <div
                 key={item.id}
-                className="flex items-start gap-3 px-4 py-3 border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
+                className="flex items-start gap-3 px-4 py-3 border-b border-[var(--divide)] last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors"
               >
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                    <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{item.name}</span>
-                    <span className="text-2xs text-zinc-400 tabular-nums">{item.ticker}</span>
+                    <span className="text-sm font-medium text-ink-0">{item.name}</span>
+                    <span className="text-2xs text-ink-4 tabular-nums">{item.ticker}</span>
                     <span className={exchangeBadgeClass(item.exchange)}>
                       {item.exchange}
                     </span>
@@ -281,7 +281,7 @@ const Watchlist: React.FC = () => {
 
                   {/* Price row */}
                   <div className="flex items-center gap-3 text-xs tabular-nums mt-1">
-                    <span className="text-zinc-700 dark:text-zinc-300 font-medium">
+                    <span className="text-ink-1 font-medium">
                       {formatPrice(item.current_price)}
                     </span>
                     {item.change_pct != null && (
@@ -290,8 +290,8 @@ const Watchlist: React.FC = () => {
                       </span>
                     )}
                     {item.target_price != null && (
-                      <span className="text-zinc-400">
-                        목표 <span className="text-zinc-600 dark:text-zinc-300">{formatPrice(item.target_price)}</span>
+                      <span className="text-ink-4">
+                        목표 <span className="text-ink-2">{formatPrice(item.target_price)}</span>
                         {targetGap != null && (
                           <span className={`ml-1 ${targetGapCls}`}>
                             ({targetGap >= 0 ? '+' : ''}{targetGap.toFixed(1)}%)
@@ -303,7 +303,7 @@ const Watchlist: React.FC = () => {
 
                   {/* Memo */}
                   {item.memo && (
-                    <p className="text-2xs text-zinc-400 mt-1 truncate max-w-sm">{item.memo}</p>
+                    <p className="text-2xs text-ink-4 mt-1 truncate max-w-sm">{item.memo}</p>
                   )}
                 </div>
 
@@ -311,7 +311,7 @@ const Watchlist: React.FC = () => {
                 <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
                   <button
                     onClick={() => setEditItem(item)}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors"
+                    className="p-1.5 text-ink-4 hover:text-ink-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded transition-colors"
                     title="수정"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,7 +322,7 @@ const Watchlist: React.FC = () => {
                   <button
                     onClick={() => handleDelete(item.id)}
                     disabled={deleting === item.id}
-                    className="p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
+                    className="p-1.5 text-ink-4 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
                     title="삭제"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -44,11 +44,11 @@ function NewsModal({ group, onClose }: NewsModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-start gap-3 p-5 pb-3 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-start gap-3 p-5 pb-3 border-b border-[var(--divide)]">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               {item.sector && (
-                <span className="px-2 py-0.5 text-xs bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-md font-medium">
+                <span className="px-2 py-0.5 text-xs bg-zinc-100 dark:bg-zinc-800 text-ink-2 rounded-md font-medium">
                   {item.sector}
                 </span>
               )}
@@ -68,17 +68,17 @@ function NewsModal({ group, onClose }: NewsModalProps) {
                 </span>
               )}
             </div>
-            <h2 className="text-base font-bold text-zinc-900 dark:text-zinc-100 leading-snug">
+            <h2 className="text-base font-bold text-ink-0 leading-snug">
               {item.title}
             </h2>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-400">
+            <div className="flex items-center gap-2 mt-1.5 text-xs text-ink-4">
               <span>{sources.join(' · ')}</span>
               {item.published_at && <span>· {formatTime(item.published_at)}</span>}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="flex-shrink-0 p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="flex-shrink-0 p-1.5 rounded-lg text-ink-4 hover:text-ink-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
             title="닫기 (ESC)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,26 +92,26 @@ function NewsModal({ group, onClose }: NewsModalProps) {
 
           {/* AI 요약 */}
           <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800 p-4">
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wide">AI 요약</p>
+            <p className="text-xs font-semibold text-ink-3 mb-2 uppercase tracking-wide">AI 요약</p>
             {isPending ? (
               <div className="space-y-2">
-                <div className="text-sm text-zinc-400 flex items-center gap-1.5">
+                <div className="text-sm text-ink-4 flex items-center gap-1.5">
                   <span className="inline-block w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
                   분석 중입니다...
                 </div>
                 <Skeleton lines={3} className="h-3.5" />
               </div>
             ) : item.summary ? (
-              <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">{item.summary}</p>
+              <p className="text-sm text-ink-1 leading-relaxed">{item.summary}</p>
             ) : (
-              <p className="text-sm text-zinc-400">AI 요약이 없습니다.</p>
+              <p className="text-sm text-ink-4">AI 요약이 없습니다.</p>
             )}
           </div>
 
           {/* 관련 종목 */}
           {item.related_stocks && item.related_stocks.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wide">관련 종목</p>
+              <p className="text-xs font-semibold text-ink-3 mb-2 uppercase tracking-wide">관련 종목</p>
               <div className="flex flex-wrap gap-1.5">
                 {item.related_stocks.map((s) => (
                   <span key={s} className="text-sm px-2.5 py-1 bg-accent/10 text-accent rounded-lg font-medium">
@@ -125,7 +125,7 @@ function NewsModal({ group, onClose }: NewsModalProps) {
           {/* 관련 기사 목록 */}
           {group.articles.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-ink-3 mb-2 uppercase tracking-wide">
                 관련 기사 ({group.articles.length}건)
               </p>
               <div className="space-y-1.5">
@@ -137,11 +137,11 @@ function NewsModal({ group, onClose }: NewsModalProps) {
                     rel="noopener noreferrer"
                     className="flex items-start gap-2 p-2.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors group"
                   >
-                    <span className="flex-shrink-0 text-xs text-zinc-400 pt-0.5 w-16 truncate">{a.source}</span>
-                    <span className="flex-1 text-sm text-zinc-700 dark:text-zinc-300 group-hover:text-accent leading-snug line-clamp-2">
+                    <span className="flex-shrink-0 text-xs text-ink-4 pt-0.5 w-16 truncate">{a.source}</span>
+                    <span className="flex-1 text-sm text-ink-1 group-hover:text-accent leading-snug line-clamp-2">
                       {a.title}
                     </span>
-                    <svg className="flex-shrink-0 w-3.5 h-3.5 text-zinc-300 group-hover:text-accent mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="flex-shrink-0 w-3.5 h-3.5 text-ink-5 group-hover:text-accent mt-0.5 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
                   </a>
@@ -153,23 +153,23 @@ function NewsModal({ group, onClose }: NewsModalProps) {
           {/* 페이지 미리보기 */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">페이지 미리보기</p>
+              <p className="text-xs font-semibold text-ink-3 uppercase tracking-wide">페이지 미리보기</p>
               <button
                 onClick={() => setPreviewOpen((v) => !v)}
-                className="text-xs px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:border-zinc-400 transition-colors"
+                className="text-xs px-2.5 py-1 rounded-lg border border-ink-5 bg-white dark:bg-zinc-800 text-ink-3 hover:border-ink-4 transition-colors"
               >
                 {previewOpen ? '접기' : '열기'}
               </button>
             </div>
             {previewOpen && (
-              <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800">
+              <div className="rounded-xl overflow-hidden border border-ink-5 bg-zinc-50 dark:bg-zinc-800">
                 <iframe
                   src={item.url}
                   className="w-full h-[420px]"
                   title="기사 미리보기"
                   sandbox="allow-scripts allow-same-origin"
                 />
-                <div className="px-3 py-2 text-xs text-zinc-400 border-t border-zinc-200 dark:border-zinc-700">
+                <div className="px-3 py-2 text-xs text-ink-4 border-t border-[var(--divide)]">
                   일부 사이트는 미리보기가 제한될 수 있습니다.
                   <a href={item.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-accent hover:underline">새 탭에서 열기 →</a>
                 </div>
@@ -179,8 +179,8 @@ function NewsModal({ group, onClose }: NewsModalProps) {
         </div>
 
         {/* 하단 액션 */}
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 rounded-b-2xl">
-          <span className="text-xs text-zinc-400">ESC 키로 닫기</span>
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-[var(--divide)] bg-zinc-50 dark:bg-zinc-900 rounded-b-2xl">
+          <span className="text-xs text-ink-4">ESC 키로 닫기</span>
           <a
             href={item.url}
             target="_blank"
@@ -416,7 +416,7 @@ const NewsBlockCard = React.memo(function NewsBlockCard({ group, idx, totalTop, 
   return (
     <div
       onClick={() => onBlockClick(group)}
-      className={`news-card flex flex-col p-3 cursor-pointer ${idx > 0 ? 'border-l border-zinc-100 dark:border-zinc-800' : ''}`}
+      className={`news-card flex flex-col p-3 cursor-pointer ${idx > 0 ? 'border-l border-ink-5' : ''}`}
       style={{ flexBasis: totalTop === 1 ? '100%' : flexBasis, flexShrink: 0, minWidth: 0 }}
     >
       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
@@ -431,13 +431,13 @@ const NewsBlockCard = React.memo(function NewsBlockCard({ group, idx, totalTop, 
           <span className="text-2xs text-accent font-medium">✓</span>
         ) : null}
       </div>
-      <p className={`font-medium text-zinc-900 dark:text-zinc-100 leading-snug ${isFirst ? 'text-sm line-clamp-3' : 'text-xs line-clamp-3'}`}>
+      <p className={`font-medium text-ink-0 leading-snug ${isFirst ? 'text-sm line-clamp-3' : 'text-xs line-clamp-3'}`}>
         {item.title}
       </p>
       {isFirst && item.summary && !isPending && (
-        <p className="text-2xs text-zinc-500 dark:text-zinc-400 mt-1.5 line-clamp-2 leading-relaxed">{item.summary}</p>
+        <p className="text-2xs text-ink-3 mt-1.5 line-clamp-2 leading-relaxed">{item.summary}</p>
       )}
-      <p className="text-2xs text-zinc-400 mt-auto pt-1.5">{formatTime(item.published_at)}</p>
+      <p className="text-2xs text-ink-4 mt-auto pt-1.5">{formatTime(item.published_at)}</p>
     </div>
   )
 })
@@ -466,8 +466,8 @@ const NewsListRow = React.memo(function NewsListRow({ group, onBlockClick }: New
           <span className="text-2xs text-accent">✓</span>
         ) : null}
       </div>
-      <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-snug line-clamp-2 flex-1">{item.title}</p>
-      <span className="text-2xs text-zinc-400 flex-shrink-0">{formatTime(item.published_at)}</span>
+      <p className="text-xs text-ink-1 leading-snug line-clamp-2 flex-1">{item.title}</p>
+      <span className="text-2xs text-ink-4 flex-shrink-0">{formatTime(item.published_at)}</span>
     </div>
   )
 })
@@ -491,7 +491,7 @@ const TopicSection = React.memo(function TopicSection({ sg, onBlockClick, dragHa
     >
       {/* 상위 기사: 가로 flex 블록 */}
       {topGroups.length > 0 && (
-        <div className="flex border-b border-zinc-100 dark:border-zinc-800 overflow-hidden">
+        <div className="flex border-b border-[var(--divide)] overflow-hidden">
           {topGroups.map((group, idx) => (
             <NewsBlockCard
               key={group.id}
@@ -506,7 +506,7 @@ const TopicSection = React.memo(function TopicSection({ sg, onBlockClick, dragHa
 
       {/* 나머지 기사: 제목 목록 */}
       {restGroups.length > 0 && (
-        <div className="divide-y divide-zinc-50 dark:divide-zinc-800/50">
+        <div className="divide-y divide-[var(--divide)]">
           {restGroups.map((group) => (
             <NewsListRow key={group.id} group={group} onBlockClick={onBlockClick} />
           ))}
@@ -515,7 +515,7 @@ const TopicSection = React.memo(function TopicSection({ sg, onBlockClick, dragHa
 
       {/* 숨겨진 그룹 수 표시 */}
       {hiddenCount > 0 && (
-        <div className="px-3 py-1.5 text-2xs text-zinc-400 border-t border-zinc-50 dark:border-zinc-800/50">
+        <div className="px-3 py-1.5 text-2xs text-ink-4 border-t border-[var(--divide)]">
           +{hiddenCount}개 기사 더 있음
         </div>
       )}
@@ -533,20 +533,20 @@ function QueueStatusBar({ status }: { status: QueueStatus | null }) {
   if (!active && done === 0) return null
 
   return (
-    <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 card-surface px-3 py-2">
+    <div className="rounded-lg border border-ink-5 card-surface px-3 py-2">
       <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-3 text-2xs text-zinc-500">
+        <div className="flex items-center gap-3 text-2xs text-ink-3">
           {summarizing > 0 && (
             <span className="flex items-center gap-1">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
               분석 중 {summarizing}건
             </span>
           )}
-          {pending > 0 && <span className="text-zinc-400">대기 {pending}건</span>}
-          <span className="text-zinc-400">완료 {done}건</span>
-          {queue_size > 0 && <span className="text-zinc-400 dark:text-zinc-500">큐 {queue_size}</span>}
+          {pending > 0 && <span className="text-ink-4">대기 {pending}건</span>}
+          <span className="text-ink-4">완료 {done}건</span>
+          {queue_size > 0 && <span className="text-ink-4">큐 {queue_size}</span>}
         </div>
-        <span className="text-2xs text-zinc-400">{progress}%</span>
+        <span className="text-2xs text-ink-4">{progress}%</span>
       </div>
       <ProgressBar value={progress} />
     </div>
@@ -705,7 +705,7 @@ const News: React.FC = () => {
 
         <div className="flex items-center justify-between gap-3 flex-wrap min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-            <span className="text-2xs text-zinc-400 pr-1">뉴스 60분마다 자동갱신</span>
+            <span className="text-2xs text-ink-4 pr-1">뉴스 60분마다 자동갱신</span>
             <ToggleChip pill size="sm" active={!sectorFilter}
               onClick={() => { setSectorFilter(''); setPage(1) }}>전체</ToggleChip>
             {SECTORS.map((s) => (
@@ -733,7 +733,7 @@ const News: React.FC = () => {
       {loading ? (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
+            <div key={i} className="rounded-xl border border-ink-5 overflow-hidden surface">
               <div className="h-8 skeleton" />
               <div className="flex">
                 <div className="skeleton h-24 flex-1 border-r border-white" />
@@ -743,9 +743,9 @@ const News: React.FC = () => {
           ))}
         </div>
       ) : orderedSuperGroups.length === 0 ? (
-        <div className="py-16 text-center text-sm text-zinc-400">
+        <div className="py-16 text-center text-sm text-ink-4">
           <p>뉴스가 없습니다.</p>
-          <p className="text-xs mt-1 text-zinc-400 dark:text-zinc-500">새로고침 버튼을 눌러 뉴스를 가져오세요.</p>
+          <p className="text-xs mt-1 text-ink-4">새로고침 버튼을 눌러 뉴스를 가져오세요.</p>
         </div>
       ) : (
         <DndContext
@@ -767,11 +767,11 @@ const News: React.FC = () => {
           </SortableContext>
           <DragOverlay>
             {activeTopicId && (
-              <div className="shadow-xl rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900 pointer-events-none">
+              <div className="shadow-xl rounded-xl border border-ink-5 overflow-hidden bg-white dark:bg-zinc-900 pointer-events-none">
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800">
-                  <GripVertical size={13} className="text-zinc-300 dark:text-zinc-600" />
-                  <Hash size={13} className="text-zinc-400 dark:text-zinc-500" />
-                  <span className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{activeTopicId}</span>
+                  <GripVertical size={13} className="text-ink-5" />
+                  <Hash size={13} className="text-ink-4" />
+                  <span className="text-sm font-semibold text-ink-1">{activeTopicId}</span>
                 </div>
               </div>
             )}
@@ -782,9 +782,9 @@ const News: React.FC = () => {
       {/* Pagination */}
       {newsData && newsData.total > newsData.page_size && (
         <div className="flex items-center justify-center gap-2 py-2">
-          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-xs px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 disabled:opacity-40 hover:border-zinc-400 transition-colors">이전</button>
-          <span className="text-xs text-zinc-500">{page} / {Math.ceil(newsData.total / newsData.page_size)}</span>
-          <button onClick={() => setPage((p) => p + 1)} disabled={page >= Math.ceil(newsData.total / newsData.page_size)} className="text-xs px-3 py-1.5 border border-zinc-200 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 disabled:opacity-40 hover:border-zinc-400 transition-colors">다음</button>
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="text-xs px-3 py-1.5 border border-ink-5 rounded bg-white dark:bg-zinc-900 disabled:opacity-40 hover:border-ink-4 transition-colors">이전</button>
+          <span className="text-xs text-ink-3">{page} / {Math.ceil(newsData.total / newsData.page_size)}</span>
+          <button onClick={() => setPage((p) => p + 1)} disabled={page >= Math.ceil(newsData.total / newsData.page_size)} className="text-xs px-3 py-1.5 border border-ink-5 rounded bg-white dark:bg-zinc-900 disabled:opacity-40 hover:border-ink-4 transition-colors">다음</button>
         </div>
       )}
     </div>

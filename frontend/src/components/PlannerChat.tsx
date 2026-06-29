@@ -17,20 +17,20 @@ const QUICK_QUESTIONS = [
 function amountColor(monthly_만: number): string {
   if (monthly_만 >= 400) return 'text-accent font-bold'
   if (monthly_만 >= 250) return 'text-accent'
-  return 'text-zinc-400 dark:text-zinc-500'
+  return 'text-ink-4'
 }
 
 function amountBg(monthly_만: number): string {
   if (monthly_만 >= 400) return 'bg-accent/10 dark:bg-accent/15 border-accent/30'
   if (monthly_만 >= 250) return 'bg-accent/5 dark:bg-accent/10 border-accent/20'
-  return 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+  return 'bg-zinc-50 dark:bg-zinc-800 border-ink-5'
 }
 
 function certaintyColor(c?: string): string {
-  if (!c) return 'text-zinc-400'
+  if (!c) return 'text-ink-4'
   if (c.startsWith('★★★')) return 'text-accent'
   if (c.startsWith('★★')) return 'text-accent/70'
-  return 'text-zinc-400'
+  return 'text-ink-4'
 }
 
 // ─── 나이 스냅샷 행 (수입/지출 좌우 분리) ────────────────────────────────────
@@ -44,17 +44,17 @@ function AgeSnapshotRow({ snap, nextAge, isFirst }: { snap: AgeSnapshot; nextAge
   const totalExpense = expense.reduce((s, e) => s + e.amount_만, 0)
 
   return (
-    <div className={`rounded-lg border transition-all ${open ? amountBg(snap.monthly_만) : 'border-zinc-100 dark:border-zinc-800'}`}>
+    <div className={`rounded-lg border transition-all ${open ? amountBg(snap.monthly_만) : 'border-ink-5'}`}>
       {/* 헤더 */}
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-3 py-2 text-left"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${open ? amountColor(snap.monthly_만) : 'text-zinc-500'}`}>
+          <span className={`text-xs font-bold tabular-nums flex-shrink-0 ${open ? amountColor(snap.monthly_만) : 'text-ink-3'}`}>
             {snap.age}{nextAge ? `~${nextAge}` : ''}세 <span className="text-2xs font-normal opacity-70">({1983 + snap.age})</span>
           </span>
-          <span className={`text-xs truncate ${open ? 'text-zinc-600 dark:text-zinc-400' : 'text-zinc-400 dark:text-zinc-500'}`}>
+          <span className={`text-xs truncate ${open ? 'text-ink-2' : 'text-ink-4'}`}>
             {snap.label}
           </span>
         </div>
@@ -63,7 +63,7 @@ function AgeSnapshotRow({ snap, nextAge, isFirst }: { snap: AgeSnapshot; nextAge
             월 {snap.monthly_만}만원
           </span>
           <svg
-            className={`w-3.5 h-3.5 text-zinc-400 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
+            className={`w-3.5 h-3.5 text-ink-4 transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -81,18 +81,18 @@ function AgeSnapshotRow({ snap, nextAge, isFirst }: { snap: AgeSnapshot; nextAge
             <div>
               <div className="flex items-center gap-1 mb-1.5">
                 <span className="text-2xs font-bold text-accent uppercase tracking-wide">수입</span>
-                <span className="text-2xs text-zinc-400 tabular-nums">+{totalIncome}만</span>
+                <span className="text-2xs text-ink-4 tabular-nums">+{totalIncome}만</span>
               </div>
               <div className="space-y-1">
                 {income.map((item, i) => (
                   <div key={i} className="flex items-start gap-1">
                     <span className="text-accent text-2xs flex-shrink-0 mt-0.5">+</span>
                     <div className="min-w-0">
-                      <span className="text-2xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                      <span className="text-2xs text-ink-1 leading-relaxed">
                         {item.name}
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 tabular-nums">
+                        <span className="text-xs font-semibold text-ink-0 tabular-nums">
                           {item.amount_만}만
                         </span>
                         {item.certainty && (
@@ -102,7 +102,7 @@ function AgeSnapshotRow({ snap, nextAge, isFirst }: { snap: AgeSnapshot; nextAge
                         )}
                       </div>
                       {item.note && (
-                        <span className="text-2xs text-zinc-400 leading-tight block">{item.note}</span>
+                        <span className="text-2xs text-ink-4 leading-tight block">{item.note}</span>
                       )}
                     </div>
                   </div>
@@ -111,43 +111,43 @@ function AgeSnapshotRow({ snap, nextAge, isFirst }: { snap: AgeSnapshot; nextAge
             </div>
 
             {/* 지출 */}
-            <div className="border-l border-zinc-100 dark:border-zinc-800 pl-2">
+            <div className="border-l border-ink-5 pl-2">
               <div className="flex items-center gap-1 mb-1.5">
-                <span className="text-2xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">지출</span>
+                <span className="text-2xs font-bold text-ink-3 uppercase tracking-wide">지출</span>
                 {totalExpense > 0 && (
-                  <span className="text-2xs text-zinc-400 tabular-nums">-{totalExpense}만</span>
+                  <span className="text-2xs text-ink-4 tabular-nums">-{totalExpense}만</span>
                 )}
               </div>
               {expense.length > 0 ? (
                 <div className="space-y-1">
                   {expense.map((item, i) => (
                     <div key={i} className="flex items-start gap-1">
-                      <span className="text-zinc-400 text-2xs flex-shrink-0 mt-0.5">−</span>
+                      <span className="text-ink-4 text-2xs flex-shrink-0 mt-0.5">−</span>
                       <div className="min-w-0">
-                        <span className="text-2xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                        <span className="text-2xs text-ink-1 leading-relaxed">
                           {item.name}
                         </span>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 tabular-nums">
+                          <span className="text-xs font-semibold text-ink-2 tabular-nums">
                             {item.amount_만}만
                           </span>
                         </div>
                         {item.until && (
-                          <span className="text-2xs text-zinc-400 leading-tight block">{item.until}까지</span>
+                          <span className="text-2xs text-ink-4 leading-tight block">{item.until}까지</span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-2xs text-zinc-400">없음</p>
+                <p className="text-2xs text-ink-4">없음</p>
               )}
             </div>
           </div>
 
           {/* 순 수령액 합계 바 */}
-          <div className={`mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex justify-between items-center`}>
-            <span className="text-2xs text-zinc-500">순 수령액</span>
+          <div className={`mt-2 pt-2 border-t border-[var(--divide)] flex justify-between items-center`}>
+            <span className="text-2xs text-ink-3">순 수령액</span>
             <span className={`text-xs font-bold tabular-nums ${amountColor(snap.monthly_만)}`}>
               {totalExpense > 0 ? `${totalIncome} − ${totalExpense} = ` : ''}{snap.monthly_만}만원/월
             </span>
@@ -178,20 +178,20 @@ function ScenarioCard({ s, selected, onSelect }: { s: PlannerScenario; selected:
       >
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{s.name}</span>
+            <span className="text-sm font-semibold text-ink-0">{s.name}</span>
             {s.recommended && (
               <span className="px-1.5 py-0.5 rounded-md text-2xs font-bold bg-accent text-white">★추천</span>
             )}
           </div>
           <div className="flex flex-wrap gap-1 mt-1">
             {s.tags.map(t => (
-              <span key={t} className="px-1.5 py-0.5 rounded-md text-2xs bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700">{t}</span>
+              <span key={t} className="px-1.5 py-0.5 rounded-md text-2xs bg-zinc-100 dark:bg-zinc-800 text-ink-3 border border-ink-5">{t}</span>
             ))}
           </div>
           {/* 핵심 지표 미리보기 */}
           {peakSnap && (
             <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-2xs text-zinc-400">{peakSnap.age}세({1983 + peakSnap.age})~</span>
+              <span className="text-2xs text-ink-4">{peakSnap.age}세({1983 + peakSnap.age})~</span>
               <span className={`text-xs font-bold tabular-nums ${amountColor(peakSnap.monthly_만)}`}>
                 월 {peakSnap.monthly_만}만원
               </span>
@@ -220,10 +220,10 @@ function ScenarioCard({ s, selected, onSelect }: { s: PlannerScenario; selected:
       </div>
 
       {/* 장단점 토글 */}
-      <div className="border-t border-zinc-100 dark:border-zinc-800">
+      <div className="border-t border-[var(--divide)]">
         <button
           onClick={() => setShowDetail(!showDetail)}
-          className="w-full flex items-center justify-between px-4 py-2 text-xs text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
+          className="w-full flex items-center justify-between px-4 py-2 text-xs text-ink-4 hover:text-ink-2 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
         >
           <span>{showDetail ? '접기' : '장단점 보기'}</span>
           <svg className={`w-3.5 h-3.5 transition-transform ${showDetail ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,13 +235,13 @@ function ScenarioCard({ s, selected, onSelect }: { s: PlannerScenario; selected:
             {s.pros.map((p, i) => (
               <div key={i} className="flex gap-1.5 text-xs">
                 <span className="text-accent flex-shrink-0">✓</span>
-                <span className="text-zinc-600 dark:text-zinc-400">{p}</span>
+                <span className="text-ink-2">{p}</span>
               </div>
             ))}
             {s.cons.map((c, i) => (
               <div key={i} className="flex gap-1.5 text-xs">
-                <span className="text-zinc-400 flex-shrink-0">✗</span>
-                <span className="text-zinc-600 dark:text-zinc-400">{c}</span>
+                <span className="text-ink-4 flex-shrink-0">✗</span>
+                <span className="text-ink-2">{c}</span>
               </div>
             ))}
           </div>
@@ -277,7 +277,7 @@ function ClarificationPanel({
       <div className="notice notice-accent text-xs">
         <span className="font-semibold">현재 준비 상황: </span>{state.summary}
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs text-ink-3">
         더 정확한 시나리오를 위해 몇 가지 여쭤볼게요. 선택하거나 직접 입력하세요.
       </p>
 
@@ -286,7 +286,7 @@ function ClarificationPanel({
         const isCustom = selected === '직접 입력'
         return (
           <div key={qi} className="space-y-2">
-            <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Q{qi + 1}. {q.text}</p>
+            <p className="text-xs font-semibold text-ink-1">Q{qi + 1}. {q.text}</p>
             <div className="flex flex-wrap gap-1.5">
               {q.options.map(opt => (
                 <button
@@ -295,7 +295,7 @@ function ClarificationPanel({
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                     selected === opt
                       ? 'bg-accent text-white border-accent'
-                      : 'bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:border-accent hover:text-accent'
+                      : 'bg-zinc-50 dark:bg-zinc-800 text-ink-2 border-ink-5 hover:border-accent hover:text-accent'
                   }`}
                 >
                   {opt === '직접 입력' ? '✏️ 직접 입력' : opt}
@@ -308,7 +308,7 @@ function ClarificationPanel({
                 placeholder="직접 입력하세요..."
                 value={state.customInputs[qi] ?? ''}
                 onChange={e => onCustomInput(qi, e.target.value)}
-                className="w-full px-3 py-1.5 rounded-lg border border-accent/50 bg-white dark:bg-zinc-800 text-xs text-zinc-800 dark:text-zinc-200 focus:outline-none focus:border-accent"
+                className="w-full px-3 py-1.5 rounded-lg border border-accent/50 bg-white dark:bg-zinc-800 text-xs text-ink-0 focus:outline-none focus:border-accent"
                 autoFocus
               />
             )}
@@ -327,7 +327,7 @@ function ClarificationPanel({
         <button
           onClick={onSkip}
           disabled={loading}
-          className="px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40"
+          className="px-3 py-2 rounded-xl border border-ink-5 text-xs text-ink-3 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40"
         >
           그냥 분석
         </button>
@@ -425,13 +425,13 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
       {/* 빠른 질문 */}
       {showInitial && (
         <div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-2">빠른 질문으로 시작하거나 직접 입력하세요</p>
+          <p className="text-xs text-ink-4 mb-2">빠른 질문으로 시작하거나 직접 입력하세요</p>
           <div className="flex flex-wrap gap-1.5">
             {allQuickQuestions.map(q => (
               <button
                 key={q.label}
                 onClick={() => handleQuick(q.q)}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-accent/10 hover:text-accent transition-colors border border-zinc-200 dark:border-zinc-700"
+                className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-ink-2 hover:bg-accent/10 hover:text-accent transition-colors border border-ink-5"
               >
                 {q.label}
               </button>
@@ -451,7 +451,7 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
               placeholder={`예: 55세 은퇴, 주택연금은 최대한 늦게 받으면서\n공백기를 안정적으로 버티는 방법은?`}
               rows={2}
-              className="flex-1 resize-none text-xs bg-transparent outline-none text-zinc-800 dark:text-zinc-200 placeholder-zinc-300 dark:placeholder-zinc-600"
+              className="flex-1 resize-none text-xs bg-transparent outline-none text-ink-0 placeholder-ink-5"
             />
             <button
               onClick={() => handleSend()}
@@ -481,7 +481,7 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
               <span key={i} className="w-2 h-2 rounded-full bg-accent" style={{ animation: `bounce 1.2s ${i * 0.2}s infinite` }} />
             ))}
           </div>
-          <p className="text-xs text-zinc-400">AI가 노후 시나리오를 분석 중입니다...</p>
+          <p className="text-xs text-ink-4">AI가 노후 시나리오를 분석 중입니다...</p>
           <style>{`@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}`}</style>
         </div>
       )}
@@ -490,7 +490,7 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
       {error && (
         <div className="space-y-2">
           <div className="notice notice-amber text-xs">{error}</div>
-          <button onClick={handleReset} className="w-full py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
+          <button onClick={handleReset} className="w-full py-2 rounded-xl border border-ink-5 text-xs text-ink-3 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
             다시 질문하기
           </button>
         </div>
@@ -507,7 +507,7 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
             onSkip={handleClarificationSkip}
             loading={loading}
           />
-          <button onClick={handleReset} className="w-full py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
+          <button onClick={handleReset} className="w-full py-2 rounded-xl border border-ink-5 text-xs text-ink-3 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800">
             처음부터
           </button>
         </div>
@@ -533,8 +533,8 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
 
           {result.recommendation_reason && (
             <div className="card-inner px-3 py-2">
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                <span className="font-semibold text-zinc-500 dark:text-zinc-400">추천 근거: </span>
+              <p className="text-xs text-ink-4">
+                <span className="font-semibold text-ink-3">추천 근거: </span>
                 {result.recommendation_reason}
               </p>
             </div>
@@ -542,14 +542,14 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
 
           <button
             onClick={handleReset}
-            className="w-full py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-500 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="w-full py-2 rounded-xl border border-ink-5 text-xs text-ink-3 font-medium hover:bg-zinc-50 dark:hover:bg-zinc-800"
           >
             다시 질문하기
           </button>
         </div>
       )}
 
-      <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center">
+      <p className="text-xs text-ink-4 text-center">
         본 시뮬레이션은 참고용입니다. 실제 세금·물가·수익률 변동에 따라 달라질 수 있습니다.
       </p>
     </div>

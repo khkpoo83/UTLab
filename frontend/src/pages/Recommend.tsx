@@ -218,18 +218,18 @@ const Recommend: React.FC = () => {
                 return (
                   <div key={group.sector}>
                     {/* Sector Header */}
-                    <div className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border-b border-zinc-100 dark:border-zinc-800">
-                      <LayoutList size={14} className="text-zinc-400 dark:text-zinc-500 flex-shrink-0" />
+                    <div className="flex items-center gap-3 px-4 py-2.5 bg-zinc-50 dark:bg-zinc-800 border-b border-[var(--divide)]">
+                      <LayoutList size={14} className="text-ink-4 flex-shrink-0" />
                       <div
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: palette[groupIdx % palette.length] }}
                       />
-                      <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+                      <span className="text-sm font-semibold text-ink-0">
                         {displaySector}
                       </span>
                       <WeightBadge weight={group.sector_weight ?? 0} />
                       <div className="flex-1" />
-                      <span className="text-2xs text-zinc-400">
+                      <span className="text-2xs text-ink-4">
                         {group.items.length}개 종목
                       </span>
                     </div>

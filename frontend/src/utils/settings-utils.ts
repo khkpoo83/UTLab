@@ -131,3 +131,44 @@ export function applyDotColor(hex: string) {
 export function getDotColor(): string {
   return localStorage.getItem('dot_color') ?? '#F59E0B'
 }
+
+// ── 색상 테마(팔레트) ──────────────────────────────────────────────────────────
+// 포인트(dot) 색상을 대체. 10개 팔레트가 accent 계열(--c-accent*·--dot·--accent*·viz)을
+// 한 번에 구동. surface(ink/paper)는 다크/라이트 토글이 관리하므로 모드 무관 동작.
+// CSS: styles/color-templates.css ([data-theme] 라이트 / html.dark[data-theme] 다크)
+
+export type ColorTheme =
+  | 'default' | 'amber' | 'green' | 'ocean' | 'violet' | 'noir'
+  | 'graphite' | 'tealfull' | 'kraft' | 'plum' | 'midnight'
+
+// 스와치 미리보기용(라이트/다크 accent). default는 앱 기본 블루.
+// light/dark = 각 팔레트의 dot 색(미리보기 스와치용, color-templates.css와 일치)
+export const COLOR_THEMES: { id: ColorTheme; label: string; light: string; dark: string }[] = [
+  { id: 'default',  label: '기본',       light: '#1A9EFF', dark: '#4DBFFF' },
+  { id: 'amber',    label: '앰버',       light: '#F59E0B', dark: '#F5C45F' },
+  { id: 'green',    label: '에버그린',   light: '#36936B', dark: '#4FC08A' },
+  { id: 'ocean',    label: '딥 오션',    light: '#2A949D', dark: '#3FC0C8' },
+  { id: 'violet',   label: '바이올렛',   light: '#7E58CE', dark: '#A988FF' },
+  { id: 'noir',     label: '골드 누아르', light: '#C99A2E', dark: '#E0B43E' },
+  { id: 'graphite', label: '그래파이트', light: '#5C6B80', dark: '#94A6BC' },
+  { id: 'tealfull', label: '틸',         light: '#14A39E', dark: '#17C7C0' },
+  { id: 'kraft',    label: '올리브 크라프트', light: '#B89530', dark: '#C9A93A' },
+  { id: 'plum',     label: '플럼',       light: '#B4407A', dark: '#D85F95' },
+  { id: 'midnight', label: '미드나잇',   light: '#6E4FF0', dark: '#9B7DFF' },
+]
+
+export function getColorTheme(): ColorTheme {
+  return (localStorage.getItem('ut-theme') as ColorTheme) || 'default'
+}
+
+export function applyColorTheme(theme: ColorTheme) {
+  const el = document.documentElement
+  if (theme === 'default') {
+    el.removeAttribute('data-theme')
+  } else {
+    el.setAttribute('data-theme', theme)
+  }
+  // 팔레트가 --dot/--c-accent을 CSS로 제어 → 과거 인라인 dot 오버라이드 제거
+  el.style.removeProperty('--dot')
+  localStorage.setItem('ut-theme', theme)
+}

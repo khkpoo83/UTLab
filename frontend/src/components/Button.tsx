@@ -15,8 +15,8 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary:   'bg-accent text-white hover:opacity-85',
-  secondary: 'surface border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-600 hover:text-zinc-800 dark:hover:text-zinc-100',
-  ghost:     'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200',
+  secondary: 'surface border border-ink-5 text-ink-2 hover:border-ink-5 hover:text-ink-0',
+  ghost:     'text-ink-3 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink-1',
   danger:    'surface border border-red-300 dark:border-red-700 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30',
   tint:      'bg-accent/10 text-accent hover:bg-accent/20',
 }
