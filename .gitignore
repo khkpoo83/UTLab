@@ -64,3 +64,6 @@ renewal/
 DESIGN_*.md
 돈이돈을벌자_기획/
 frontend/public/studio-samples/
+
+# Working scratch directory (TODO/DONE/DESIGN/SPEC + prototypes)
+.work/
