@@ -1,0 +1,16 @@
+# Root-level ignore (builds use ./backend and ./frontend contexts, but
+# this guards against accidental root-context builds and keeps cruft out).
+.git/
+.work/
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+**/.pytest_cache/
+**/.ruff_cache/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+*.swp
+.DS_Store

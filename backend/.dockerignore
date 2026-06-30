@@ -1,0 +1,32 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Test suite (not needed at runtime)
+tests/
+
+# Local databases (real DB is bind-mounted at /app/data)
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Environment files (secrets are injected via env_file / mounts)
+.env
+.env.*
+!.env.example
+
+# Virtualenvs
+venv/
+.venv/
+env/
+
+# Editor / OS cruft
+*.swp
+*.swo
+.DS_Store
