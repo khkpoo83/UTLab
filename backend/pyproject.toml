@@ -1,0 +1,24 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# One event loop for the whole session so the StaticPool's single in-memory
+# SQLite connection stays valid across all tests.
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Keep the existing codebase practical to lint — only the test scaffolding is new.
+extend-exclude = ["__pycache__", "test_planner_chat.py"]
+
+[tool.ruff.lint]
+# Sensible defaults; not draconian.
+select = ["E", "F", "W", "I"]
+ignore = [
+    "E501",  # line length handled by formatter, not enforced hard
+    "E402",  # module-level imports not at top (conftest sets env before importing app)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F811", "F401"]  # pytest fixtures legitimately shadow / re-export names

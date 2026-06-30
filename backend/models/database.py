@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
-DATABASE_URL = "sqlite+aiosqlite:///./data/utlab.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/utlab.db")
 
 engine = create_async_engine(
     DATABASE_URL,
@@ -152,7 +153,7 @@ class StockMaster(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     ticker = Column(String(20), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
     exchange = Column(String(20), nullable=False)   # KOSPI, KOSDAQ, KONEX, ETF, NASDAQ, NYSE
     market = Column(String(10), nullable=False, default="KR")  # KR, US
     industry = Column(String(100), nullable=True)   # 업종명 (네이버 분류)

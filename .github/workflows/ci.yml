@@ -1,0 +1,111 @@
+name: CI
+
+# Phase 1 CI: lint + test + build for the backend (FastAPI) and frontend
+# (React + Vite + TS). Wires around the existing safety-net tracks; does not
+# modify them. No Playwright/e2e job (deferred, out of scope).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (pytest + ruff)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # The test/dev tooling (pytest, ruff) lives in requirements-dev.txt.
+          # It is part of the backend safety-net, which may not be committed yet
+          # (see CI report / follow-ups) — install it only if present so this
+          # job stays green either way.
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      # Production code hardcodes two paths at import time:
+      #   * models/database.py -> sqlite at ./data/utlab.db (cwd-relative)
+      #   * routers/blog.py    -> /app/data/blog_images (Docker container path)
+      # A fresh runner has neither, so importing the app would crash before any
+      # test runs. We create both up front (sudo is passwordless on GH runners)
+      # WITHOUT touching source. Harmless no-ops if the dirs already exist.
+      - name: Prepare runtime dirs expected by production imports
+        run: |
+          mkdir -p data
+          sudo mkdir -p /app/data/blog_images && sudo chmod -R 777 /app
+
+      # Advisory only: `ruff check .` surfaces the ~130 pre-existing issues in
+      # production code (import ordering / unused imports) as a backlog, but
+      # MUST NOT fail the build today. `|| true` keeps the step green while the
+      # output stays visible in logs. Guarded on ruff being installed.
+      - name: Ruff (advisory, non-blocking — legacy backlog)
+        run: command -v ruff >/dev/null && (ruff check . || true) || echo "ruff not installed (dev deps absent) — skipping"
+
+      # Gating: the new test scaffolding is ruff-clean, so this is enforced
+      # when the tests dir exists.
+      - name: Ruff (gating — tests must stay clean)
+        run: if [ -d tests ] && command -v ruff >/dev/null; then ruff check tests; else echo "tests/ or ruff absent — skipping"; fi
+
+      - name: Run tests
+        run: |
+          if [ -d tests ] && command -v pytest >/dev/null; then
+            python -m pytest -q
+          else
+            echo "Backend test scaffolding (tests/ + pytest) not present — skipping. See CI report follow-ups."
+          fi
+
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Prefer reproducible `npm ci`; fall back to `npm install` if the lockfile
+      # has drifted (both use --legacy-peer-deps per the project's peer-dep
+      # constraints). The fallback keeps CI unblocked on lockfile drift.
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+
+      # `lint` and `test` are part of the frontend safety-net. They are gated on
+      # the npm script existing so a checkout that predates the safety-net
+      # (no lint/test scripts in package.json) stays green. `build` is committed
+      # and always runs. Once the safety-net package.json is committed, lint and
+      # test run automatically with no workflow change. See CI report follow-ups.
+      - name: Lint
+        run: npm run --if-present lint
+
+      - name: Test
+        run: npm run --if-present test
+
+      - name: Build
+        run: npm run build

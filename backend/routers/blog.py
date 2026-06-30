@@ -1,5 +1,6 @@
 """블로그 라우터 — CRUD, 이미지 업로드, AI 생성, 공개 API"""
 import json
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -19,8 +20,12 @@ from routers.auth import get_current_user
 
 router = APIRouter()
 
-BLOG_IMAGES_DIR = Path("/app/data/blog_images")
-BLOG_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+BLOG_IMAGES_DIR = Path(os.getenv("BLOG_IMAGES_DIR", "/app/data/blog_images"))
+try:
+    BLOG_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Docker 밖(테스트/CI)에서 /app 쓰기 불가 시 import만으로 죽지 않도록
+    pass
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10MB
 

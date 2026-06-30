@@ -1,0 +1,104 @@
+# Pre-commit hooks for the UTLab (Stock) monorepo.
+# Repo layout: git root != frontend dir, so we use the `pre-commit` framework
+# (polyglot, path-aware) rather than husky/lint-staged.
+#
+# Design goal: catch NEW problems on staged files; do NOT relitigate the
+# ~130 pre-existing ruff issues in backend production code (a separate backlog).
+# Install locally with:
+#   /data/venvs/precommit-tools/bin/pre-commit install
+# Run manually:
+#   /data/venvs/precommit-tools/bin/pre-commit run --all-files
+
+default_install_hook_types: [pre-commit]
+# Only lint things we own; never reach into deps / build output / scratch files.
+exclude: |
+  (?x)^(
+    frontend/node_modules/.*|
+    frontend/dist/.*|
+    .*/__pycache__/.*|
+    backend/test_planner_chat.py
+  )$
+
+repos:
+  # ---------------------------------------------------------------------------
+  # Generic hygiene (cheap, language-agnostic). These only touch staged files.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(md|svg)$
+      - id: end-of-file-fixer
+        exclude: \.(md|svg)$
+      - id: check-yaml
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-merge-conflict
+
+  # ---------------------------------------------------------------------------
+  # Backend (Python) — ruff lint + format on staged backend files only.
+  #
+  # WHY this won't block normal commits on the legacy backlog:
+  #   * `ruff check --fix` auto-resolves the dominant legacy noise
+  #     (I001 import-sort + F401 unused imports = ~88% of all findings) on any
+  #     file a dev touches, so new code AND touched legacy files self-heal
+  #     instead of failing.
+  #   * The 7 production files that still carry *unfixable* pre-existing issues
+  #     (E712/F841/F821/E731/F823/E741/E701 — genuine bugs, but NOT introduced
+  #     by this work) are excluded below so merely touching them does not block
+  #     a commit. These are tracked as a follow-up backlog, not gated here.
+  #   * Rule selection + per-file ignores live in backend/pyproject.toml
+  #     (the single source of truth); the hook just runs ruff against it.
+  # Net effect: NEW files are fully linted; legacy is improved opportunistically
+  # via autofix; nobody is blocked by pre-existing unfixable issues.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff (backend, autofix)
+        args: [--fix]
+        files: ^backend/.*\.py$
+        # Pre-existing unfixable-issue files — legacy backlog, do not gate.
+        exclude: |
+          (?x)^backend/(
+            routers/calendar\.py|
+            routers/planner\.py|
+            services/calendar_service\.py|
+            services/gemini_service\.py|
+            services/recommend_service\.py|
+            services/stock_service\.py|
+            services/technical_analysis\.py
+          )$
+      # NOTE: deliberately NO `ruff-format` hook. The existing backend code was
+      # never ruff-formatted, so a format hook would rewrite (add diff noise to)
+      # every legacy file a dev touches — i.e. relitigate legacy formatting,
+      # which this project explicitly does not want. Formatting stays opt-in via
+      # the `ruff format` CLI. These hooks lint (catch problems); they do not
+      # reformat untouched legacy code.
+
+  # ---------------------------------------------------------------------------
+  # Frontend (React + TS) — ESLint on staged frontend files.
+  # Run as a local hook delegating to the project's own toolchain so config
+  # stays in one place (frontend/eslint.config.js). ESLint is 0-errors repo-wide
+  # today (112 warnings, which don't fail), so it runs clean.
+  # NOTE: deliberately NO prettier hook here either — 83 frontend files are not
+  # currently prettier-clean, so a `--write` hook would reformat touched legacy
+  # files (noise) and a `--check` hook would block on them (relitigation).
+  # Prettier stays opt-in via the existing `npm run format` script.
+  # The eslint hook requires `node_modules` in frontend/ (the project's own
+  # toolchain). In this Docker-era checkout node_modules is root-owned but
+  # world-readable; on a normal dev box `npm install --legacy-peer-deps`
+  # provides them. Scoped to frontend/ files so it no-ops on backend-only commits.
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      # pre-commit passes paths relative to the repo root (e.g.
+      # "frontend/src/App.tsx"); we cd into frontend/ and strip the leading
+      # "frontend/" so the project's own toolchain/config resolves the paths.
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: bash -c 'cd frontend && args=("${@#frontend/}"); npx --no-install eslint "${args[@]}"' --
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: true
