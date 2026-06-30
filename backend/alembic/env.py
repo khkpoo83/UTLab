@@ -37,8 +37,13 @@ config = context.config
 # because ConfigParser treats it as interpolation syntax.
 config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 
-# Configure Python logging from alembic.ini, if present.
-if config.config_file_name is not None:
+# Configure Python logging from alembic.ini ONLY for standalone CLI runs.
+# When the app drives migrations at startup it injects a live connection via
+# ``config.attributes["connection"]`` (see db_migrate); in that embedded case we
+# must NOT call fileConfig, because it would (a) disable the application's
+# existing loggers and (b) force the root level to WARNING per alembic.ini,
+# silencing the app's own INFO logging for the rest of the process lifetime.
+if config.config_file_name is not None and config.attributes.get("connection") is None:
     fileConfig(config.config_file_name)
 
 # Target metadata for autogenerate support.

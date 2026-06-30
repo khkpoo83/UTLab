@@ -1,14 +1,22 @@
 import os
 from datetime import datetime
-from typing import Optional
+
 from sqlalchemy import (
-    Column, Integer, String, Float, Boolean, DateTime, Text, JSON, Index,
-    ForeignKey, event
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
 )
-from sqlalchemy.sql import func
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.sql import func
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/utlab.db")
 
@@ -422,207 +430,32 @@ class PortfolioAnalysis(Base):
 
 
 async def init_db() -> None:
+    """Bring the database to the current schema, then apply runtime PRAGMAs.
+
+    Phase 2: schema management moved from ``create_all`` + a long idempotent
+    ``CREATE/ALTER IF NOT EXISTS`` block to Alembic.  ``run_migrations``:
+      * fresh DB        -> ``upgrade head`` builds the whole schema;
+      * legacy prod DB  -> ``stamp`` at the baseline (which reproduces that
+                           exact schema), then ``upgrade head`` (no-op today);
+      * managed DB      -> ``upgrade head`` applies any pending revisions.
+    Adding a new column/table is now a migration, not an edit here.
+    """
+    import logging
+
+    from sqlalchemy import text
+
+    from db_migrate import run_migrations
+
+    # Runtime PRAGMAs (connection/DB-level, not schema).  Set first so the
+    # migration run executes under WAL.  StaticPool shares one connection, so
+    # these persist for the subsequent run_migrations call.
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.execute(__import__("sqlalchemy").text("PRAGMA journal_mode=WAL"))
-        await conn.execute(__import__("sqlalchemy").text("PRAGMA synchronous=NORMAL"))
-        await conn.execute(__import__("sqlalchemy").text("PRAGMA cache_size=10000"))
+        await conn.execute(text("PRAGMA journal_mode=WAL"))
+        await conn.execute(text("PRAGMA synchronous=NORMAL"))
+        await conn.execute(text("PRAGMA cache_size=10000"))
 
-        # 기존 DB에 새 컬럼 추가 마이그레이션 (없으면 추가, 있으면 무시)
-        migrations = [
-            # Google Calendar 테이블 생성
-            """CREATE TABLE IF NOT EXISTS calendar_token (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
-                google_email VARCHAR(256),
-                encrypted_access_token TEXT NOT NULL,
-                encrypted_refresh_token TEXT,
-                token_expiry DATETIME,
-                calendar_id VARCHAR(256) NOT NULL DEFAULT 'primary',
-                sync_token TEXT,
-                connected_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            """CREATE TABLE IF NOT EXISTS calendar_event (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                google_event_id VARCHAR(256) NOT NULL,
-                calendar_id VARCHAR(256) NOT NULL DEFAULT 'primary',
-                summary VARCHAR(512),
-                description TEXT,
-                location VARCHAR(512),
-                start_dt DATETIME,
-                end_dt DATETIME,
-                all_day INTEGER NOT NULL DEFAULT 0,
-                recurrence TEXT,
-                status VARCHAR(20) DEFAULT 'confirmed',
-                html_link VARCHAR(1024),
-                color_id VARCHAR(16),
-                raw_json TEXT,
-                synced_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, google_event_id)
-            )""",
-            """CREATE TABLE IF NOT EXISTS calendar_watch_channel (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id),
-                channel_id VARCHAR(256) NOT NULL UNIQUE,
-                resource_id VARCHAR(256),
-                calendar_id VARCHAR(256) NOT NULL DEFAULT 'primary',
-                expiration DATETIME,
-                active INTEGER NOT NULL DEFAULT 1,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_calendar_token_user_id ON calendar_token (user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_calendar_event_user ON calendar_event (user_id)",
-            "CREATE INDEX IF NOT EXISTS ix_calendar_event_start ON calendar_event (user_id, start_dt)",
-            "CREATE INDEX IF NOT EXISTS ix_calendar_watch_user ON calendar_watch_channel (user_id)",
-            # user_profile 테이블 생성 (CREATE TABLE IF NOT EXISTS 방식)
-            """CREATE TABLE IF NOT EXISTS user_profile (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE REFERENCES users(id),
-                display_name VARCHAR(64),
-                birth_date VARCHAR(10),
-                profile_icon VARCHAR(8) DEFAULT '👤',
-                job VARCHAR(64),
-                retire_age INTEGER DEFAULT 60,
-                monthly_income_만 INTEGER,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_user_profile_user_id ON user_profile (user_id)",
-            "ALTER TABLE portfolio ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'manual'",
-            "ALTER TABLE portfolio ADD COLUMN account_no VARCHAR(32)",
-            "ALTER TABLE portfolio ADD COLUMN external_id VARCHAR(64)",
-            "ALTER TABLE portfolio ADD COLUMN account_id INTEGER",
-            "ALTER TABLE stock_master ADD COLUMN industry VARCHAR(100)",
-            "ALTER TABLE news ADD COLUMN description TEXT",
-            "CREATE INDEX IF NOT EXISTS ix_news_published_at ON news (published_at)",
-            "ALTER TABLE recommendation ADD COLUMN reason TEXT",
-            "ALTER TABLE recommendation ADD COLUMN confidence VARCHAR(20)",
-            "ALTER TABLE recommendation ADD COLUMN ai_session VARCHAR(20)",
-            "ALTER TABLE recommendation ADD COLUMN entry_price FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN entry_range_low FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN entry_range_high FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN target_price FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN target_return_pct FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN stop_loss_price FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN stop_loss_pct FLOAT",
-            "ALTER TABLE recommendation ADD COLUMN technical_summary TEXT",
-            "ALTER TABLE recommendation ADD COLUMN generated_at DATETIME",
-            "ALTER TABLE recommendation ADD COLUMN community_sentiment TEXT",
-            "ALTER TABLE recommendation ADD COLUMN political_theme VARCHAR(20)",
-            "ALTER TABLE recommendation ADD COLUMN political_weight FLOAT",
-            "ALTER TABLE calendar_watch_channel ADD COLUMN webhook_token VARCHAR(64)",
-            "ALTER TABLE calendar_token ADD COLUMN calendars_json TEXT",
-            "ALTER TABLE calendar_token ADD COLUMN sync_tokens_json TEXT",
-            # investment_event 테이블
-            """CREATE TABLE IF NOT EXISTS investment_event (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                event_type VARCHAR(20) NOT NULL,
-                event_date VARCHAR(10) NOT NULL,
-                ticker VARCHAR(20),
-                name VARCHAR(128),
-                price FLOAT,
-                quantity FLOAT,
-                amount FLOAT,
-                pnl FLOAT,
-                pnl_pct FLOAT,
-                note VARCHAR(256),
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_investment_event_date ON investment_event (event_date)",
-            "CREATE INDEX IF NOT EXISTS ix_investment_event_type ON investment_event (event_type)",
-            # investment_diary 테이블
-            """CREATE TABLE IF NOT EXISTS investment_diary (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                diary_date VARCHAR(10) NOT NULL UNIQUE,
-                content TEXT NOT NULL,
-                raw_data TEXT,
-                generated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_investment_diary_date ON investment_diary (diary_date)",
-            "ALTER TABLE portfolio_snapshot ADD COLUMN realized_pnl FLOAT NOT NULL DEFAULT 0",
-            # blog_posts 테이블
-            """CREATE TABLE IF NOT EXISTS blog_posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title VARCHAR(500) NOT NULL DEFAULT '제목 없음',
-                content TEXT,
-                cover_image VARCHAR(500),
-                visibility VARCHAR(20) NOT NULL DEFAULT 'private',
-                tags VARCHAR(1000),
-                ai_generated BOOLEAN DEFAULT 0,
-                word_count INTEGER DEFAULT 0,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_blog_posts_created_at ON blog_posts (created_at)",
-            "CREATE INDEX IF NOT EXISTS ix_blog_posts_visibility ON blog_posts (visibility)",
-            # investment_mark 테이블
-            """CREATE TABLE IF NOT EXISTS investment_mark (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date VARCHAR(10) NOT NULL,
-                title VARCHAR(256) NOT NULL,
-                google_event_id VARCHAR(256),
-                google_calendar_id VARCHAR(256),
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_investment_mark_date ON investment_mark (date)",
-            "CREATE UNIQUE INDEX IF NOT EXISTS ux_investment_mark_gcal ON investment_mark (google_event_id)",
-            # deposit_event 테이블
-            """CREATE TABLE IF NOT EXISTS deposit_event (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                account_no VARCHAR(20) NOT NULL,
-                date VARCHAR(10) NOT NULL,
-                trde_no VARCHAR(40),
-                amount FLOAT NOT NULL,
-                remark VARCHAR(200),
-                balance_after FLOAT,
-                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )""",
-            "CREATE INDEX IF NOT EXISTS ix_deposit_event_account ON deposit_event (account_no)",
-            "CREATE INDEX IF NOT EXISTS ix_deposit_event_date ON deposit_event (date)",
-            "ALTER TABLE portfolio_snapshot ADD COLUMN cash_balance FLOAT NOT NULL DEFAULT 0",
-            "ALTER TABLE investment_event ADD COLUMN account_no VARCHAR(32)",
-        ]
-        for sql in migrations:
-            try:
-                await conn.execute(__import__("sqlalchemy").text(sql))
-            except Exception:
-                pass  # 이미 컬럼 존재 시 무시
-
-        # portfolio_snapshot: account_no 컬럼 추가 및 unique constraint 변경 (TOTAL=전체)
-        _text = __import__("sqlalchemy").text
-        try:
-            await conn.execute(_text("SELECT account_no FROM portfolio_snapshot LIMIT 1"))
-            # 이미 마이그레이션 완료
-        except Exception:
-            try:
-                await conn.execute(_text("DROP TABLE IF EXISTS portfolio_snapshot_new"))
-                await conn.execute(_text("""
-                    CREATE TABLE portfolio_snapshot_new (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        date DATETIME NOT NULL,
-                        account_no VARCHAR(32) NOT NULL DEFAULT 'TOTAL',
-                        total_value FLOAT NOT NULL,
-                        total_cost FLOAT NOT NULL,
-                        pnl FLOAT NOT NULL,
-                        pnl_pct FLOAT NOT NULL,
-                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                        UNIQUE(date, account_no)
-                    )
-                """))
-                await conn.execute(_text("""
-                    INSERT INTO portfolio_snapshot_new
-                        (id, date, account_no, total_value, total_cost, pnl, pnl_pct, created_at)
-                    SELECT id, date, 'TOTAL', total_value, total_cost, pnl, pnl_pct, created_at
-                    FROM portfolio_snapshot
-                """))
-                await conn.execute(_text("DROP TABLE portfolio_snapshot"))
-                await conn.execute(_text("ALTER TABLE portfolio_snapshot_new RENAME TO portfolio_snapshot"))
-                await conn.execute(_text("CREATE INDEX IF NOT EXISTS ix_portfolio_snapshot_date ON portfolio_snapshot (date)"))
-            except Exception as me:
-                import logging as _log
-                _log.getLogger(__name__).warning(f"portfolio_snapshot migration failed: {me}")
+    action = await run_migrations(engine)
+    logging.getLogger(__name__).info("Alembic migrations applied (action=%s)", action)
 
 
 class BlogPost(Base):
