@@ -93,8 +93,19 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode against a live async connection."""
-    asyncio.run(run_async_migrations())
+    """Run migrations in 'online' mode.
+
+    If a live (synchronous) connection was injected via
+    ``config.attributes["connection"]`` -- as ``db_migrate`` does from inside an
+    ``AsyncConnection.run_sync`` callback -- reuse it directly rather than
+    opening a second engine.  Otherwise create our own async engine (the path
+    taken by the ``alembic`` CLI).
+    """
+    connection = config.attributes.get("connection", None)
+    if connection is not None:
+        do_run_migrations(connection)
+    else:
+        asyncio.run(run_async_migrations())
 
 
 if context.is_offline_mode():
