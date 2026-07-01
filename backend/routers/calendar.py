@@ -6,37 +6,44 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, Response
-from models.database import AsyncSessionLocal
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import CalendarEvent, CalendarToken, CalendarWatchChannel, User, get_db
+from models.database import AsyncSessionLocal, CalendarEvent, User, get_db
+from repositories.calendar_repository import CalendarRepository
 from routers.auth import get_current_user
-from services.google_oauth import (
-    build_authorization_url,
-    decrypt_token,
-    encrypt_token,
-    exchange_code_for_tokens,
-    get_google_email,
-)
 from services.calendar_service import (
+    create_event,
+    delete_event,
+    delete_event_scoped,
     full_sync,
     get_connection_status,
+    get_event_recurrence,
     get_events,
     incremental_sync,
     incremental_sync_all,
     list_user_calendars,
     register_push_channel,
     stop_push_channel,
-    create_event,
     update_event,
-    delete_event,
-    get_event_recurrence,
     update_event_scoped,
-    delete_event_scoped,
+)
+from services.google_oauth import (
+    build_authorization_url,
+    encrypt_token,
+    exchange_code_for_tokens,
+    get_google_email,
 )
 from services.sse_broker import broker as sse_broker
 
@@ -94,33 +101,16 @@ async def auth_callback(
     email = get_google_email(tokens["access_token"])
 
     # 토큰 암호화 저장 (upsert)
-    result = await db.execute(
-        select(CalendarToken).where(CalendarToken.user_id == user_id)
-    )
-    token_row = result.scalar_one_or_none()
-
     encrypted_at = encrypt_token(tokens["access_token"])
     encrypted_rt = encrypt_token(tokens["refresh_token"]) if tokens.get("refresh_token") else None
 
-    if token_row:
-        token_row.encrypted_access_token = encrypted_at
-        if encrypted_rt:
-            token_row.encrypted_refresh_token = encrypted_rt
-        token_row.token_expiry = tokens.get("expiry")
-        token_row.google_email = email
-        token_row.sync_token = None  # 재연결 시 full sync
-    else:
-        token_row = CalendarToken(
-            user_id=user_id,
-            google_email=email,
-            encrypted_access_token=encrypted_at,
-            encrypted_refresh_token=encrypted_rt,
-            token_expiry=tokens.get("expiry"),
-            calendar_id="primary",
-        )
-        db.add(token_row)
-
-    await db.commit()
+    await CalendarRepository(db).upsert_token(
+        user_id,
+        google_email=email,
+        encrypted_access_token=encrypted_at,
+        encrypted_refresh_token=encrypted_rt,
+        token_expiry=tokens.get("expiry"),
+    )
     logger.info(f"Google Calendar connected for user {user_id} ({email})")
 
     # Full Sync + Push Channel 등록을 BackgroundTasks로 처리
@@ -135,7 +125,6 @@ async def auth_callback(
 
 async def _post_connect_setup(user_id: int) -> None:
     """OAuth 콜백 후 백그라운드: Full Sync + Push 채널 등록"""
-    from models.database import AsyncSessionLocal
     async with AsyncSessionLocal() as db:
         try:
             count = await full_sync(user_id, db)
@@ -161,10 +150,7 @@ async def auth_disconnect(current_user: CurrentUser, db: DB) -> dict:
         pass
 
     # DB 데이터 삭제
-    await db.execute(delete(CalendarEvent).where(CalendarEvent.user_id == uid))
-    await db.execute(delete(CalendarWatchChannel).where(CalendarWatchChannel.user_id == uid))
-    await db.execute(delete(CalendarToken).where(CalendarToken.user_id == uid))
-    await db.commit()
+    await CalendarRepository(db).delete_all_user_data(uid)
 
     return {"message": "Google Calendar disconnected."}
 
@@ -199,15 +185,10 @@ async def calendar_webhook(
 
     # 어떤 유저의 채널인지 조회 + webhook_token 검증
     async def _process():
-        from models.database import AsyncSessionLocal
         async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(CalendarWatchChannel).where(
-                    CalendarWatchChannel.channel_id == x_goog_channel_id,
-                    CalendarWatchChannel.active == True,
-                )
+            channel = await CalendarRepository(db).get_active_watch_channel(
+                x_goog_channel_id
             )
-            channel = result.scalar_one_or_none()
             if not channel:
                 logger.warning(f"Unknown push channel: {x_goog_channel_id}")
                 return
@@ -492,7 +473,8 @@ class EventUpdateRequest(BaseModel):
 
 
 def _build_google_event(req: EventCreateRequest) -> dict:
-    from datetime import datetime as _dt, timedelta as _td
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
     if req.all_day:
         start_date = req.start[:10]
         end_date = req.end[:10] if req.end else start_date
@@ -557,7 +539,8 @@ async def update_calendar_event(
     scope: Optional[str] = Query(None, description="반복 일정 범위: this | following | all"),
 ) -> dict:
     """Google Calendar 이벤트 수정 (scope 지정 시 반복 일정 범위 처리)"""
-    from datetime import datetime as _dt, timedelta as _td
+    from datetime import datetime as _dt
+    from datetime import timedelta as _td
     body: dict = {}
     if req.summary is not None:
         body["summary"] = req.summary
