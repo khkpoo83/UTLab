@@ -47,6 +47,32 @@ async def test_summary_empty(client, auth_headers):
     assert s["total_value"] == 0
 
 
+async def test_list_handles_none_day_change(client, auth_headers, monkeypatch):
+    """Regression: a price dict with day_change=None must not crash list (round(None)).
+
+    Happens live when the market data source returns partial data (e.g. market
+    closed, no prev-close). The endpoint must return 200 with day_change=None.
+    """
+    import routers.portfolio as pr
+
+    async def _price_no_change(ticker, *a, **k):
+        return {"price": 100.0, "day_change": None, "day_change_pct": None}
+
+    monkeypatch.setattr(pr, "fetch_price_detail", _price_no_change, raising=False)
+
+    await client.post(
+        "/api/portfolio",
+        json={"ticker": "005930", "name": "삼성전자", "avg_price": 70000.0, "quantity": 10.0},
+        headers=auth_headers,
+    )
+    listed = await client.get("/api/portfolio", headers=auth_headers)
+    assert listed.status_code == 200, listed.text
+    row = listed.json()[0]
+    assert row["day_change"] is None
+    assert row["day_change_pct"] is None
+    assert row["current_price"] == 100.0
+
+
 async def test_delete_holding(client, auth_headers):
     created = await client.post(
         "/api/portfolio",

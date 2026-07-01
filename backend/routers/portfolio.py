@@ -256,8 +256,8 @@ async def list_portfolio(
         current_value = round(cv, 2)
         pnl = round(cv - cost, 2) if d else None
         pnl_pct = round((cv - cost) / cost * 100, 2) if (d and cost > 0) else None
-        day_change = round(d["day_change"], 2) if d else None
-        day_change_pct = d["day_change_pct"] if d else None
+        day_change = round(d["day_change"], 2) if (d and d.get("day_change") is not None) else None
+        day_change_pct = d.get("day_change_pct") if d else None
         weight = round(cv / total_value * 100, 2) if total_value > 0 else None
         source = getattr(holding, "source", "manual") or "manual"
         holding_account_id = getattr(holding, "account_id", None)
