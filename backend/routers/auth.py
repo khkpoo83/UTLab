@@ -8,10 +8,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import User, get_db, AsyncSessionLocal
+from models.database import AsyncSessionLocal, User
+from repositories.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +43,16 @@ async def ensure_initial_user() -> None:
     """앱 시작 시 DB에 사용자가 없으면 초기 비밀번호로 1회 생성 후 메모리에서 삭제."""
     global _init_password
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.username == _init_username))
-        user = result.scalar_one_or_none()
+        repo = UserRepository(session)
+        user = await repo.get_by_username(_init_username)
         if not user:
             if not _init_password:
                 raise RuntimeError("APP_PASSWORD 환경변수가 설정되지 않았습니다.")
             hashed = await asyncio.get_event_loop().run_in_executor(
                 None, pwd_context.hash, _init_password
             )
-            session.add(User(username=_init_username, hashed_password=hashed))
-            await session.commit()
+            repo.add(User(username=_init_username, hashed_password=hashed))
+            await repo.commit()
             logger.info(f"초기 사용자 생성 완료: {_init_username}")
     # 메모리에서 평문 비밀번호 즉시 제거
     _init_password = ""
@@ -83,8 +82,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> Use
         raise credentials_exception
 
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.username == username))
-        user = result.scalar_one_or_none()
+        user = await UserRepository(session).get_by_username(username)
     if user is None:
         raise credentials_exception
     return user
@@ -107,8 +105,8 @@ class UserResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> TokenResponse:
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.username == form_data.username))
-        user = result.scalar_one_or_none()
+        repo = UserRepository(session)
+        user = await repo.get_by_username(form_data.username)
 
         if not user:
             raise HTTPException(
@@ -133,7 +131,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
             if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
                 user.locked_until = datetime.utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
                 user.failed_attempts = 0
-            await session.commit()
+            await repo.commit()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username or password",
@@ -141,7 +139,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
 
         user.failed_attempts = 0
         user.locked_until = None
-        await session.commit()
+        await repo.commit()
 
     token = create_access_token(
         data={"sub": form_data.username},
@@ -164,7 +162,6 @@ class ChangePasswordRequest(BaseModel):
 async def change_password(
     data: ChangePasswordRequest,
     current_user: CurrentUser,
-    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
     """현재 비밀번호 확인 후 새 비밀번호를 bcrypt 해시로 DB 저장."""
     if len(data.new_password) < 8:
@@ -187,9 +184,9 @@ async def change_password(
     )
 
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.id == current_user.id))
-        user = result.scalar_one()
+        repo = UserRepository(session)
+        user = await repo.get_by_id(current_user.id)
         user.hashed_password = new_hashed
-        await session.commit()
+        await repo.commit()
 
     return {"message": "비밀번호가 변경되었습니다."}
