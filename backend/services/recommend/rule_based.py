@@ -16,10 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 async def recalculate_recommendations(use_ai: bool = False, session_name: str = "evening") -> None:
-    """추천 재계산. use_ai=True면 Gemini AI 사용, False면 기존 규칙 기반."""
+    """추천 재계산. use_ai=True면 Gemini AI 사용(R1→R2→R3), False면 기존 규칙 기반."""
     if use_ai:
-        from services.recommend.ai_cycle import run_ai_recommendation_cycle
-        await run_ai_recommendation_cycle(session_name=session_name)
+        # R1(후보 발굴)→R2(기술 검증)→R3(최종 선별) 순차 실행, 각 단계 실패 시 중단
+        from services.recommend.ai_cycle import run_ai_r1, run_ai_r2, run_ai_r3
+        if await run_ai_r1(session_name=session_name) and await run_ai_r2(session_name=session_name):
+            await run_ai_r3(session_name=session_name)
     else:
         await _recalculate_rule_based()
 

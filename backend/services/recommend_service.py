@@ -11,7 +11,6 @@ from services.recommend.ai_cycle import (
     run_ai_r1,
     run_ai_r2,
     run_ai_r3,
-    run_ai_recommendation_cycle,
 )
 from services.recommend.cache import (
     _RECOMMEND_CACHE_KEY,
@@ -48,7 +47,6 @@ __all__ = [
     "_get_korean_ticker_map",
     "recalculate_recommendations",
     "_recalculate_rule_based",
-    "run_ai_recommendation_cycle",
     "run_ai_r1",
     "run_ai_r2",
     "run_ai_r3",
