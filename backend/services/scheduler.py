@@ -6,9 +6,10 @@ import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, delete, and_
+from sqlalchemy import delete, select
 
-from models.database import News, StockPrice, Portfolio, AsyncSessionLocal
+from models.database import AsyncSessionLocal, News, Portfolio
+from utils.logging_config import new_correlation_id
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ def _index_in_trading_hours(symbol: str, now_kst) -> bool:
 
 async def job_fetch_stock_prices() -> None:
     try:
-        from services.stock_service import fetch_current_price, save_ohlcv, fetch_ohlcv
+        from services.stock_service import fetch_ohlcv, save_ohlcv
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(select(Portfolio))
@@ -90,7 +91,7 @@ async def job_fetch_stock_prices() -> None:
 
 async def job_fetch_market_indices() -> None:
     try:
-        from services.index_service import fetch_indices, INDICES, _fetch_index_sync
+        from services.index_service import INDICES, fetch_indices
 
         now = datetime.now(KST)
         # 어떤 지수든 거래 시간이면 해당 지수만 업데이트
@@ -311,7 +312,7 @@ async def job_save_portfolio_snapshot() -> None:
 async def job_update_stock_list() -> None:
     """KRX 전 종목 목록 일일 갱신 (매일 오전 6시)"""
     try:
-        from services.stock_list_service import update_stock_list, update_stock_industries
+        from services.stock_list_service import update_stock_industries, update_stock_list
         count = await update_stock_list()
         logger.info(f"Stock list updated: {count} stocks")
         # 종목 목록 갱신 후 업종 정보도 갱신
@@ -347,8 +348,9 @@ async def job_portfolio_analysis_pa2() -> None:
 async def job_generate_investment_diary() -> None:
     """평일 22:00 KST — 당일 투자 일기 자동 생성"""
     try:
-        from services.diary_service import generate_diary_for_date
         from datetime import datetime
+
+        from services.diary_service import generate_diary_for_date
         today = datetime.now(KST).strftime("%Y-%m-%d")
         content = await generate_diary_for_date(diary_date=today, overwrite=True)
         if content:
@@ -398,8 +400,9 @@ async def job_cleanup() -> None:
         news_retention_days = 30
         stock_cutoff_days = 90
         try:
-            from models.database import AppSettings
             import json as _json
+
+            from models.database import AppSettings
             async with AsyncSessionLocal() as s:
                 row = await s.execute(
                     select(AppSettings).where(AppSettings.key == "news_retention_days")
@@ -564,3 +567,28 @@ def stop_scheduler() -> None:
     if scheduler.running:
         scheduler.shutdown(wait=False)
         logger.info("Scheduler stopped")
+
+
+def _stamp_jobs_with_correlation_id() -> None:
+    """Wrap every module-level ``job_*`` coroutine so each run gets a fresh
+    correlation id (``job:<name>``). Mirrors the per-request middleware so
+    background logs are traceable end-to-end. Applied at import time, before
+    any ``add_job`` resolves these names at startup."""
+    import functools
+    import inspect
+    import sys
+
+    module = sys.modules[__name__]
+    for name, fn in list(vars(module).items()):
+        if not name.startswith("job_") or not inspect.iscoroutinefunction(fn):
+            continue
+
+        @functools.wraps(fn)
+        async def _wrapped(*args, _fn=fn, _name=name, **kwargs):
+            new_correlation_id(f"job:{_name[4:]}")
+            return await _fn(*args, **kwargs)
+
+        setattr(module, name, _wrapped)
+
+
+_stamp_jobs_with_correlation_id()

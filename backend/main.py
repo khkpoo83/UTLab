@@ -8,11 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from models.database import init_db
 from routers.auth import get_current_user
+from utils.logging_config import configure_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -53,7 +51,8 @@ async def lifespan(app: FastAPI):
     if not settings.jwt_secret:
         raise RuntimeError("JWT_SECRET 환경변수가 설정되지 않았습니다.")
 
-    from routers.auth import configure as configure_auth, ensure_initial_user
+    from routers.auth import configure as configure_auth
+    from routers.auth import ensure_initial_user
     configure_auth(
         secret_key=settings.jwt_secret,
         expire_minutes=settings.jwt_expire_minutes,
@@ -99,8 +98,8 @@ async def lifespan(app: FastAPI):
     _stock_interval = settings.stock_fetch_interval_minutes
     _news_interval = settings.news_fetch_interval_minutes
     try:
-        from routers.settings import get_all_settings
         from models.database import AsyncSessionLocal
+        from routers.settings import get_all_settings
         async with AsyncSessionLocal() as _s:
             _cfg = await get_all_settings(_s)
         _stock_interval = int(_cfg.get("stock_interval_minutes", _stock_interval))
@@ -110,7 +109,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Failed to load DB settings for scheduler: {e}")
         _cfg = {}
 
-    from services.scheduler import start_scheduler, reschedule_ai_recommendations
+    from services.scheduler import reschedule_ai_recommendations, start_scheduler
     start_scheduler(
         stock_interval_minutes=_stock_interval,
         index_interval_minutes=settings.index_fetch_interval_minutes,
@@ -142,11 +141,12 @@ async def lifespan(app: FastAPI):
 
     # Google Calendar Push Channel 복구 + 갱신 스케줄러 등록
     try:
-        from services.calendar_service import (
-            restore_push_channels_on_startup,
-            renew_expiring_channels,
-        )
         import asyncio as _asyncio
+
+        from services.calendar_service import (
+            renew_expiring_channels,
+            restore_push_channels_on_startup,
+        )
 
         # Push Channel 복구 (백그라운드)
         _asyncio.create_task(restore_push_channels_on_startup())
@@ -170,8 +170,12 @@ async def lifespan(app: FastAPI):
     # 포트폴리오 스냅샷 백필 (스냅샷 없으면 과거 데이터로 채움)
     try:
         import asyncio as _asyncio
-        from sqlalchemy import select as _select, func as _func
-        from models.database import PortfolioSnapshot as _Snap, AsyncSessionLocal as _Session
+
+        from sqlalchemy import func as _func
+        from sqlalchemy import select as _select
+
+        from models.database import AsyncSessionLocal as _Session
+        from models.database import PortfolioSnapshot as _Snap
         async with _Session() as s:
             cnt = await s.execute(_select(_func.count()).select_from(_Snap))
             snap_count = cnt.scalar() or 0
@@ -185,9 +189,15 @@ async def lifespan(app: FastAPI):
     # 종목 목록 초기화 (DB가 비어있을 때만 수행, 백그라운드로)
     try:
         import asyncio as _asyncio
-        from services.stock_list_service import get_stock_count, update_stock_list, update_stock_industries
-        from sqlalchemy import select, func
-        from models.database import StockMaster, AsyncSessionLocal
+
+        from sqlalchemy import func, select
+
+        from models.database import AsyncSessionLocal, StockMaster
+        from services.stock_list_service import (
+            get_stock_count,
+            update_stock_industries,
+            update_stock_list,
+        )
         existing = await get_stock_count()
         if existing == 0:
             logger.info("Stock master DB empty, fetching KRX stock list in background...")
@@ -223,20 +233,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+from utils.middleware import CorrelationIdMiddleware
 
-from routers import auth, portfolio, news, recommend
-from routers import settings as settings_router
-from routers import accounts
-from routers import watchlist
-from routers import kis as kis_router
-from routers import planner as planner_router
-from routers import profile as profile_router
+app.add_middleware(CorrelationIdMiddleware)
+
+
+from routers import accounts, auth, news, portfolio, recommend, watchlist
+from routers import blog as blog_router
 from routers import calendar as calendar_router
 from routers import diary as diary_router
-from routers import photos as photos_router
-from routers import blog as blog_router
 from routers import investment_marks as marks_router
+from routers import kis as kis_router
 from routers import memo as memo_router
+from routers import photos as photos_router
+from routers import planner as planner_router
+from routers import profile as profile_router
+from routers import settings as settings_router
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(portfolio.router, prefix="/api")
