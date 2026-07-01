@@ -7,12 +7,10 @@ import logging
 from typing import Annotated
 
 import httpx
-
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import select
-from sqlalchemy import or_
 
-from models.database import AppSettings, AsyncSessionLocal, StockMaster, User
+from models.database import AsyncSessionLocal, User
+from repositories.kis_repository import KisRepository
 from routers.auth import get_current_user
 from services.kis_service import get_kis_service
 from services.stock_service import get_sparkline
@@ -72,10 +70,7 @@ async def get_account_balance(account_no: str, current_user: CurrentUser) -> dic
 async def _load_aliases() -> dict[str, str]:
     """AppSettings에서 KIS 계좌 별명 조회"""
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(AppSettings).where(AppSettings.key == "kis_aliases")
-        )
-        row = result.scalar_one_or_none()
+        row = await KisRepository(session).get_setting("kis_aliases")
         if row and row.value:
             try:
                 return json.loads(row.value)
@@ -98,25 +93,16 @@ async def update_aliases(
     """KIS 계좌 별명 저장 (account_no → alias)"""
     value = json.dumps(aliases, ensure_ascii=False)
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(AppSettings).where(AppSettings.key == "kis_aliases")
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            row.value = value
-        else:
-            session.add(AppSettings(key="kis_aliases", value=value))
-        await session.commit()
+        repo = KisRepository(session)
+        await repo.upsert_setting("kis_aliases", value)
+        await repo.commit()
     return aliases
 
 
 async def _load_colors() -> dict[str, str]:
     """AppSettings에서 KIS 계좌 색상 조회"""
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(AppSettings).where(AppSettings.key == "kis_colors")
-        )
-        row = result.scalar_one_or_none()
+        row = await KisRepository(session).get_setting("kis_colors")
         if row and row.value:
             try:
                 return json.loads(row.value)
@@ -139,15 +125,9 @@ async def update_colors(
     """KIS 계좌 색상 저장 (account_no → hex color)"""
     value = json.dumps(colors, ensure_ascii=False)
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(AppSettings).where(AppSettings.key == "kis_colors")
-        )
-        row = result.scalar_one_or_none()
-        if row:
-            row.value = value
-        else:
-            session.add(AppSettings(key="kis_colors", value=value))
-        await session.commit()
+        repo = KisRepository(session)
+        await repo.upsert_setting("kis_colors", value)
+        await repo.commit()
     return colors
 
 
@@ -183,12 +163,8 @@ async def get_kis_portfolio(
     master_map: dict[str, dict] = {}
     if unique_tickers:
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(StockMaster).where(
-                    or_(*[StockMaster.ticker.like(f"{t}.%") for t in unique_tickers])
-                )
-            )
-            for row in result.scalars():
+            rows = await KisRepository(session).find_stock_master(unique_tickers)
+            for row in rows:
                 code = row.ticker.split(".")[0]
                 master_map[code] = {
                     "yf_ticker": row.ticker,
@@ -336,21 +312,8 @@ async def get_deposit_history(
     account_no: str = "TOTAL",
 ) -> list[dict]:
     """계좌별 입출금 내역 조회 (DB에서)"""
-    from sqlalchemy import select
-    from models.database import DepositEvent, AsyncSessionLocal
     async with AsyncSessionLocal() as session:
-        if account_no == "TOTAL":
-            q = await session.execute(
-                select(DepositEvent).order_by(DepositEvent.date.desc()).limit(500)
-            )
-        else:
-            q = await session.execute(
-                select(DepositEvent)
-                .where(DepositEvent.account_no == account_no)
-                .order_by(DepositEvent.date.desc())
-                .limit(500)
-            )
-        rows = q.scalars().all()
+        rows = await KisRepository(session).list_deposit_events(account_no)
     return [
         {
             "id": r.id,
