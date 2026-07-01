@@ -6,13 +6,20 @@
 """
 import asyncio
 import logging
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import pytz
-from sqlalchemy import select, delete, func
+from sqlalchemy import select
 
-from models.database import Portfolio, PortfolioSnapshot, StockPrice, InvestmentEvent, AsyncSessionLocal
+from models.database import (
+    AsyncSessionLocal,
+    InvestmentEvent,
+    Portfolio,
+    PortfolioSnapshot,
+    StockPrice,
+)
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 KST = pytz.timezone("Asia/Seoul")
@@ -154,7 +161,7 @@ async def backfill_snapshots(days: int = 180) -> int:
         )
         existing_dates = {r[0].date() if hasattr(r[0], 'date') else r[0] for r in existing}
 
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow() - timedelta(days=days)
     saved = 0
 
     # 각 보유 종목의 StockPrice 데이터 날짜 수집
@@ -347,7 +354,7 @@ async def get_history(days: int = 90, account_no: str = 'TOTAL') -> list[dict]:
     - 오늘 데이터는 프론트에서 KIS 실시간 데이터로 주입 (realtime API 호출 없음)
     - account_no: 'TOTAL'=전체, KIS계좌번호=계좌별
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow() - timedelta(days=days)
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(PortfolioSnapshot)

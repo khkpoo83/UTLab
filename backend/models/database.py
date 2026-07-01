@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 
 from sqlalchemy import (
     JSON,
@@ -17,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.sql import func
+
+from utils.timeutil import utcnow
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/utlab.db")
 
@@ -46,7 +47,7 @@ class User(Base):
     hashed_password = Column(String(256), nullable=False)
     failed_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class Account(Base):
@@ -55,7 +56,7 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(64), nullable=False)
     color = Column(String(16), nullable=False, default="#3B82F6", server_default="#3B82F6")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class Portfolio(Base):
@@ -70,7 +71,7 @@ class Portfolio(Base):
     memo = Column(Text, nullable=True)
     bought_at = Column(DateTime, nullable=True)
     sector = Column(String(64), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     # Kiwoom 연동 대비 필드 (수동 등록 시 기본값 'manual')
     source = Column(String(20), default="manual", nullable=False, server_default="manual")
     account_no = Column(String(32), nullable=True)   # 키움 계좌번호
@@ -105,7 +106,7 @@ class MarketIndex(Base):
     price = Column(Float, nullable=True)
     change = Column(Float, nullable=True)
     change_pct = Column(Float, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class News(Base):
@@ -123,7 +124,7 @@ class News(Base):
     related_stocks = Column(JSON, nullable=True)
     group_id = Column(String(64), nullable=True, index=True)
     status = Column(String(20), default="pending", nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class Recommendation(Base):
@@ -153,7 +154,7 @@ class Recommendation(Base):
     community_sentiment = Column(Text, nullable=True)       # 커뮤니티 반응 요약
     political_theme = Column(String(20), nullable=True)     # "ruling" | "opposition" | "common" | None
     political_weight = Column(Float, nullable=True)         # 정치 가중치 (0.5~2.0)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class StockMaster(Base):
@@ -165,7 +166,7 @@ class StockMaster(Base):
     exchange = Column(String(20), nullable=False)   # KOSPI, KOSDAQ, KONEX, ETF, NASDAQ, NYSE
     market = Column(String(10), nullable=False, default="KR")  # KR, US
     industry = Column(String(100), nullable=True)   # 업종명 (네이버 분류)
-    updated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         Index("ix_stock_master_name", "name"),
@@ -185,7 +186,7 @@ class PortfolioSnapshot(Base):
     pnl_pct = Column(Float, nullable=False)        # 수익률 (%)
     realized_pnl = Column(Float, nullable=False, server_default='0')  # 누적 실현 손익 (원)
     cash_balance = Column(Float, nullable=False, server_default='0')  # 예수금 (d2_entra)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         Index("uq_portfolio_snapshot_date_acct", "date", "account_no", unique=True),
@@ -198,7 +199,7 @@ class AppSettings(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String(64), unique=True, nullable=False, index=True)
     value = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class UserProfile(Base):
@@ -213,7 +214,7 @@ class UserProfile(Base):
     job = Column(String(64), nullable=True)                    # 직업
     retire_age = Column(Integer, nullable=True, default=60)    # 목표 은퇴 나이
     monthly_income_만 = Column(Integer, nullable=True)         # 월 소득 (만원)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class CalendarToken(Base):
@@ -230,8 +231,8 @@ class CalendarToken(Base):
     sync_token = Column(Text, nullable=True)                   # primary 캘린더 syncToken (하위 호환)
     sync_tokens_json = Column(Text, nullable=True)             # JSON dict: {calendar_id: syncToken} 캘린더별 토큰
     calendars_json = Column(Text, nullable=True)               # JSON list of user's Google Calendars
-    connected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    connected_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class CalendarEvent(Base):
@@ -253,7 +254,7 @@ class CalendarEvent(Base):
     html_link = Column(String(1024), nullable=True)
     color_id = Column(String(16), nullable=True)
     raw_json = Column(Text, nullable=True)                     # 원본 JSON 보관
-    synced_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    synced_at = Column(DateTime, default=utcnow, nullable=False)
 
     __table_args__ = (
         Index("ix_calendar_event_user_google", "user_id", "google_event_id", unique=True),
@@ -273,7 +274,7 @@ class CalendarWatchChannel(Base):
     expiration = Column(DateTime, nullable=True)                   # 채널 만료 (UTC)
     webhook_token = Column(String(64), nullable=True)              # Webhook 수신 시 검증용 토큰
     active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class StockMeta(Base):
@@ -285,7 +286,7 @@ class StockMeta(Base):
     name = Column(String(200), nullable=True)
     sector = Column(String(100), nullable=True)
     market_cap = Column(Float, nullable=True)
-    last_updated = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_updated = Column(DateTime, default=utcnow, nullable=False)
 
 
 class PoliticalThemeStock(Base):
@@ -298,8 +299,8 @@ class PoliticalThemeStock(Base):
     party_affiliation = Column(String(20), nullable=False)  # "ruling" | "opposition" | "common"
     theme_reason = Column(Text, nullable=True)   # 테마 분류 근거
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)
 
 
 class PoliticalCalendar(Base):
@@ -312,7 +313,7 @@ class PoliticalCalendar(Base):
     title = Column(String(256), nullable=False)
     description = Column(Text, nullable=True)
     impact_level = Column(String(20), default="medium")  # "high" | "medium" | "low"
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class ApprovalRating(Base):
@@ -326,7 +327,7 @@ class ApprovalRating(Base):
     opposition_party_pct = Column(Float, nullable=True)
     president_approval_pct = Column(Float, nullable=True)
     raw_data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class InvestmentMark(Base):
@@ -338,7 +339,7 @@ class InvestmentMark(Base):
     title = Column(String(256), nullable=False)
     google_event_id = Column(String(256), nullable=True, unique=True)   # GCal 이벤트 ID
     google_calendar_id = Column(String(256), nullable=True)             # GCal 캘린더 ID
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class DepositEvent(Base):
@@ -352,7 +353,7 @@ class DepositEvent(Base):
     amount = Column(Float, nullable=False)                  # 양수=입금, 음수=출금
     remark = Column(String(200), nullable=True)             # 적요명
     balance_after = Column(Float, nullable=True)            # 거래 후 예수금잔고
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class InvestmentEvent(Base):
@@ -371,7 +372,7 @@ class InvestmentEvent(Base):
     pnl_pct = Column(Float, nullable=True)     # 손익률 (매도 시)
     account_no = Column(String(32), nullable=True)  # 매도 계좌번호 (per-account R 귀속)
     note = Column(String(256), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class InvestmentDiary(Base):
@@ -382,8 +383,8 @@ class InvestmentDiary(Base):
     diary_date = Column(String(10), unique=True, nullable=False, index=True)  # "YYYY-MM-DD" KST
     content = Column(Text, nullable=False)      # AI 생성 일기 (3-4문장)
     raw_data = Column(Text, nullable=True)      # JSON — 생성에 사용된 데이터 스냅샷
-    generated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    generated_at = Column(DateTime, default=utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
 
 
 class AiCycleState(Base):
@@ -394,7 +395,7 @@ class AiCycleState(Base):
     session_name = Column(String(20), nullable=False, index=True)  # "morning" | "evening"
     step = Column(Integer, nullable=False)                          # 1(R1완료) | 2(R2완료)
     state_json = Column(Text, nullable=False)                       # 중간 데이터 (JSON)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=False)                   # 2시간 후 만료
 
 
@@ -468,8 +469,8 @@ class BlogPost(Base):
     tags = Column(String(1000), nullable=True)    # JSON 배열 문자열
     ai_generated = Column(Boolean, default=False)
     word_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 class Memo(Base):
@@ -478,8 +479,8 @@ class Memo(Base):
     title = Column(String(500), nullable=False)
     body = Column(Text, nullable=True)            # 마크다운
     color = Column(String(20), nullable=True)     # 수동 색 지정 (null=자동)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 async def get_db():

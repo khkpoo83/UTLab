@@ -26,6 +26,7 @@ from repositories.investment_mark_repository import InvestmentMarkRepository
 from repositories.memo_repository import MemoRepository
 from repositories.profile_repository import ProfileRepository
 from repositories.watchlist_repository import WatchlistRepository
+from utils.timeutil import utcnow
 
 
 # --------------------------------------------------------------------------- #
@@ -101,7 +102,7 @@ async def test_watchlist_repository_roundtrip(_schema):
 async def test_watchlist_recent_recommended_tickers(_schema):
     async with AsyncSessionLocal() as session:
         repo = WatchlistRepository(session)
-        now = datetime.utcnow()
+        now = utcnow()
 
         session.add(Recommendation(ticker="RECENT", name="r1", created_at=now))
         session.add(

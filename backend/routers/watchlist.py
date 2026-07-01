@@ -11,6 +11,7 @@ from models.database import Watchlist, get_db
 from repositories.watchlist_repository import WatchlistRepository
 from routers.auth import User, get_current_user
 from services.stock_service import fetch_current_price
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ async def list_watchlist(current_user: CurrentUser, repo: Repo) -> list[Watchlis
 
     # Get recent recommendation tickers (last 7 days)
     from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = utcnow() - timedelta(days=7)
     recommended_tickers = await repo.recent_recommended_tickers(cutoff)
 
     # 병렬로 모든 watchlist 종목 가격 조회 (N+1 → 1 round)

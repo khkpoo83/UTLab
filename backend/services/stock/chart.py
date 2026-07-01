@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -12,6 +12,7 @@ from services.stock.ohlcv import (
 )
 from utils.cache import SimpleCache
 from utils.korean_market import is_market_open
+from utils.timeutil import utcnow
 
 # 분봉 차트 라이브 결과 캐시 (드로어 재오픈/기간 토글 시 재조회 방지)
 _intraday_cache = SimpleCache()
@@ -102,7 +103,7 @@ async def get_chart_data(ticker: str, period: str) -> list[dict[str, Any]]:
             )
         return series
 
-    now = datetime.utcnow()
+    now = utcnow()
     period_delta = {
         "1m": timedelta(days=30),
         "3m": timedelta(days=90),

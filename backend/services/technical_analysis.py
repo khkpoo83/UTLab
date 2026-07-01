@@ -1,11 +1,12 @@
 """기술적 분석 서비스 - OHLCV 데이터 기반 지표 계산"""
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from sqlalchemy import select
 
-from models.database import StockPrice, AsyncSessionLocal
+from models.database import AsyncSessionLocal, StockPrice
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def _fetch_ohlcv_external_sync(ticker: str, days: int) -> list[dict]:
 
 async def get_ohlcv(ticker: str, days: int = 120) -> list[dict]:
     """StockPrice DB에서 OHLCV 데이터 조회, 없으면 네이버/yfinance 폴백"""
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow() - timedelta(days=days)
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(StockPrice)

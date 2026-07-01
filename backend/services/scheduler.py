@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 
 from models.database import AsyncSessionLocal, News, Portfolio
 from utils.logging_config import new_correlation_id
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -416,8 +417,8 @@ async def job_cleanup() -> None:
         except Exception:
             pass
 
-        news_cutoff = datetime.utcnow() - timedelta(days=news_retention_days)
-        stock_cutoff = datetime.utcnow() - timedelta(days=stock_cutoff_days)
+        news_cutoff = utcnow() - timedelta(days=news_retention_days)
+        stock_cutoff = utcnow() - timedelta(days=stock_cutoff_days)
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -445,7 +446,7 @@ def start_scheduler(
     news_interval_minutes: int = 60,
 ) -> None:
     # 재시작 시 모든 interval 작업이 동시에 실행되는 것을 막기 위해 첫 실행 시각을 분산
-    now = datetime.utcnow()
+    now = utcnow()
     scheduler.add_job(
         job_fetch_stock_prices,
         IntervalTrigger(minutes=stock_interval_minutes),

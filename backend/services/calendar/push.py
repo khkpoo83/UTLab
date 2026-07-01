@@ -15,6 +15,7 @@ from services.calendar.credentials import (
     get_valid_credentials,
     get_webhook_url,
 )
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def _watch_calendar(user_id: int, calendar_id: str, service, webhook_url: str) -
         "address": webhook_url,
         "token": webhook_token,
         "expiration": str(
-            int((datetime.utcnow() + timedelta(seconds=CHANNEL_TTL_SECONDS)).timestamp() * 1000)
+            int((utcnow() + timedelta(seconds=CHANNEL_TTL_SECONDS)).timestamp() * 1000)
         ),
     }
     try:
@@ -188,7 +189,7 @@ async def renew_expiring_channels() -> None:
     user 단위로 모든 캘린더 채널을 한 번에 갱신
     """
     async with AsyncSessionLocal() as db:
-        threshold = datetime.utcnow() + timedelta(hours=2)
+        threshold = utcnow() + timedelta(hours=2)
         result = await db.execute(
             select(CalendarWatchChannel.user_id).where(
                 CalendarWatchChannel.active == True,  # noqa: E712  (pre-existing, preserved verbatim)
@@ -215,7 +216,7 @@ async def restore_push_channels_on_startup() -> None:
         # 토큰이 있는 모든 사용자
         token_result = await db.execute(select(CalendarToken))
         tokens = token_result.scalars().all()
-        now = datetime.utcnow()
+        now = utcnow()
 
         for token_row in tokens:
             user_id = token_row.user_id

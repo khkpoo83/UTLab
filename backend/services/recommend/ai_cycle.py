@@ -4,13 +4,14 @@ import asyncio
 import json
 import logging
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import delete, select
 
 from models.database import AiCycleState, AsyncSessionLocal, News, Recommendation, StockMaster
 from services.recommend.cache import _RECOMMEND_CACHE_KEY, _recommend_cache
 from services.recommend.portfolio import _get_korean_ticker_map, get_portfolio_sectors
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 async def _save_cycle_state(session_name: str, step: int, data: dict) -> None:
     """R1/R2 중간 결과를 DB에 저장. 기존 동일 session의 이전 단계도 삭제."""
-    expires = datetime.utcnow() + timedelta(hours=2)
+    expires = utcnow() + timedelta(hours=2)
     async with AsyncSessionLocal() as session:
         # 기존 같은 session_name 상태 삭제
         await session.execute(
@@ -52,7 +53,7 @@ async def _load_cycle_state(session_name: str, required_step: int) -> dict | Non
     if state.step != required_step:
         logger.warning(f"AI cycle step mismatch: expected {required_step}, got {state.step}")
         return None
-    if state.expires_at < datetime.utcnow():
+    if state.expires_at < utcnow():
         logger.warning(f"AI cycle state expired: session={session_name}")
         return None
     return json.loads(state.state_json)
@@ -80,7 +81,7 @@ async def run_ai_r1(session_name: str = "evening") -> bool:
         return False
 
     hours_back = 24 if session_name == "evening" else 12
-    cutoff = datetime.utcnow() - timedelta(hours=hours_back)
+    cutoff = utcnow() - timedelta(hours=hours_back)
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -329,7 +330,7 @@ async def run_ai_r3(session_name: str = "evening") -> bool:
         await session.execute(delete(Recommendation))
         await session.commit()
 
-    now = datetime.utcnow()
+    now = utcnow()
     portfolio_sectors_current = await get_portfolio_sectors()
 
     # price_results 재구성 (change_pct용)

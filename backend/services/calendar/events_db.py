@@ -7,6 +7,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import CalendarEvent
+from utils.timeutil import utcnow
 
 # ── 이벤트 파싱 ────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ def _upsert_event_from_api(event_data: dict, user_id: int, calendar_id: str) -> 
         html_link=event_data.get("htmlLink"),
         color_id=event_data.get("colorId"),
         raw_json=json.dumps(event_data, ensure_ascii=False),
-        synced_at=datetime.utcnow(),
+        synced_at=utcnow(),
     )
 
 

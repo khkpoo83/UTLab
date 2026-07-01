@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 import yfinance as yf
@@ -9,6 +9,7 @@ from sqlalchemy import and_, select
 from models.database import AsyncSessionLocal, StockPrice
 from utils.cache import SimpleCache
 from utils.korean_market import is_market_open
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ async def _fetch_sparkline_yahoo(ticker: str) -> list[float]:
 
 async def get_sparkline(ticker: str) -> list[float]:
     """5일 스파크라인 — DB 캐시 우선, 없으면 Yahoo HTTP"""
-    since = datetime.utcnow() - timedelta(days=7)
+    since = utcnow() - timedelta(days=7)
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(StockPrice)

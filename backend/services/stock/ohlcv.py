@@ -7,6 +7,7 @@ import yfinance as yf
 from sqlalchemy import and_, select
 
 from models.database import AsyncSessionLocal, StockPrice
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,7 @@ async def _fetch_ohlcv_http_range(
 async def save_ohlcv(ticker: str, data: list[dict[str, Any]]) -> None:
     if not data:
         return
-    cutoff_date = datetime.utcnow() - timedelta(days=90)
+    cutoff_date = utcnow() - timedelta(days=90)
 
     async with AsyncSessionLocal() as session:
         for item in data:

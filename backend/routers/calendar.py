@@ -46,6 +46,7 @@ from services.google_oauth import (
     get_google_email,
 )
 from services.sse_broker import broker as sse_broker
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/calendar", tags=["calendar"])
@@ -218,7 +219,7 @@ async def calendar_webhook(
                         "calendar_updated",
                         {
                             "changed": changed,
-                            "ts": datetime.utcnow().isoformat(),
+                            "ts": utcnow().isoformat(),
                             "source": "push",
                         },
                     )
@@ -264,7 +265,7 @@ async def manual_sync(current_user: CurrentUser, db: DB) -> dict:
         await sse_broker.publish(
             current_user.id,
             "calendar_updated",
-            {"changed": count, "ts": datetime.utcnow().isoformat(), "source": "manual"},
+            {"changed": count, "ts": utcnow().isoformat(), "source": "manual"},
         )
     return {"synced": count, "message": f"{count}개 이벤트 동기화 완료"}
 
@@ -408,7 +409,7 @@ async def list_events(
     days: Optional[int] = Query(None, description="오늘부터 N일 (from_date 미설정 시)"),
 ) -> list[CalendarEventResponse]:
     """캐시된 캘린더 이벤트 목록"""
-    now = datetime.utcnow()
+    now = utcnow()
 
     if from_date:
         from_dt = datetime.strptime(from_date, "%Y-%m-%d")
@@ -437,8 +438,8 @@ async def upcoming_events(
     """오늘 이후 가장 가까운 이벤트 N개"""
     events = await get_events(
         current_user.id, db,
-        from_dt=datetime.utcnow(),
-        to_dt=datetime.utcnow() + timedelta(days=90),
+        from_dt=utcnow(),
+        to_dt=utcnow() + timedelta(days=90),
     )
     return [_event_to_response(ev) for ev in events[:limit]]
 

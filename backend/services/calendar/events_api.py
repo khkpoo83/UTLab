@@ -12,6 +12,7 @@ from models.database import CalendarEvent, CalendarToken, CalendarWatchChannel
 from services.calendar.credentials import get_valid_credentials, get_webhook_url
 from services.calendar.events_db import _master_id_from_row, _parse_event_dt, _upsert_event_from_api
 from services.calendar.recurrence import _apply_until, _fmt_until, _strip_count_until
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +157,7 @@ async def update_event(user_id: int, db: AsyncSession, google_event_id: str, eve
         ev.end_dt = end
         ev.all_day = all_day
         ev.color_id = updated.get("colorId")
-        ev.synced_at = datetime.utcnow()
+        ev.synced_at = utcnow()
         await db.commit()
     return updated
 

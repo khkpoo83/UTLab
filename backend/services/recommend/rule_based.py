@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from collections import Counter
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import delete, select
 
@@ -11,6 +11,7 @@ from models.database import AsyncSessionLocal, News, Recommendation, StockMaster
 from services.recommend.cache import _RECOMMEND_CACHE_KEY, _recommend_cache
 from services.recommend.portfolio import _get_korean_ticker_map, get_portfolio_sectors
 from services.recommend.sectors import _industry_to_sector, _infer_sector_from_name
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ async def _recalculate_rule_based() -> None:
     """기존 규칙 기반 추천 (뉴스 빈도 카운트)"""
     # Invalidate cache when recommendations are recalculated
     await _recommend_cache.clear(_RECOMMEND_CACHE_KEY)
-    cutoff = datetime.utcnow() - timedelta(days=7)
+    cutoff = utcnow() - timedelta(days=7)
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(

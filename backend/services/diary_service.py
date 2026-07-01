@@ -12,13 +12,16 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import pytz
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import (
-    AsyncSessionLocal, Portfolio, PortfolioSnapshot,
-    InvestmentEvent, InvestmentDiary,
+    AsyncSessionLocal,
+    InvestmentDiary,
+    InvestmentEvent,
+    PortfolioSnapshot,
 )
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 KST = pytz.timezone("Asia/Seoul")
@@ -383,7 +386,7 @@ async def generate_diary_for_date(diary_date: Optional[str] = None, overwrite: b
         if existing:
             existing.content = content
             existing.raw_data = json.dumps(raw_data_obj, ensure_ascii=False)
-            existing.generated_at = datetime.utcnow()
+            existing.generated_at = utcnow()
         else:
             db.add(InvestmentDiary(
                 diary_date=diary_date,

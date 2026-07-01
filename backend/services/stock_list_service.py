@@ -5,12 +5,11 @@ KRX 전 종목 목록 수집 및 DB 캐싱 서비스.
 """
 import asyncio
 import logging
-from datetime import datetime
-from typing import Optional
 
-from sqlalchemy import select, delete, or_, func
+from sqlalchemy import delete, func, or_, select
 
-from models.database import StockMaster, AsyncSessionLocal
+from models.database import AsyncSessionLocal, StockMaster
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +66,7 @@ US_STOCKS = [
 def _fetch_kr_stocks_kind() -> list[dict]:
     """KIND(한국거래소 기업공시) API로 KOSPI/KOSDAQ/KONEX 전 종목 수집 (동기)"""
     import re
+
     import requests
 
     url = "http://kind.krx.co.kr/corpgeneral/corpList.do"
@@ -181,7 +181,7 @@ async def update_stock_list() -> int:
                 name=s["name"],
                 exchange=s["exchange"],
                 market="KR",
-                updated_at=datetime.utcnow(),
+                updated_at=utcnow(),
             ))
 
         # US 종목 upsert (없으면 추가, 있으면 유지)
@@ -195,7 +195,7 @@ async def update_stock_list() -> int:
                     name=s["name"],
                     exchange=s["exchange"],
                     market="US",
-                    updated_at=datetime.utcnow(),
+                    updated_at=utcnow(),
                 ))
 
         await session.commit()

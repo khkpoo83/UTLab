@@ -1,7 +1,7 @@
 """캘린더 목록 조회 및 이벤트 동기화 (full / incremental)"""
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from sqlalchemy import delete, select
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models.database import CalendarEvent, CalendarToken
 from services.calendar.credentials import get_valid_credentials
 from services.calendar.events_db import _db_upsert_event, _upsert_event_from_api
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +114,7 @@ async def full_sync(user_id: int, db: AsyncSession) -> int:
     )
 
     # 향후 1년 + 과거 1년 이벤트만 가져옴
-    now = datetime.utcnow()
+    now = utcnow()
     time_min = (now - timedelta(days=365)).isoformat() + "Z"
     time_max = (now + timedelta(days=365)).isoformat() + "Z"
 

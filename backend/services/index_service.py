@@ -1,13 +1,12 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
 from typing import Optional
 
 import requests
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import MarketIndex, AsyncSessionLocal
+from models.database import AsyncSessionLocal, MarketIndex
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +127,7 @@ async def fetch_indices() -> list[dict]:
                 "price": None,
                 "change": None,
                 "change_pct": None,
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": utcnow().isoformat(),
             })
         else:
             results.append({
@@ -137,7 +136,7 @@ async def fetch_indices() -> list[dict]:
                 "price": raw["price"],
                 "change": raw["change"],
                 "change_pct": raw["change_pct"],
-                "updated_at": datetime.utcnow().isoformat(),
+                "updated_at": utcnow().isoformat(),
             })
 
     async with AsyncSessionLocal() as session:
@@ -150,7 +149,7 @@ async def fetch_indices() -> list[dict]:
                 row.price = item["price"]
                 row.change = item["change"]
                 row.change_pct = item["change_pct"]
-                row.updated_at = datetime.utcnow()
+                row.updated_at = utcnow()
             else:
                 mi = MarketIndex(
                     symbol=item["symbol"],
@@ -158,7 +157,7 @@ async def fetch_indices() -> list[dict]:
                     price=item["price"],
                     change=item["change"],
                     change_pct=item["change_pct"],
-                    updated_at=datetime.utcnow(),
+                    updated_at=utcnow(),
                 )
                 session.add(mi)
         await session.commit()

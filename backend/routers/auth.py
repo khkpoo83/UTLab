@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from models.database import AsyncSessionLocal, User
 from repositories.user_repository import UserRepository
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     if not SECRET_KEY:
         raise RuntimeError("JWT SECRET_KEY가 설정되지 않았습니다.")
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -115,8 +116,8 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
             )
 
         # 계정 잠금 확인
-        if user.locked_until and user.locked_until > datetime.utcnow():
-            remaining = int((user.locked_until - datetime.utcnow()).total_seconds() / 60)
+        if user.locked_until and user.locked_until > utcnow():
+            remaining = int((user.locked_until - utcnow()).total_seconds() / 60)
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"Account locked. Try again in {remaining} minutes.",
@@ -129,7 +130,7 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> T
         if not valid:
             user.failed_attempts = (user.failed_attempts or 0) + 1
             if user.failed_attempts >= MAX_FAILED_ATTEMPTS:
-                user.locked_until = datetime.utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
+                user.locked_until = utcnow() + timedelta(minutes=LOCKOUT_MINUTES)
                 user.failed_attempts = 0
             await repo.commit()
             raise HTTPException(

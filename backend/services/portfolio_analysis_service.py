@@ -10,12 +10,18 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import pytz
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import (
-    Portfolio, Account, News, PortfolioAnalysis, AiCycleState, AsyncSessionLocal
+    Account,
+    AiCycleState,
+    AsyncSessionLocal,
+    News,
+    Portfolio,
+    PortfolioAnalysis,
 )
+from utils.timeutil import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +37,7 @@ def _today_kst() -> str:
 
 async def _save_pa_state(step: int, data: dict) -> None:
     """PA1/PA2 중간 상태 AiCycleState에 저장."""
-    expires = datetime.utcnow() + timedelta(hours=PA_EXPIRES_HOURS)
+    expires = utcnow() + timedelta(hours=PA_EXPIRES_HOURS)
     async with AsyncSessionLocal() as session:
         await session.execute(
             delete(AiCycleState).where(AiCycleState.session_name == PA_SESSION_NAME)
@@ -60,8 +66,8 @@ async def _load_pa_state(required_step: int) -> Optional[dict]:
     if state.step != required_step:
         logger.warning(f"PA cycle step mismatch: expected {required_step}, got {state.step}")
         return None
-    if state.expires_at < datetime.utcnow():
-        logger.warning(f"PA cycle state expired")
+    if state.expires_at < utcnow():
+        logger.warning("PA cycle state expired")
         return None
     return json.loads(state.state_json)
 
@@ -129,8 +135,9 @@ async def run_pa1(db: AsyncSession) -> bool:
     accounts_map = {a.id: a.name for a in accounts_result.scalars().all()}
 
     # 현재가 조회
-    from services.stock_service import fetch_current_price
     import asyncio
+
+    from services.stock_service import fetch_current_price
     prices = await asyncio.gather(
         *[fetch_current_price(h.ticker) for h in holdings],
         return_exceptions=True,
@@ -340,7 +347,7 @@ async def run_pa2(db: AsyncSession) -> int:
         # ticker_base → holding 매핑 (suffix 없는 경우 대비)
         holding_base_map = {h["ticker"].split(".")[0].upper(): h for h in holdings}
 
-        generated_at = datetime.utcnow()
+        generated_at = utcnow()
 
         for analysis in analyses:
             raw_ticker = analysis.get("ticker", "")
