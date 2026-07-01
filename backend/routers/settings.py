@@ -4,17 +4,23 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import AppSettings, get_db
-from routers.auth import get_current_user, User
+from models.database import get_db
+from repositories.settings_repository import SettingsRepository
+from routers.auth import User, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/settings", tags=["settings"])
 
+
+def get_settings_repo(db: AsyncSession = Depends(get_db)) -> SettingsRepository:
+    return SettingsRepository(db)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DB = Annotated[AsyncSession, Depends(get_db)]
+Repo = Annotated[SettingsRepository, Depends(get_settings_repo)]
 
 # stock_schedule / news_schedule: dict { "day": [hour, ...] }
 # day: 0=월 ~ 6=일, hour: 0~23
@@ -73,15 +79,10 @@ DEFAULT_SETTINGS = {
 
 
 async def get_all_settings(db: AsyncSession) -> dict:
-    result = await db.execute(select(AppSettings))
-    rows = result.scalars().all()
-    cfg = dict(DEFAULT_SETTINGS)
-    for row in rows:
-        try:
-            cfg[row.key] = json.loads(row.value)
-        except Exception:
-            cfg[row.key] = row.value
-    return cfg
+    """Module-level wrapper kept for external callers (main.py, scheduler,
+    ollama_service) that pass their own session.  Delegates to the repository;
+    the DEFAULT_SETTINGS merge / JSON-decode logic lives in ``get_all``."""
+    return await SettingsRepository(db).get_all()
 
 
 PUBLIC_KEYS = {
@@ -119,19 +120,14 @@ async def get_ai_usage(current_user: CurrentUser) -> dict:
 async def update_settings(
     data: SettingsUpdate,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> dict:
     for key, value in data.settings.items():
         if key not in DEFAULT_SETTINGS:
             continue
-        result = await db.execute(select(AppSettings).where(AppSettings.key == key))
-        row = result.scalar_one_or_none()
         serialized = json.dumps(value)
-        if row:
-            row.value = serialized
-        else:
-            db.add(AppSettings(key=key, value=serialized))
-    await db.commit()
+        await repo.upsert(key, serialized)
+    await repo.commit()
 
     # news_schedule 변경 시 AI 추천 시각 즉시 재조정
     if "news_schedule" in data.settings:
@@ -157,4 +153,4 @@ async def update_settings(
         except Exception as e:
             logger.warning(f"reschedule_news_interval failed: {e}")
 
-    return await get_all_settings(db)
+    return await repo.get_all()
