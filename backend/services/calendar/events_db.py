@@ -3,10 +3,10 @@ import json
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import CalendarEvent
+from utils.db_upsert import dialect_insert
 from utils.timeutil import utcnow
 
 # ── 이벤트 파싱 ────────────────────────────────────────────────────────────────
@@ -83,7 +83,7 @@ async def _db_upsert_event(db: AsyncSession, ev: CalendarEvent) -> None:
         "raw_json":        ev.raw_json,
         "synced_at":       ev.synced_at,
     }
-    stmt = sqlite_insert(CalendarEvent).values(**vals)
+    stmt = dialect_insert(CalendarEvent).values(**vals)
     stmt = stmt.on_conflict_do_update(
         index_elements=["user_id", "google_event_id"],
         set_={c: vals[c] for c in _UPSERT_COLS},

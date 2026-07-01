@@ -21,12 +21,20 @@ from utils.timeutil import utcnow
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/utlab.db")
 
-engine = create_async_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-    echo=False,
-)
+_IS_SQLITE = DATABASE_URL.startswith("sqlite")
+
+if _IS_SQLITE:
+    # StaticPool + check_same_thread are SQLite-specific (and StaticPool is
+    # required for the in-memory test DB to share one connection).
+    engine = create_async_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+else:
+    # PostgreSQL (asyncpg): use the default connection pool.
+    engine = create_async_engine(DATABASE_URL, echo=False)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
@@ -447,13 +455,14 @@ async def init_db() -> None:
 
     from db_migrate import run_migrations
 
-    # Runtime PRAGMAs (connection/DB-level, not schema).  Set first so the
-    # migration run executes under WAL.  StaticPool shares one connection, so
-    # these persist for the subsequent run_migrations call.
-    async with engine.begin() as conn:
-        await conn.execute(text("PRAGMA journal_mode=WAL"))
-        await conn.execute(text("PRAGMA synchronous=NORMAL"))
-        await conn.execute(text("PRAGMA cache_size=10000"))
+    # Runtime PRAGMAs (connection/DB-level, not schema).  SQLite-only; set first
+    # so the migration run executes under WAL.  StaticPool shares one
+    # connection, so these persist for the subsequent run_migrations call.
+    if engine.dialect.name == "sqlite":
+        async with engine.begin() as conn:
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            await conn.execute(text("PRAGMA synchronous=NORMAL"))
+            await conn.execute(text("PRAGMA cache_size=10000"))
 
     action = await run_migrations(engine)
     logging.getLogger(__name__).info("Alembic migrations applied (action=%s)", action)
