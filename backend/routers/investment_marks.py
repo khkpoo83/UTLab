@@ -4,16 +4,22 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import InvestmentMark, get_db
-from routers.auth import get_current_user, User
+from repositories.investment_mark_repository import InvestmentMarkRepository
+from routers.auth import User, get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/portfolio/marks", tags=["investment-marks"])
 
+
+def get_mark_repo(db: AsyncSession = Depends(get_db)) -> InvestmentMarkRepository:
+    return InvestmentMarkRepository(db)
+
+
 DB = Annotated[AsyncSession, Depends(get_db)]
+Repo = Annotated[InvestmentMarkRepository, Depends(get_mark_repo)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
@@ -34,22 +40,11 @@ class MarkResponse(BaseModel):
 @router.get("", response_model=list[MarkResponse])
 async def list_marks(
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
     from_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
     to_date: Optional[str] = Query(None, description="YYYY-MM-DD"),
 ) -> list[MarkResponse]:
-    conditions = []
-    if from_date:
-        conditions.append(InvestmentMark.date >= from_date)
-    if to_date:
-        conditions.append(InvestmentMark.date <= to_date)
-
-    stmt = select(InvestmentMark).order_by(InvestmentMark.date)
-    if conditions:
-        stmt = stmt.where(and_(*conditions))
-
-    result = await db.execute(stmt)
-    marks = result.scalars().all()
+    marks = await repo.list(from_date, to_date)
     return [
         MarkResponse(
             id=m.id,
@@ -67,19 +62,18 @@ async def list_marks(
 async def create_mark(
     data: MarkCreate,
     current_user: CurrentUser,
+    repo: Repo,
     db: DB,
 ) -> MarkResponse:
     mark = InvestmentMark(date=data.date, title=data.title)
-    db.add(mark)
-    await db.commit()
-    await db.refresh(mark)
+    await repo.add(mark)
 
     gcal_event_id: Optional[str] = None
     gcal_calendar_id: Optional[str] = None
 
     try:
-        from services.mark_sync import find_invest_calendar_id
         from services.calendar_service import create_event
+        from services.mark_sync import find_invest_calendar_id
 
         cal_id = await find_invest_calendar_id(current_user.id, db)
         if cal_id:
@@ -93,7 +87,7 @@ async def create_mark(
             gcal_calendar_id = cal_id
             mark.google_event_id = gcal_event_id
             mark.google_calendar_id = gcal_calendar_id
-            await db.commit()
+            await repo.commit()
     except Exception as e:
         logger.warning(f"GCal event creation failed (non-fatal): {e}")
 
@@ -111,17 +105,16 @@ async def create_mark(
 async def delete_mark(
     mark_id: int,
     current_user: CurrentUser,
+    repo: Repo,
     db: DB,
 ) -> None:
-    result = await db.execute(select(InvestmentMark).where(InvestmentMark.id == mark_id))
-    mark = result.scalar_one_or_none()
+    mark = await repo.get(mark_id)
     if not mark:
         raise HTTPException(status_code=404, detail="Mark not found")
 
     gcal_event_id = mark.google_event_id
 
-    await db.delete(mark)
-    await db.commit()
+    await repo.delete(mark)
 
     if gcal_event_id:
         try:

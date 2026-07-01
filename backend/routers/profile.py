@@ -5,16 +5,21 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.database import User, UserProfile, get_db
+from repositories.profile_repository import ProfileRepository
 from routers.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/profile", tags=["profile"])
 
-DB = Annotated[AsyncSession, Depends(get_db)]
+
+def get_profile_repo(db: AsyncSession = Depends(get_db)) -> ProfileRepository:
+    return ProfileRepository(db)
+
+
+Repo = Annotated[ProfileRepository, Depends(get_profile_repo)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
@@ -50,20 +55,17 @@ def _calc_age(birth_date_str: Optional[str]) -> Optional[int]:
         return None
 
 
-async def _get_or_create_profile(user: User, db: AsyncSession) -> UserProfile:
-    result = await db.execute(select(UserProfile).where(UserProfile.user_id == user.id))
-    profile = result.scalar_one_or_none()
+async def _get_or_create_profile(user: User, repo: ProfileRepository) -> UserProfile:
+    profile = await repo.get_by_user_id(user.id)
     if not profile:
         profile = UserProfile(user_id=user.id, profile_icon="👤", retire_age=60)
-        db.add(profile)
-        await db.commit()
-        await db.refresh(profile)
+        await repo.add(profile)
     return profile
 
 
 @router.get("", response_model=ProfileResponse)
-async def get_profile(current_user: CurrentUser, db: DB) -> ProfileResponse:
-    profile = await _get_or_create_profile(current_user, db)
+async def get_profile(current_user: CurrentUser, repo: Repo) -> ProfileResponse:
+    profile = await _get_or_create_profile(current_user, repo)
     age = _calc_age(profile.birth_date)
     birth_year = date.fromisoformat(profile.birth_date).year if profile.birth_date else None
     return ProfileResponse(
@@ -79,8 +81,8 @@ async def get_profile(current_user: CurrentUser, db: DB) -> ProfileResponse:
 
 
 @router.put("", response_model=ProfileResponse)
-async def update_profile(data: ProfileUpdate, current_user: CurrentUser, db: DB) -> ProfileResponse:
-    profile = await _get_or_create_profile(current_user, db)
+async def update_profile(data: ProfileUpdate, current_user: CurrentUser, repo: Repo) -> ProfileResponse:
+    profile = await _get_or_create_profile(current_user, repo)
 
     if data.display_name is not None:
         profile.display_name = data.display_name
@@ -102,8 +104,7 @@ async def update_profile(data: ProfileUpdate, current_user: CurrentUser, db: DB)
     if data.monthly_income_만 is not None:
         profile.monthly_income_만 = data.monthly_income_만
 
-    await db.commit()
-    await db.refresh(profile)
+    await repo.update(profile)
 
     age = _calc_age(profile.birth_date)
     birth_year = date.fromisoformat(profile.birth_date).year if profile.birth_date else None

@@ -5,19 +5,24 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import Watchlist, Recommendation, get_db
-from routers.auth import get_current_user, User
+from models.database import Watchlist, get_db
+from repositories.watchlist_repository import WatchlistRepository
+from routers.auth import User, get_current_user
 from services.stock_service import fetch_current_price
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/watchlist", tags=["watchlist"])
 
+
+def get_watchlist_repo(db: AsyncSession = Depends(get_db)) -> WatchlistRepository:
+    return WatchlistRepository(db)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
-DB = Annotated[AsyncSession, Depends(get_db)]
+Repo = Annotated[WatchlistRepository, Depends(get_watchlist_repo)]
 
 
 class WatchlistCreate(BaseModel):
@@ -49,19 +54,13 @@ class WatchlistResponse(BaseModel):
 
 
 @router.get("", response_model=list[WatchlistResponse])
-async def list_watchlist(current_user: CurrentUser, db: DB) -> list[WatchlistResponse]:
-    result = await db.execute(select(Watchlist).order_by(Watchlist.created_at.desc()))
-    items = result.scalars().all()
+async def list_watchlist(current_user: CurrentUser, repo: Repo) -> list[WatchlistResponse]:
+    items = await repo.list_all_ordered()
 
     # Get recent recommendation tickers (last 7 days)
     from datetime import timedelta
     cutoff = datetime.utcnow() - timedelta(days=7)
-    rec_result = await db.execute(
-        select(Recommendation.ticker).where(
-            Recommendation.created_at >= cutoff
-        )
-    )
-    recommended_tickers = {row[0] for row in rec_result.fetchall()}
+    recommended_tickers = await repo.recent_recommended_tickers(cutoff)
 
     # 병렬로 모든 watchlist 종목 가격 조회 (N+1 → 1 round)
     async def _safe_fetch(item: Watchlist) -> tuple[Optional[float], Optional[float]]:
@@ -101,7 +100,7 @@ async def list_watchlist(current_user: CurrentUser, db: DB) -> list[WatchlistRes
 async def create_watchlist_item(
     data: WatchlistCreate,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> WatchlistResponse:
     try:
         item = Watchlist(
@@ -111,9 +110,7 @@ async def create_watchlist_item(
             target_price=data.target_price,
             memo=data.memo,
         )
-        db.add(item)
-        await db.commit()
-        await db.refresh(item)
+        await repo.add(item)
 
         current_price = None
         change_pct = None
@@ -149,10 +146,9 @@ async def update_watchlist_item(
     item_id: int,
     data: WatchlistUpdate,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> WatchlistResponse:
-    result = await db.execute(select(Watchlist).where(Watchlist.id == item_id))
-    item = result.scalar_one_or_none()
+    item = await repo.get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Watchlist item not found")
 
@@ -163,8 +159,7 @@ async def update_watchlist_item(
     if data.memo is not None:
         item.memo = data.memo
 
-    await db.commit()
-    await db.refresh(item)
+    await repo.update(item)
 
     current_price = None
     change_pct = None
@@ -196,11 +191,9 @@ async def update_watchlist_item(
 async def delete_watchlist_item(
     item_id: int,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> None:
-    result = await db.execute(select(Watchlist).where(Watchlist.id == item_id))
-    item = result.scalar_one_or_none()
+    item = await repo.get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Watchlist item not found")
-    await db.delete(item)
-    await db.commit()
+    await repo.delete(item)
