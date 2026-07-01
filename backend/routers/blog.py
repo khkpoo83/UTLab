@@ -1,24 +1,31 @@
 """블로그 라우터 — CRUD, 이미지 업로드, AI 생성, 공개 API"""
+import base64
 import json
 import os
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
-import base64
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import get_db, BlogPost
+from models.database import BlogPost, get_db
+from repositories.blog_repository import BlogRepository
 from routers.auth import get_current_user
 
 router = APIRouter()
+
+
+def get_blog_repo(db: AsyncSession = Depends(get_db)) -> BlogRepository:
+    return BlogRepository(db)
+
+
+Repo = Annotated[BlogRepository, Depends(get_blog_repo)]
 
 BLOG_IMAGES_DIR = Path(os.getenv("BLOG_IMAGES_DIR", "/app/data/blog_images"))
 try:
@@ -64,29 +71,20 @@ async def list_posts(
     tag: str = "",
     limit: int = 50,
     offset: int = 0,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
     _user=Depends(get_current_user),
 ):
-    stmt = select(BlogPost).order_by(desc(BlogPost.created_at))
-    if visibility in ("public", "private"):
-        stmt = stmt.where(BlogPost.visibility == visibility)
-    if q:
-        stmt = stmt.where(BlogPost.title.contains(q))
-    if tag:
-        stmt = stmt.where(BlogPost.tags.contains(tag))
-    stmt = stmt.offset(offset).limit(limit)
-    result = await db.execute(stmt)
-    posts = result.scalars().all()
+    posts = await repo.list(visibility=visibility, q=q, tag=tag, limit=limit, offset=offset)
     return [_post_to_dict(p) for p in posts]
 
 
 @router.get("/api/blog/posts/{post_id}")
 async def get_post(
     post_id: int,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
     _user=Depends(get_current_user),
 ):
-    post = await db.get(BlogPost, post_id)
+    post = await repo.get(post_id)
     if not post:
         raise HTTPException(404, "포스트를 찾을 수 없습니다")
     return _post_to_dict(post)
@@ -104,7 +102,7 @@ class PostCreate(BaseModel):
 @router.post("/api/blog/posts", status_code=201)
 async def create_post(
     body: PostCreate,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
     _user=Depends(get_current_user),
 ):
     post = BlogPost(
@@ -116,9 +114,7 @@ async def create_post(
         ai_generated=body.ai_generated,
         word_count=_count_words(body.content or ""),
     )
-    db.add(post)
-    await db.commit()
-    await db.refresh(post)
+    await repo.add(post)
     return _post_to_dict(post)
 
 
@@ -135,10 +131,10 @@ class PostUpdate(BaseModel):
 async def update_post(
     post_id: int,
     body: PostUpdate,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
     _user=Depends(get_current_user),
 ):
-    post = await db.get(BlogPost, post_id)
+    post = await repo.get(post_id)
     if not post:
         raise HTTPException(404, "포스트를 찾을 수 없습니다")
     if body.title is not None:
@@ -155,27 +151,25 @@ async def update_post(
     if body.ai_generated is not None:
         post.ai_generated = body.ai_generated
     post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    await db.commit()
-    await db.refresh(post)
+    await repo.update(post)
     return _post_to_dict(post)
 
 
 @router.delete("/api/blog/posts/{post_id}")
 async def delete_post(
     post_id: int,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
     _user=Depends(get_current_user),
 ):
-    post = await db.get(BlogPost, post_id)
+    post = await repo.get(post_id)
     if not post:
         raise HTTPException(404, "포스트를 찾을 수 없습니다")
-    # 커버이미지 파일 삭제
+    # 커버이미지 파일 삭제 (파일시스템 side-effect은 라우터에 유지)
     if post.cover_image:
         img_path = BLOG_IMAGES_DIR / post.cover_image
         if img_path.exists():
             img_path.unlink(missing_ok=True)
-    await db.delete(post)
-    await db.commit()
+    await repo.delete(post)
     return {"ok": True}
 
 
@@ -186,8 +180,9 @@ async def upload_image(
     file: UploadFile = File(...),
     _user=Depends(get_current_user),
 ):
-    from PIL import Image as PilImage
     import io as _io
+
+    from PIL import Image as PilImage
 
     raw = await file.read()
     if len(raw) > MAX_IMAGE_SIZE:
@@ -223,15 +218,14 @@ async def upload_image(
 
 
 @router.get("/api/blog/images/{filename}")
-async def serve_image(filename: str, request: Request, db: AsyncSession = Depends(get_db)):
+async def serve_image(filename: str, request: Request, repo: Repo = None):
     path = BLOG_IMAGES_DIR / filename
     if not path.exists() or not path.is_file():
         raise HTTPException(404, "이미지를 찾을 수 없습니다")
     # 인증된 요청(관리자)은 모든 이미지 접근 허용
     is_authed = request.headers.get("authorization", "").startswith("Bearer ")
     if not is_authed:
-        result = await db.execute(select(BlogPost).where(BlogPost.cover_image == filename))
-        post = result.scalar_one_or_none()
+        post = await repo.find_by_cover_image(filename)
         if post and post.visibility != "public":
             raise HTTPException(404, "이미지를 찾을 수 없습니다")
     return FileResponse(str(path))
@@ -349,7 +343,7 @@ async def generate_cover_image(
 ):
     """블로그 내용을 기반으로 Imagen 3 AI 썸네일 생성"""
     try:
-        from services.gemini_service import call_gemini, _llm_key
+        from services.gemini_service import _llm_key, call_gemini
 
         # Step 1: 블로그 내용 → 이미지 프롬프트 생성
         meta_prompt = f"""Create a concise image generation prompt for a blog post thumbnail.
@@ -437,23 +431,15 @@ Return ONLY the image prompt, no explanations."""
 async def public_list(
     limit: int = 20,
     offset: int = 0,
-    db: AsyncSession = Depends(get_db),
+    repo: Repo = None,
 ):
-    stmt = (
-        select(BlogPost)
-        .where(BlogPost.visibility == "public")
-        .order_by(desc(BlogPost.created_at))
-        .offset(offset)
-        .limit(limit)
-    )
-    result = await db.execute(stmt)
-    posts = result.scalars().all()
+    posts = await repo.public_list(limit=limit, offset=offset)
     return [_post_to_dict(p) for p in posts]
 
 
 @router.get("/api/public/blog/{post_id}")
-async def public_get_post(post_id: int, db: AsyncSession = Depends(get_db)):
-    post = await db.get(BlogPost, post_id)
+async def public_get_post(post_id: int, repo: Repo = None):
+    post = await repo.public_get(post_id)
     if not post or post.visibility != "public":
         raise HTTPException(404, "포스트를 찾을 수 없습니다")
     return _post_to_dict(post)
