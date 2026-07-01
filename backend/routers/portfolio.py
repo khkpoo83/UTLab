@@ -1,32 +1,38 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import Annotated, Any, Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.database import Portfolio, Account, get_db
-from routers.auth import get_current_user, User
+from models.database import Portfolio, get_db
+from repositories.portfolio_repository import PortfolioRepository
+from routers.auth import User, get_current_user
+from services.news_service import get_ticker_news
 from services.stock_service import (
     fetch_current_price,
     fetch_price_detail,
+    fetch_stock_fundamentals,
     get_chart_data,
     get_chart_data_before,
-    search_stocks,
     get_sparkline,
-    fetch_stock_fundamentals,
+    search_stocks,
 )
-from services.news_service import get_ticker_news
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
+
+def get_portfolio_repo(db: AsyncSession = Depends(get_db)) -> PortfolioRepository:
+    return PortfolioRepository(db)
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 DB = Annotated[AsyncSession, Depends(get_db)]
+Repo = Annotated[PortfolioRepository, Depends(get_portfolio_repo)]
 
 
 class PortfolioCreate(BaseModel):
@@ -93,6 +99,7 @@ async def get_net_deposits_today(
 ) -> dict:
     """당일 누적 순입금 실시간 조회 (오늘 바 그래프용)"""
     from datetime import datetime, timedelta, timezone
+
     from services.deposit_service import get_cumulative_deposits
     today = datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d")
     acc = account_no or "TOTAL"
@@ -119,19 +126,10 @@ async def search_stocks_endpoint(
 @router.get("/summary")
 async def get_summary(
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
     account_name: str | None = Query(None),
 ) -> dict:
-    if account_name is not None:
-        stmt = (
-            select(Portfolio)
-            .join(Account, Portfolio.account_id == Account.id)
-            .where(Account.name == account_name)
-        )
-    else:
-        stmt = select(Portfolio)
-    result = await db.execute(stmt)
-    holdings = result.scalars().all()
+    holdings = await repo.list(account_name)
 
     if not holdings:
         return {
@@ -201,15 +199,13 @@ async def get_summary(
 @router.get("", response_model=list[PortfolioResponse])
 async def list_portfolio(
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
     skip_price: bool = Query(False, description="현재가/스파크라인 조회 생략 (빠른 응답, 섹터·비중 계산용)"),
 ) -> list[PortfolioResponse]:
-    result = await db.execute(select(Portfolio).order_by(Portfolio.created_at.desc()))
-    holdings = result.scalars().all()
+    holdings = await repo.list_all_ordered()
 
     # 계좌 정보 로드
-    accounts_result = await db.execute(select(Account))
-    accounts_map = {a.id: a for a in accounts_result.scalars().all()}
+    accounts_map = {a.id: a for a in await repo.list_accounts()}
 
     if skip_price:
         # 현재가 없이 빠른 응답 (Analytics 섹터 가중치 등에 사용)
@@ -299,7 +295,7 @@ async def list_portfolio(
 async def create_holding(
     data: PortfolioCreate,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> PortfolioResponse:
     holding = Portfolio(
         ticker=data.ticker.upper(),
@@ -312,9 +308,7 @@ async def create_holding(
         sector=data.sector,
         account_id=data.account_id,
     )
-    db.add(holding)
-    await db.commit()
-    await db.refresh(holding)
+    await repo.add(holding)
 
     current_price = await fetch_current_price(holding.ticker)
     cost = holding.avg_price * holding.quantity
@@ -347,10 +341,9 @@ async def update_holding(
     holding_id: int,
     data: PortfolioUpdate,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> PortfolioResponse:
-    result = await db.execute(select(Portfolio).where(Portfolio.id == holding_id))
-    holding = result.scalar_one_or_none()
+    holding = await repo.get(holding_id)
     if not holding:
         raise HTTPException(status_code=404, detail="Holding not found")
 
@@ -369,8 +362,7 @@ async def update_holding(
     if 'account_id' in data.model_fields_set:
         holding.account_id = data.account_id
 
-    await db.commit()
-    await db.refresh(holding)
+    await repo.update(holding)
 
     current_price = await fetch_current_price(holding.ticker)
     cost = holding.avg_price * holding.quantity
@@ -403,25 +395,22 @@ async def update_holding(
 async def delete_holding(
     holding_id: int,
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
 ) -> None:
-    result = await db.execute(select(Portfolio).where(Portfolio.id == holding_id))
-    holding = result.scalar_one_or_none()
+    holding = await repo.get(holding_id)
     if not holding:
         raise HTTPException(status_code=404, detail="Holding not found")
-    await db.delete(holding)
-    await db.commit()
+    await repo.delete(holding)
 
 
 @router.get("/{holding_id}/chart")
 async def get_chart(
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
     holding_id: int,
     period: str = Query("3m", pattern="^(1d|1w|1m|3m|1y)$"),
 ) -> list[dict]:
-    result = await db.execute(select(Portfolio).where(Portfolio.id == holding_id))
-    holding = result.scalar_one_or_none()
+    holding = await repo.get(holding_id)
     if not holding:
         raise HTTPException(status_code=404, detail="Holding not found")
 
@@ -432,11 +421,10 @@ async def get_chart(
 @router.get("/{holding_id}/news")
 async def get_holding_news(
     current_user: CurrentUser,
-    db: DB,
+    repo: Repo,
     holding_id: int,
 ) -> list[dict]:
-    result = await db.execute(select(Portfolio).where(Portfolio.id == holding_id))
-    holding = result.scalar_one_or_none()
+    holding = await repo.get(holding_id)
     if not holding:
         raise HTTPException(status_code=404, detail="Holding not found")
 
@@ -447,12 +435,9 @@ async def _resolve_yf_ticker(ticker: str) -> str:
     """KIS 6자리 코드 → Yahoo ticker 매핑. StockMaster 우선, 없으면 .KS 기본."""
     if "." in ticker:
         return ticker  # 이미 접미사 있음
-    from models.database import AsyncSessionLocal, StockMaster
+    from models.database import AsyncSessionLocal
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(StockMaster).where(StockMaster.ticker.like(f"{ticker}.%")).limit(1)
-        )
-        row = result.scalar_one_or_none()
+        row = await PortfolioRepository(session).find_stock_master_by_prefix(ticker)
     return row.ticker if row else f"{ticker}.KS"
 
 
