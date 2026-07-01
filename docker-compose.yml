@@ -28,6 +28,9 @@ services:
       - /data/utlab:/app/data
       - /home/ec2-user/Dev/Stock/65938259_secretkey.tar:/app/secrets/keys.tar:ro
     env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
     # 포트 외부 노출 없음 — nginx가 Docker 내부망(http://backend:8000)으로 직접 접근
     expose:
       - "8000"
