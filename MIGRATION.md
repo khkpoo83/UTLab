@@ -13,29 +13,38 @@ The stack is two containers (`docker-compose`):
 ## 1. On the OLD host (EC2): take a final snapshot
 
 ```bash
-# Fresh consistent DB backup (WAL-folded)
-sudo /home/ec2-user/Dev/Stock/scripts/backup_db.sh
+# Fresh consistent DB backup (pg_dump custom format). The live DB is
+# PostgreSQL since the 2026-07-01 cutover — NOT SQLite anymore.
+sudo /home/ec2-user/Dev/Stock/scripts/backup_pg.sh
 
-# Stop the stack so the DB files are quiescent for copying
+# Stop the stack so the Postgres data dir is quiescent for copying
 cd /home/ec2-user/Dev/Stock && sudo docker-compose down
 ```
 
 ## 2. Copy DATA to the new host
 
-Everything stateful lives under `/data/utlab` (bind-mounted to `/app/data`).
-Copy the whole tree (preserve ownership/timestamps):
+Stateful data lives in **two** host dirs — copy BOTH while the stack is stopped
+(preserve numeric ownership/timestamps):
 
 ```bash
-sudo rsync -aHAX --numeric-ids /data/utlab/  newhost:/data/utlab/
+# 1. Postgres data dir — the LIVE database (bind-mounted to the postgres container)
+sudo rsync -aHAX --numeric-ids /data/pgdata/  newhost:/data/pgdata/
+
+# 2. App data dir — uploads + backups (bind-mounted to /app/data)
+sudo rsync -aHAX --numeric-ids /data/utlab/   newhost:/data/utlab/
 ```
 
 Includes:
-- `utlab.db`, `utlab.db-wal`, `utlab.db-shm` — the live SQLite DB (WAL mode).
-- `backups/` — prior gzipped snapshots.
-- `blog_images/` — uploaded blog images.
+- `/data/pgdata/` — **the live PostgreSQL 16 data directory** (owner uid 70 / gid 999).
+  Must be copied cold (stack stopped) for a consistent snapshot.
+- `/data/utlab/blog_images/` — uploaded blog images.
+- `/data/utlab/backups/` — prior pg_dump snapshots + the final retired SQLite archive
+  (`utlab_FINAL_sqlite_pre-retirement_*.db.gz`, kept only for historical rollback).
 
-> `--numeric-ids` preserves the 10001:10001 ownership. If you don't use it,
-> re-run the chown in step 5.
+> The old live SQLite file (`utlab.db`) was retired on 2026-07-02 after the
+> Postgres cutover — it no longer exists; the DB now lives in `/data/pgdata`.
+> `--numeric-ids` preserves ownership (10001:10001 for app data, 70:999 for pgdata).
+> If you don't use it, re-run the chown in step 5.
 
 ## 3. Copy CODE + SECRETS + CONFIG
 
@@ -70,8 +79,11 @@ host paths must be accessible to that uid or the app gets read-only DB errors
 and KIS key-load failures:
 
 ```bash
-# DB dir + WAL + blog_images must be writable by the container user
+# App data dir (uploads + backups) must be writable by the backend user (10001)
 sudo chown -R 10001:10001 /data/utlab
+
+# Postgres data dir must be owned by the postgres container user (uid 70 / gid 999)
+sudo chown -R 70:999 /data/pgdata
 
 # KIS secret tar must be readable by uid 10001 (host file is typically mode 600)
 sudo chmod 644 <repo>/65938259_secretkey.tar
@@ -92,13 +104,23 @@ curl -s http://localhost:7432/api/health   # {"status":"ok",...}
 > Deploy note: always rebuild the image (`build` + `up -d`); never `docker cp`
 > code into a running container — it is rolled back on the next `--force-recreate`.
 
-## 7. Re-install the backup cron on the new host
+## 7. Re-install the daily backup on the new host
+
+Amazon Linux 2023 ships **without cron** (`crontab: command not found`), so the
+backup runs as a **systemd timer**, not a crontab entry. Recreate both units
+(`utlab-pg-backup.service` + `.timer`, daily 04:30 KST, `Persistent=true`) and
+enable them (units are versioned in `scripts/systemd/`):
 
 ```bash
-sudo crontab -e
-# Daily 04:30 (off-market):
-30 4 * * * /<repo>/scripts/backup_db.sh >> /data/utlab/backups/backup.log 2>&1
+sudo cp <repo>/scripts/systemd/utlab-pg-backup.service /etc/systemd/system/
+sudo cp <repo>/scripts/systemd/utlab-pg-backup.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now utlab-pg-backup.timer
+sudo systemctl list-timers utlab-pg-backup.timer   # verify next run
 ```
+
+> The service runs `scripts/backup_pg.sh` (pg_dump inside the postgres container)
+> and appends to `/data/utlab/backups/backup_pg.log`.
 
 ## 8. DNS / Cloudflare (TLS at the edge, origin stays HTTP)
 

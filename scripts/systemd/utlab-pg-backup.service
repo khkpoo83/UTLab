@@ -1,0 +1,10 @@
+[Unit]
+Description=UT Lab PostgreSQL daily backup (pg_dump of stock DB)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/ec2-user/Dev/Stock/scripts/backup_pg.sh
+StandardOutput=append:/data/utlab/backups/backup_pg.log
+StandardError=append:/data/utlab/backups/backup_pg.log
