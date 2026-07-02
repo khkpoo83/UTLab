@@ -786,7 +786,7 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
                 titleEmpty
                   ? 'bg-zinc-100 dark:bg-zinc-800 text-ink-4 border border-ink-5'
-                  : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : 'bg-emerald-50 dark:bg-emerald-950 text-success border border-emerald-200 dark:border-emerald-800'
               }`}
             >
               <span>✓</span> 닫기 &amp; 저장

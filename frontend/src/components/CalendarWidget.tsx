@@ -304,7 +304,7 @@ export default function CalendarWidget({
     >
       {/* ── 토큰 만료 배너 ── */}
       {needsReconnect && (
-        <div className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-lg text-2xs bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50">
+        <div className="flex items-center gap-1.5 px-2 py-1 mb-2 rounded-lg text-2xs bg-amber-50 dark:bg-amber-950/30 text-warning border border-amber-200 dark:border-amber-700/50">
           <span className="flex-1">Google 캘린더 재연결이 필요합니다</span>
           <a href="/settings" className="font-semibold underline whitespace-nowrap">설정 이동</a>
         </div>

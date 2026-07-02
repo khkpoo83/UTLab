@@ -1065,7 +1065,7 @@ function HomeContent() {
   return (
     <div className="space-y-3" translate="no">
       {error && (
-        <div className="px-3 py-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-600 dark:text-red-400">
+        <div className="px-3 py-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl text-xs text-danger">
           {error}
         </div>
       )}
