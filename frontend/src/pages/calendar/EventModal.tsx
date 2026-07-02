@@ -160,7 +160,7 @@ export function EventModal({
 
       <div className="px-5 py-4 max-h-[75vh] overflow-y-auto">
         {error && (
-          <p className="text-xs text-red-500 bg-red-50 dark:bg-red-950/40 rounded-lg px-3 py-2 mb-3">{error}</p>
+          <p className="text-xs text-danger bg-red-50 dark:bg-red-950/40 rounded-lg px-3 py-2 mb-3">{error}</p>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-3">
@@ -244,7 +244,7 @@ export function EventModal({
                 </div>
               </div>
               {endBeforeStart && (
-                <p className="text-xs text-red-500">종료 시간이 시작 시간보다 이릅니다</p>
+                <p className="text-xs text-danger">종료 시간이 시작 시간보다 이릅니다</p>
               )}
             </div>
 

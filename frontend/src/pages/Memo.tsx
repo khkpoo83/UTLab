@@ -776,7 +776,7 @@ function EditorModal({ editing, setEditing, onCloseSave }: {
             memo / <span className="text-ink-1">{editing.isNew ? 'new' : 'edit'}</span>
           </span>
           <div className="flex items-center gap-3">
-            <span className={`font-mono text-[11px] tracking-wide ${titleEmpty ? 'text-amber-500' : 'text-emerald-500'}`}>
+            <span className={`font-mono text-[11px] tracking-wide ${titleEmpty ? 'text-warning' : 'text-success'}`}>
               {titleEmpty
                 ? (editing.isNew ? '● 제목 없이 닫으면 버림' : '● 제목 필수')
                 : '● 닫으면 저장'}

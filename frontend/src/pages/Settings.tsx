@@ -541,7 +541,7 @@ const Settings: React.FC = () => {
                 </div>
                 <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
                   <p className="text-2xs text-ink-4 mb-0.5">누적 실패</p>
-                  <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-red-500' : 'text-ink-1'}`}>{aiUsage.failed_total}</p>
+                  <p className={`text-xs font-semibold ${aiUsage.failed_total > 0 ? 'text-danger' : 'text-ink-1'}`}>{aiUsage.failed_total}</p>
                 </div>
               </div>
               <p className="text-2xs text-ink-4">무료 티어 기준 · 일 요청은 자정에 초기화 · 10초마다 갱신</p>
