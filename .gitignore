@@ -51,6 +51,7 @@ raindrop-canvas.jsx
 ParticleCanvas.tsx
 /RaindropCanvas.tsx
 index.html
+!tools/design-commenter/index.html
 git.sample
 
 # Claude 로컬 설정
