@@ -45,7 +45,7 @@ export function PasswordChangeCard() {
         <FormInput label="새 비밀번호 (6자 이상)" type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} />
         <FormInput label="새 비밀번호 확인" type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} />
         {pwMsg && (
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${pwMsg.ok ? 'text-accent' : 'text-red-500'}`}>
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${pwMsg.ok ? 'text-accent' : 'text-danger'}`}>
             {pwMsg.ok ? <Check size={13} /> : <X size={13} />}
             {pwMsg.text}
           </div>

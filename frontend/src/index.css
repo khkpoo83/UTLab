@@ -159,6 +159,12 @@ body {
   --c-up:            #F0507A;
   --c-down:          #1A9EFF;
 
+  /* 시맨틱 상태색 (등락과 무관한 성공/위험/경고) — 다크 인지.
+     status 메시지·연결상태 등에서 하드코딩 text-red-500/green-600 대신 사용. */
+  --c-danger:        #ef4444;   /* red-500 */
+  --c-success:       #16a34a;   /* green-600 */
+  --c-warning:       #d97706;   /* amber-600 */
+
   /* 본문 텍스트 — 완전 검정 대신 짙은 회색 */
   --c-text-base:    #3f3f46;   /* zinc-700 */
   --c-text-sub:     #52525b;   /* zinc-600 */
@@ -192,6 +198,9 @@ body {
 .dark {
   --c-up:         #FF7A97;
   --c-down:       #4DBFFF;
+  --c-danger:     #f87171;   /* red-400 — 다크 배경 가독성 */
+  --c-success:    #4ade80;   /* green-400 */
+  --c-warning:    #fbbf24;   /* amber-400 */
   --c-text-base:  #d4d4d8;   /* zinc-300 */
   --c-text-sub:   #a1a1aa;   /* zinc-400 */
   --c-text-muted: #71717a;   /* zinc-500 */
@@ -466,6 +475,14 @@ body {
 .text-down { color: var(--c-down); }
 .bg-up     { background-color: var(--c-up); }
 .bg-down   { background-color: var(--c-down); }
+
+/* 시맨틱 상태 유틸 (다크 인지 토큰) — 하드코딩 text-red-500/green-600 대체 */
+.text-danger  { color: var(--c-danger); }
+.text-success { color: var(--c-success); }
+.text-warning { color: var(--c-warning); }
+.bg-danger    { background-color: var(--c-danger); }
+.bg-success   { background-color: var(--c-success); }
+.bg-warning   { background-color: var(--c-warning); }
 
 .text-flat {
   @apply text-zinc-500 dark:text-zinc-400;

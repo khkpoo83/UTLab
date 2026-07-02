@@ -95,7 +95,7 @@ export function CalendarIntegrationCard() {
         {calStatus?.connected ? (
           <>
             <div className="flex items-center gap-2">
-              <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-amber-500' : 'text-green-500'}`} />
+              <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-warning' : 'text-success'}`} />
               <span className="text-sm font-medium text-ink-0">{calStatus.google_email}</span>
               <span className={`tag text-xs ${calStatus.needs_reconnect ? 'tag-amber' : 'tag-tonal'}`}>
                 {calStatus.needs_reconnect ? '재연결 필요' : '연결됨'}
@@ -111,7 +111,7 @@ export function CalendarIntegrationCard() {
               </div>
               <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
                 <p className="text-2xs text-ink-4 mb-0.5">Push 알림</p>
-                <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-ink-4'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
+                <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-success' : 'text-ink-4'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
               </div>
               <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
                 <p className="text-2xs text-ink-4 mb-0.5">채널 만료</p>
@@ -152,7 +152,7 @@ export function CalendarIntegrationCard() {
           </>
         )}
         {calMsg && (
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${calMsg.ok ? 'text-accent' : 'text-red-500'}`}>
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${calMsg.ok ? 'text-accent' : 'text-danger'}`}>
             {calMsg.ok ? <Check size={13} /> : <X size={13} />}
             {calMsg.text}
           </div>

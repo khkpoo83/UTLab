@@ -152,7 +152,7 @@ function AddEditModal({ mode, initial, onClose, onSave }: AddEditModalProps) {
           rows={3}
         />
 
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
 
         <div className="flex gap-2 justify-end pt-1">
           <Button variant="secondary" size="md" onClick={onClose}>취소</Button>
