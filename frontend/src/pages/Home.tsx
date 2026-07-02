@@ -51,6 +51,22 @@ const GRID_COLS  = 4
 const GRID_ROW_H = 180   // px per row unit
 const GRID_GAP   = 12    // px (gap-3)
 
+// 모바일(<640px)에서는 4컬럼 DnD 그리드가 위젯을 ~85px로 짜부라뜨림
+// → 단일 컬럼 세로 스택으로 렌더(드래그/리사이즈 편집은 데스크탑 전용).
+const MOBILE_QUERY = '(max-width: 639px)'
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY)
+    const onChange = () => setIsMobile(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return isMobile
+}
+
 // 위젯 높이(h)에 들어가는 리스트 항목 수 계산 — 스크롤 없이 사이즈에 맞춤
 function fitCount(h: number, rowPx: number, headerPx = 62, footerPx = 0): number {
   const avail = h * GRID_ROW_H + (h - 1) * GRID_GAP - headerPx - footerPx - 6 /* 여유 */
@@ -290,6 +306,7 @@ function DropGhost({ x, y, w, h, visible }: { x: number; y: number; w: number; h
 function WidgetCell({
   widget,
   editMode,
+  isMobile,
   isDragging,
   onDragStart,
   onResizeStart,
@@ -297,6 +314,7 @@ function WidgetCell({
 }: {
   widget: WidgetCfg
   editMode: boolean
+  isMobile: boolean
   isDragging: boolean
   onDragStart: (e: React.PointerEvent) => void
   onResizeStart: (e: React.PointerEvent) => void
@@ -305,12 +323,20 @@ function WidgetCell({
   return (
     <div
       translate="no"
-      style={{
-        gridColumn: `${widget.x + 1} / span ${widget.w}`,
-        gridRow:    `${widget.y + 1} / span ${widget.h}`,
-        minHeight:  widget.h * GRID_ROW_H + 'px',
-        transition: isDragging ? 'none' : 'grid-column 0.18s ease, grid-row 0.18s ease',
-      }}
+      style={
+        isMobile
+          ? {
+              // 단일 컬럼 전체 폭 스택 — 위치(x/y)와 열 스팬(w) 무시, 높이는 내용에 맞춤
+              gridColumn: '1 / -1',
+              minHeight: widget.h * GRID_ROW_H + 'px',
+            }
+          : {
+              gridColumn: `${widget.x + 1} / span ${widget.w}`,
+              gridRow: `${widget.y + 1} / span ${widget.h}`,
+              minHeight: widget.h * GRID_ROW_H + 'px',
+              transition: isDragging ? 'none' : 'grid-column 0.18s ease, grid-row 0.18s ease',
+            }
+      }
       className={`relative group/cell ${isDragging ? 'opacity-40 z-0' : 'z-10'}`}
     >
       {/* 드래그 핸들 (편집 모드) */}
@@ -543,6 +569,7 @@ function HomeContent() {
   // 위젯 상태
   const [widgets,    setWidgets]    = useState<WidgetCfg[]>(() => loadWidgets())
   const [editMode,   setEditMode]   = useState(false)
+  const isMobile = useIsMobile()
   const [showPanel,  setShowPanel]  = useState(false)
   const [dragState,  setDragState]  = useState<DragState | null>(null)
   const [resizeState, setResizeState] = useState<ResizeState | null>(null)
@@ -775,6 +802,15 @@ function HomeContent() {
 
   const visibleWidgets = useMemo(() => widgets.filter(w => w.visible), [widgets])
   const maxRow = useMemo(() => visibleWidgets.reduce((m, w) => Math.max(m, w.y + w.h), 0), [visibleWidgets])
+  // 모바일 단일 컬럼 스택 순서 = 레이아웃 위치(위→아래, 좌→우) 그대로
+  const orderedWidgets = useMemo(
+    () => (isMobile ? [...visibleWidgets].sort((a, b) => (a.y - b.y) || (a.x - b.x)) : visibleWidgets),
+    [isMobile, visibleWidgets],
+  )
+  // 편집 모드는 데스크탑 전용 — 모바일로 전환되면 편집 이탈
+  useEffect(() => {
+    if (isMobile && editMode) setEditMode(false)
+  }, [isMobile, editMode])
 
   // ── 카드 렌더러 ──────────────────────────────────────────────────────────────
 
@@ -1247,13 +1283,16 @@ function HomeContent() {
               </button>
             </>
           ) : (
-            <button
-              onClick={enterEditMode}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-ink-4 hover:text-accent surface hover:bg-accent/8 border border-ink-5 hover:border-accent/30 transition-colors"
-            >
-              <LayoutGrid size={12} />
-              레이아웃 편집
-            </button>
+            // 레이아웃 편집(드래그/리사이즈)은 데스크탑 전용 — 모바일에선 숨김
+            !isMobile && (
+              <button
+                onClick={enterEditMode}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-2xs text-ink-4 hover:text-accent surface hover:bg-accent/8 border border-ink-5 hover:border-accent/30 transition-colors"
+              >
+                <LayoutGrid size={12} />
+                레이아웃 편집
+              </button>
+            )
           )}
         </div>
       </div>
@@ -1272,13 +1311,13 @@ function HomeContent() {
         {editMode && <GridOverlay key="grid-overlay" rows={maxRow} />}
 
         <div
-          key={`grid-${editMode}`}
+          key={`grid-${editMode}-${isMobile}`}
           ref={gridRef}
           translate="no"
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-            gridAutoRows: GRID_ROW_H + 'px',
+            gridTemplateColumns: isMobile ? '1fr' : `repeat(${GRID_COLS}, 1fr)`,
+            gridAutoRows: isMobile ? 'auto' : GRID_ROW_H + 'px',
             gap: GRID_GAP + 'px',
           }}
         >
@@ -1293,11 +1332,12 @@ function HomeContent() {
           />
 
           {/* 위젯 셀 */}
-          {visibleWidgets.map(w => (
+          {orderedWidgets.map(w => (
             <WidgetCell
               key={w.id}
               widget={w}
               editMode={editMode}
+              isMobile={isMobile}
               isDragging={dragState?.widgetId === w.id}
               onDragStart={e => startDrag(e, w.id)}
               onResizeStart={e => startResize(e, w.id)}

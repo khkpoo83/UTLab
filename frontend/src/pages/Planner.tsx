@@ -1429,7 +1429,7 @@ export default function Planner() {
           >
             <div className="space-y-3">
               {/* ── 설정 ── */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="rounded-lg bg-accent/10 border border-accent/30 p-3 space-y-1.5">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className="tag tag-tonal text-2xs">ISA ①</span>
@@ -1726,7 +1726,7 @@ export default function Planner() {
               </div>
 
               {/* 설정 2열 */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <div className="flex items-center gap-1 mb-1.5">
                     <span className="text-xs font-medium text-ink-2">현재 잔여원금</span>
