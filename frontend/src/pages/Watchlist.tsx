@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import PageTitle from '../components/PageTitle'
 import { watchlistApi, portfolioApi, WatchlistItem } from '../api/client'
+import { useWatchlist, useDeleteWatchlist, watchlistKey } from '../api/hooks/useWatchlist'
 import Skeleton from '../components/Skeleton'
 import { formatPrice } from '../utils/format'
 import Modal, { ModalHeader } from '../components/Modal'
@@ -162,47 +164,23 @@ function AddEditModal({ mode, initial, onClose, onSave }: AddEditModalProps) {
 }
 
 const Watchlist: React.FC = () => {
-  const [items, setItems] = useState<WatchlistItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
   const [editItem, setEditItem] = useState<WatchlistItem | null>(null)
-  const [deleting, setDeleting] = useState<number | null>(null)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await watchlistApi.list()
-      setItems(data)
-    } catch {
-      setError('관심 종목을 불러오지 못했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const qc = useQueryClient()
+  const { data: items = [], isLoading: loading, isError } = useWatchlist()
+  const deleteMut = useDeleteWatchlist()
+  const error = isError ? '관심 종목을 불러오지 못했습니다.' : null
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
-
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     if (!window.confirm('이 종목을 삭제하시겠습니까?')) return
-    setDeleting(id)
-    try {
-      await watchlistApi.remove(id)
-      setItems((prev) => prev.filter((i) => i.id !== id))
-    } catch {
-      alert('삭제에 실패했습니다.')
-    } finally {
-      setDeleting(null)
-    }
+    deleteMut.mutate(id, { onError: () => alert('삭제에 실패했습니다.') })
   }
 
-  const handleSaved = async () => {
+  const handleSaved = () => {
     setShowAdd(false)
     setEditItem(null)
-    await loadData()
+    qc.invalidateQueries({ queryKey: watchlistKey })
   }
 
   return (
@@ -321,7 +299,7 @@ const Watchlist: React.FC = () => {
                   </button>
                   <button
                     onClick={() => handleDelete(item.id)}
-                    disabled={deleting === item.id}
+                    disabled={deleteMut.isPending && deleteMut.variables === item.id}
                     className="p-1.5 text-ink-4 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors disabled:opacity-50"
                     title="삭제"
                   >
