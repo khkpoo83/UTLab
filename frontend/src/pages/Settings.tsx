@@ -1,11 +1,11 @@
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import {
   Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper,
-  User, Lock, Check, X, Calendar, RefreshCw, Unlink, ExternalLink, Wifi, WifiOff,
+  User, Check, X,
   RectangleHorizontal, Scroll, Layers, Plug, Plus,
 } from 'lucide-react'
 import { NavModeContext } from '../contexts'
-import { settingsApi, profileApi, authApi, calendarApi, investmentMarksApi, UserProfile, AiUsageStats, CalendarStatus } from '../api/client'
+import { settingsApi, profileApi, UserProfile, AiUsageStats } from '../api/client'
 import { Card } from '../components/Card'
 import ProgressBar from '../components/ProgressBar'
 import {
@@ -42,6 +42,8 @@ import {
   marqueeSpeedLabel,
 } from '../components/settings/pickers'
 import type { Schedule } from '../components/settings/pickers'
+import { PasswordChangeCard } from '../components/settings/PasswordChangeCard'
+import { CalendarIntegrationCard } from '../components/settings/CalendarIntegrationCard'
 
 // Re-export for backward compat (외부에서 Settings를 직접 import하는 경우 대비)
 export type { PnlColorConfig, UiRadius }
@@ -92,18 +94,6 @@ const Settings: React.FC = () => {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileSaved, setProfileSaved] = useState(false)
 
-  // 비밀번호 변경 상태
-  const [pwCurrent, setPwCurrent] = useState('')
-  const [pwNew, setPwNew] = useState('')
-  const [pwConfirm, setPwConfirm] = useState('')
-  const [pwSaving, setPwSaving] = useState(false)
-  const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
-
-  // 구글 캘린더 상태
-  const [calStatus, setCalStatus] = useState<CalendarStatus | null>(null)
-  const [calLoading, setCalLoading] = useState(false)
-  const [calMsg, setCalMsg] = useState<{ ok: boolean; text: string } | null>(null)
-
   // 서버 설정 반영 (초기 로드 + 되돌리기 공용)
   const applyFromData = (data: Record<string, any>) => {
     setSettings(data)
@@ -129,7 +119,6 @@ const Settings: React.FC = () => {
     }).catch(() => setLoading(false))
 
     profileApi.get().then(p => setProfile(p)).catch(() => {})
-    calendarApi.status().then(s => setCalStatus(s)).catch(() => {})
 
     const fetchAiUsage = () => {
       settingsApi.aiUsage().then(({ data }) => setAiUsage(data)).catch(() => {})
@@ -167,101 +156,6 @@ const Settings: React.FC = () => {
       // ignore
     } finally {
       setProfileSaving(false)
-    }
-  }
-
-  const handleChangePassword = async () => {
-    if (pwNew !== pwConfirm) {
-      setPwMsg({ ok: false, text: '새 비밀번호가 일치하지 않습니다.' })
-      return
-    }
-    if (pwNew.length < 6) {
-      setPwMsg({ ok: false, text: '비밀번호는 6자 이상이어야 합니다.' })
-      return
-    }
-    setPwSaving(true)
-    setPwMsg(null)
-    try {
-      await authApi.changePassword(pwCurrent, pwNew)
-      setPwMsg({ ok: true, text: '비밀번호가 변경되었습니다.' })
-      setPwCurrent(''); setPwNew(''); setPwConfirm('')
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail ?? '오류가 발생했습니다.'
-      setPwMsg({ ok: false, text: detail })
-    } finally {
-      setPwSaving(false)
-    }
-  }
-
-  const handleCalConnect = async () => {
-    setCalLoading(true)
-    setCalMsg(null)
-    try {
-      const { auth_url } = await calendarApi.connect()
-      window.location.href = auth_url
-    } catch {
-      setCalMsg({ ok: false, text: '연결 URL 생성에 실패했습니다. 서버 환경변수를 확인하세요.' })
-      setCalLoading(false)
-    }
-  }
-
-  const handleCalDisconnect = async () => {
-    if (!window.confirm('Google Calendar 연결을 해제하면 동기화된 일정이 모두 삭제됩니다. 계속하시겠습니까?')) return
-    setCalLoading(true)
-    setCalMsg(null)
-    try {
-      await calendarApi.disconnect()
-      setCalStatus(null)
-      setCalMsg({ ok: true, text: '연결이 해제되었습니다.' })
-    } catch {
-      setCalMsg({ ok: false, text: '연결 해제 중 오류가 발생했습니다.' })
-    } finally {
-      setCalLoading(false)
-    }
-  }
-
-  const handleCalSync = async () => {
-    setCalLoading(true)
-    setCalMsg(null)
-    try {
-      const res = await calendarApi.sync()
-      setCalMsg({ ok: true, text: res.message })
-      calendarApi.status().then(s => setCalStatus(s)).catch(() => {})
-    } catch {
-      setCalMsg({ ok: false, text: '동기화 중 오류가 발생했습니다.' })
-    } finally {
-      setCalLoading(false)
-    }
-  }
-
-  const handleCalRegisterWatch = async () => {
-    setCalLoading(true)
-    setCalMsg(null)
-    try {
-      const res = await calendarApi.registerWatch()
-      setCalMsg({ ok: res.push_enabled, text: res.message })
-      calendarApi.status().then(s => setCalStatus(s)).catch(() => {})
-    } catch {
-      setCalMsg({ ok: false, text: 'Push 채널 등록 중 오류가 발생했습니다.' })
-    } finally {
-      setCalLoading(false)
-    }
-  }
-
-  const handleSyncUnsyncedMarks = async () => {
-    setCalLoading(true)
-    setCalMsg(null)
-    try {
-      const res = await investmentMarksApi.syncUnsynced()
-      if (res.error) {
-        setCalMsg({ ok: false, text: res.error })
-      } else {
-        setCalMsg({ ok: true, text: `마커 동기화 완료: ${res.synced}건 성공${res.failed ? `, ${res.failed}건 실패` : ''}` })
-      }
-    } catch {
-      setCalMsg({ ok: false, text: '마커 동기화 중 오류가 발생했습니다.' })
-    } finally {
-      setCalLoading(false)
     }
   }
 
@@ -410,22 +304,7 @@ const Settings: React.FC = () => {
     {
       id: 'settings-password', tab: 'account', title: '비밀번호 변경',
       keywords: ['비밀번호', '패스워드', '보안', 'password'],
-      element: (
-        <Card collapsible id="settings-password" icon={<Lock size={16} />} title="비밀번호 변경" defaultOpen={false}>
-          <div className="space-y-4 max-w-sm">
-            <FormInput label="현재 비밀번호" type="password" value={pwCurrent} onChange={e => setPwCurrent(e.target.value)} />
-            <FormInput label="새 비밀번호 (6자 이상)" type="password" value={pwNew} onChange={e => setPwNew(e.target.value)} />
-            <FormInput label="새 비밀번호 확인" type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} />
-            {pwMsg && (
-              <div className={`flex items-center gap-1.5 text-xs font-medium ${pwMsg.ok ? 'text-accent' : 'text-red-500'}`}>
-                {pwMsg.ok ? <Check size={13} /> : <X size={13} />}
-                {pwMsg.text}
-              </div>
-            )}
-            <Button onClick={handleChangePassword} loading={pwSaving} loadingLabel="변경 중..." disabled={!pwCurrent || !pwNew || !pwConfirm}>비밀번호 변경</Button>
-          </div>
-        </Card>
-      ),
+      element: <PasswordChangeCard />,
     },
 
     // ── 외관 ────────────────────────────────────────────────
@@ -689,78 +568,7 @@ const Settings: React.FC = () => {
     {
       id: 'settings-calendar', tab: 'integration', title: 'Google 캘린더 연동',
       keywords: ['구글', '캘린더', '연동', '동기화', 'google', 'calendar', 'sync'],
-      element: (
-        <Card collapsible id="settings-calendar" icon={<Calendar size={16} />} title="Google 캘린더 연동" defaultOpen>
-          <div className="space-y-4">
-            {calStatus?.connected ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Wifi size={14} className={`flex-shrink-0 ${calStatus.needs_reconnect ? 'text-amber-500' : 'text-green-500'}`} />
-                  <span className="text-sm font-medium text-ink-0">{calStatus.google_email}</span>
-                  <span className={`tag text-xs ${calStatus.needs_reconnect ? 'tag-amber' : 'tag-tonal'}`}>
-                    {calStatus.needs_reconnect ? '재연결 필요' : '연결됨'}
-                  </span>
-                </div>
-                {calStatus.needs_reconnect && (
-                  <div className="notice notice-amber text-xs">Google 토큰이 만료되었습니다. 아래 버튼으로 다시 연결하면 일정 동기화가 재개됩니다.</div>
-                )}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-ink-4 mb-0.5">동기화 일정</p>
-                    <p className="text-xs font-semibold text-ink-1">{calStatus.event_count}개</p>
-                  </div>
-                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-ink-4 mb-0.5">Push 알림</p>
-                    <p className={`text-xs font-semibold ${calStatus.push_enabled ? 'text-green-600 dark:text-green-400' : 'text-ink-4'}`}>{calStatus.push_enabled ? '활성' : '폴링'}</p>
-                  </div>
-                  <div className="bg-zinc-50 dark:bg-zinc-800 rounded-lg p-2.5 text-center">
-                    <p className="text-2xs text-ink-4 mb-0.5">채널 만료</p>
-                    <p className="text-2xs font-medium text-ink-2 leading-tight">
-                      {calStatus.channel_expires ? new Date(calStatus.channel_expires).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : '—'}
-                    </p>
-                  </div>
-                </div>
-                {!calStatus.push_enabled && (
-                  <div className="notice notice-amber text-xs">
-                    Push 알림 채널이 비활성 상태입니다. GOOGLE_WEBHOOK_BASE_URL 환경변수가 설정되어 있으면 "채널 등록" 버튼을 눌러 재등록하세요. 현재는 30분마다 폴링으로 동기화됩니다.
-                  </div>
-                )}
-                <div className="flex items-center gap-2 flex-wrap">
-                  {calStatus.needs_reconnect ? (
-                    <Button onClick={handleCalConnect} loading={calLoading} loadingLabel="연결 중..." icon={<ExternalLink size={13} />}>Google 재연결</Button>
-                  ) : (
-                    <>
-                      <Button onClick={handleCalSync} disabled={calLoading} icon={<RefreshCw size={13} className={calLoading ? 'animate-spin' : ''} />}>전체 동기화</Button>
-                      <Button variant="secondary" onClick={handleCalRegisterWatch} disabled={calLoading} icon={<Wifi size={13} />}>{calStatus.push_enabled ? 'Push 채널 갱신' : 'Push 채널 등록'}</Button>
-                      <Button variant="secondary" onClick={handleSyncUnsyncedMarks} disabled={calLoading} icon={<RefreshCw size={13} />} title="차트 마커 중 GCal 미동기화된 항목을 재시도합니다">마커 동기화</Button>
-                    </>
-                  )}
-                  <Button variant="danger" onClick={handleCalDisconnect} disabled={calLoading} icon={<Unlink size={13} />}>연결 해제</Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 text-ink-4">
-                  <WifiOff size={14} />
-                  <span className="text-sm">Google Calendar가 연결되지 않았습니다.</span>
-                </div>
-                <div className="notice notice-zinc text-xs space-y-1">
-                  <p>연결하면 다른 기기에서 등록한 일정이 플래너에 자동으로 반영됩니다.</p>
-                  <p>서버에 GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI 환경변수가 필요합니다.</p>
-                </div>
-                <Button onClick={handleCalConnect} loading={calLoading} loadingLabel="연결 중..." icon={<ExternalLink size={13} />}>Google 계정으로 연결</Button>
-              </>
-            )}
-            {calMsg && (
-              <div className={`flex items-center gap-1.5 text-xs font-medium ${calMsg.ok ? 'text-accent' : 'text-red-500'}`}>
-                {calMsg.ok ? <Check size={13} /> : <X size={13} />}
-                {calMsg.text}
-              </div>
-            )}
-            <p className="text-2xs text-ink-4">연결 후 Push 알림으로 다른 기기 변경사항이 수 초 내 플래너에 반영됩니다.</p>
-          </div>
-        </Card>
-      ),
+      element: <CalendarIntegrationCard />,
     },
   ]
 
