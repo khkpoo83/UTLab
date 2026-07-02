@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Design Commenter — 내장 브라우저</title>
+  <style>
+    :root { --bg:#0b0b0f; --bar:#18181b; --line:#2a2a31; --fg:#e4e4e7; --mut:#a1a1aa; --accent:#6366f1; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--fg); }
+    #app { display: flex; flex-direction: column; height: 100%; }
+    .bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--bar); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+    .bar input[type=text] { flex: 1; min-width: 0; background: #0b0b0f; border: 1px solid var(--line); color: var(--fg); border-radius: 8px; padding: 8px 12px; font-size: 13px; outline: none; }
+    .bar input[type=text]:focus { border-color: var(--accent); }
+    .btn { border: 1px solid var(--line); background: #26262c; color: var(--fg); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn:hover { background: #2f2f37; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .count { font-size: 12px; color: var(--mut); min-width: 44px; text-align: center; }
+    .stage { flex: 1; position: relative; background: #fff; }
+    iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+    .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #71717a; font-size: 14px; text-align: center; padding: 24px; background: #fafafa; }
+    .drawer { position: fixed; right: 0; top: 0; bottom: 0; width: min(520px, 92vw); background: var(--bar); border-left: 1px solid var(--line); transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; z-index: 10; }
+    .drawer.open { transform: none; }
+    .drawer .dh { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+    .drawer .dh strong { font-size: 14px; }
+    .drawer textarea { flex: 1; margin: 12px 14px; background: #0b0b0f; color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font: 12px/1.5 ui-monospace, monospace; resize: none; outline: none; }
+    .drawer .da { display: flex; gap: 8px; padding: 0 14px 14px; }
+    .recent { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 10px 8px; background: var(--bar); border-bottom: 1px solid var(--line); }
+    .recent button { background: #101014; border: 1px solid var(--line); color: var(--mut); border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recent button:hover { color: var(--fg); border-color: var(--accent); }
+    .hint { font-size: 11px; color: var(--mut); padding: 6px 12px; background: var(--bar); border-bottom: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="bar">
+      <input id="addr" type="text" placeholder="로컬 경로 (예: tools/design-commenter/index.html의 절대경로) 또는 URL (https://…)" spellcheck="false" />
+      <button class="btn primary" id="open">열기</button>
+      <button class="btn" id="edit" disabled>✎ 편집 모드</button>
+      <span class="count" id="count">–</span>
+      <button class="btn" id="done" disabled>완료 · 내보내기</button>
+    </div>
+    <div class="recent" id="recent"></div>
+    <div class="hint">경로/URL을 열면 화면 위에서 <b>편집 모드</b>로 요소를 클릭해 코멘트 → <b>완료</b>로 마크다운 추출. (소스 매핑은 Vite dev 앱에서만)</div>
+    <div class="stage">
+      <div class="empty" id="empty">주소를 입력하고 <b style="margin:0 4px">열기</b>를 누르세요.<br>정적 HTML·목업·아티팩트에 가장 잘 동작합니다.</div>
+      <iframe id="frame" title="viewport"></iframe>
+    </div>
+  </div>
+
+  <div class="drawer" id="drawer">
+    <div class="dh"><strong>📋 Claude Code로 붙여넣기</strong><button class="btn" id="dclose">닫기</button></div>
+    <textarea id="md" readonly placeholder="코멘트가 없습니다."></textarea>
+    <div class="da"><button class="btn primary" id="copy">복사</button></div>
+  </div>
+
+  <script>
+    var frame = document.getElementById('frame')
+    var empty = document.getElementById('empty')
+    var addr = document.getElementById('addr')
+    var editBtn = document.getElementById('edit')
+    var doneBtn = document.getElementById('done')
+    var countEl = document.getElementById('count')
+    var drawer = document.getElementById('drawer')
+    var mdEl = document.getElementById('md')
+    var recentEl = document.getElementById('recent')
+
+    var ready = false, active = false
+    var RECENT_KEY = 'dc-shell-recent'
+
+    function post(msg) { if (frame.contentWindow) frame.contentWindow.postMessage(msg, '*') }
+
+    function openSrc(src) {
+      src = (src || '').trim()
+      if (!src) return
+      ready = false; active = false
+      editBtn.disabled = true; doneBtn.disabled = true
+      editBtn.classList.remove('on'); editBtn.textContent = '✎ 편집 모드'
+      countEl.textContent = '…'
+      empty.style.display = 'none'
+      frame.src = '/open?src=' + encodeURIComponent(src)
+      addr.value = src
+      saveRecent(src)
+    }
+
+    document.getElementById('open').addEventListener('click', function () { openSrc(addr.value) })
+    addr.addEventListener('keydown', function (e) { if (e.key === 'Enter') openSrc(addr.value) })
+
+    editBtn.addEventListener('click', function () {
+      if (!ready) return
+      active = !active
+      post({ type: 'dc:setActive', active: active })
+      editBtn.classList.toggle('on', active)
+      editBtn.textContent = active ? '✎ 편집 중 (끄기)' : '✎ 편집 모드'
+    })
+
+    doneBtn.addEventListener('click', function () { if (ready) post({ type: 'dc:export' }) })
+    document.getElementById('dclose').addEventListener('click', function () { drawer.classList.remove('open') })
+    document.getElementById('copy').addEventListener('click', function () {
+      mdEl.select()
+      try { navigator.clipboard.writeText(mdEl.value) } catch (e) { document.execCommand('copy') }
+      document.getElementById('copy').textContent = '복사됨 ✓'
+      setTimeout(function () { document.getElementById('copy').textContent = '복사' }, 1500)
+    })
+
+    window.addEventListener('message', function (e) {
+      var d = e.data
+      if (!d || typeof d !== 'object') return
+      if (d.type === 'dc:ready') {
+        ready = true
+        editBtn.disabled = false; doneBtn.disabled = false
+        countEl.textContent = '0건'
+      } else if (d.type === 'dc:count') {
+        countEl.textContent = (d.count || 0) + '건'
+      } else if (d.type === 'dc:exported') {
+        mdEl.value = d.markdown || ''
+        drawer.classList.add('open')
+      }
+    })
+
+    // recent (localStorage)
+    function loadRecent() { try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') } catch (e) { return [] } }
+    function saveRecent(src) {
+      var list = loadRecent().filter(function (x) { return x !== src })
+      list.unshift(src); list = list.slice(0, 8)
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)) } catch (e) {}
+      renderRecent()
+    }
+    function renderRecent() {
+      var list = loadRecent()
+      recentEl.innerHTML = ''
+      list.forEach(function (src) {
+        var b = document.createElement('button')
+        b.textContent = src
+        b.title = src
+        b.addEventListener('click', function () { openSrc(src) })
+        recentEl.appendChild(b)
+      })
+      recentEl.style.display = list.length ? 'flex' : 'none'
+    }
+    renderRecent()
+  </script>
+</body>
+</html>
