@@ -3,6 +3,7 @@
 // here; the page owns fetch/save/delete via callbacks).
 import { useState, useEffect, useRef } from 'react'
 import apiClient from '../../api/client'
+import { errorDetail } from '../../utils/errors'
 import Modal, { ModalHeader } from '../../components/Modal'
 import LocationPicker, { LatLon, geocodeFirst } from '../../components/LocationPicker'
 import type { EventFormData, GoogleCalendar, RecurScope, RecurFreq, RecurEnd } from './types'
@@ -129,7 +130,7 @@ export function EventModal({
     if (!form.summary.trim()) { setError('제목을 입력하세요'); return }
     setSaving(true); setError(null)
     try { await onSave(form, wasRecurring ? editScope : undefined); onClose() }
-    catch (e: any) { setError(e?.response?.data?.detail ?? '저장 실패') }
+    catch (e) { setError(errorDetail(e, '저장 실패')) }
     finally { setSaving(false) }
   }
 
@@ -141,7 +142,7 @@ export function EventModal({
     if (!confirm(msg)) return
     setDeleting(true); setError(null)
     try { await onDelete(wasRecurring ? editScope : undefined); onClose() }
-    catch (e: any) { setError(e?.response?.data?.detail ?? '삭제 실패') }
+    catch (e) { setError(errorDetail(e, '삭제 실패')) }
     finally { setDeleting(false) }
   }
 

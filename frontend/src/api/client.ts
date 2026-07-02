@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosRequestConfig } from 'axios'
+import { errorStatus } from '../utils/errors'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
@@ -10,13 +11,13 @@ const apiClient: AxiosInstance = axios.create({
 })
 
 // --- Request deduplication: same GET URL -> share the same in-flight promise ---
-const _inFlight = new Map<string, Promise<AxiosResponse<any>>>()
+const _inFlight = new Map<string, Promise<AxiosResponse<unknown>>>()
 
-function deduplicatedGet<T>(url: string, config?: object): Promise<AxiosResponse<T>> {
+function deduplicatedGet<T>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
   const key = url + (config ? JSON.stringify(config) : '')
   const existing = _inFlight.get(key)
   if (existing) return existing as Promise<AxiosResponse<T>>
-  const req = apiClient.get<T>(url, config as any).finally(() => _inFlight.delete(key))
+  const req = apiClient.get<T>(url, config).finally(() => _inFlight.delete(key))
   _inFlight.set(key, req)
   return req
 }
@@ -27,10 +28,10 @@ async function retryGet<T>(url: string, config?: object, maxRetries = 2): Promis
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await deduplicatedGet<T>(url, config)
-    } catch (err: any) {
+    } catch (err) {
       lastError = err
       // Don't retry on 401/403/404
-      const status = err?.response?.status
+      const status = errorStatus(err)
       if (status === 401 || status === 403 || status === 404) throw err
       if (attempt < maxRetries) {
         await new Promise((res) => setTimeout(res, 1000))

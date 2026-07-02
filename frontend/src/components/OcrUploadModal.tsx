@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { plannerApi, PlannerOcrItem, DcIrpOcrResult, NpsOcrResult, MortgageOcrResult, PrivatePensionOcrResult } from '../api/client'
+import { errorDetail } from '../utils/errors'
 
 interface Props {
   item: PlannerOcrItem
@@ -110,8 +111,8 @@ export default function OcrUploadModal({ item, title, hint, onApply, onClose }: 
     try {
       const res = await plannerApi.ocr(item, file)
       setResult(res.data as unknown as Record<string, number | string | null>)
-    } catch (e: any) {
-      setError(e?.response?.data?.detail ?? '인식 실패. 다시 시도해주세요.')
+    } catch (e) {
+      setError(errorDetail(e, '인식 실패. 다시 시도해주세요.'))
     } finally {
       setLoading(false)
     }

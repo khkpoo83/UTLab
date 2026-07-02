@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { plannerApi, PlannerChatRequest, PlannerScenario, PlannerChatResponse, ClarificationQuestion, AgeSnapshot } from '../api/client'
+import { errorDetail } from '../utils/errors'
 
 // ─── 빠른 질문 템플릿 (AI 테스트 결과 기반으로 자동 업데이트됨) ───────────────
 // QUICK_QUESTIONS_AUTO_UPDATE: 이 배열은 백그라운드 테스트 에이전트가 관리합니다
@@ -369,8 +370,8 @@ export default function PlannerChat({ request, suggestedQuestions }: Props) {
         const recommended = res.scenarios?.find(s => s.recommended)
         setSelected(recommended?.id ?? res.scenarios?.[0]?.id ?? null)
       }
-    } catch (e: any) {
-      setError(e?.response?.data?.detail ?? 'AI 응답 실패. 다시 시도해주세요.')
+    } catch (e) {
+      setError(errorDetail(e, 'AI 응답 실패. 다시 시도해주세요.'))
     } finally {
       setLoading(false)
     }

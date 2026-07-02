@@ -164,7 +164,7 @@ const IndexPanel: React.FC = () => {
             <div
               key={idx.symbol}
               className="gi-card flex flex-col"
-              style={{ ['--gi-c' as any]: giColor }}
+              style={{ '--gi-c': giColor } as React.CSSProperties}
             >
               <div className="flex flex-col" style={{ padding: '13px 14px 0', gap: 6 }}>
                 {/* 지수명 + 장중표시 / pill 뱃지 */}

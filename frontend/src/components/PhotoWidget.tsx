@@ -228,7 +228,7 @@ function KeywordOverlay({
           onChange={e => onChange(e.target.value)}
           // 한글 IME 조합 중 Enter(조합 확정)는 제출하지 않음
           onKeyDown={e => {
-            if (e.key === 'Enter' && !(e.nativeEvent as any).isComposing) onApply()
+            if (e.key === 'Enter' && !(e.nativeEvent as KeyboardEvent).isComposing) onApply()
             else if (e.key === 'Escape') onCancel()
           }}
           placeholder="예: 꽃, 바다, Van Gogh…"

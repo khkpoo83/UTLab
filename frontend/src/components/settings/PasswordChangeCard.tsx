@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Lock, Check, X } from 'lucide-react'
 import { authApi } from '../../api/client'
+import { errorDetail } from '../../utils/errors'
 import { Card } from '../Card'
 import { FormInput } from '../FormField'
 import { Button } from './Button'
@@ -30,9 +31,8 @@ export function PasswordChangeCard() {
       await authApi.changePassword(pwCurrent, pwNew)
       setPwMsg({ ok: true, text: '비밀번호가 변경되었습니다.' })
       setPwCurrent(''); setPwNew(''); setPwConfirm('')
-    } catch (e: any) {
-      const detail = e?.response?.data?.detail ?? '오류가 발생했습니다.'
-      setPwMsg({ ok: false, text: detail })
+    } catch (e) {
+      setPwMsg({ ok: false, text: errorDetail(e, '오류가 발생했습니다.') })
     } finally {
       setPwSaving(false)
     }
