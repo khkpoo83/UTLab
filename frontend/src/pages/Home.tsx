@@ -17,16 +17,14 @@ import { ListSectionCard } from '../components/card/ListSectionCard'
 import { SectionCard } from '../components/card/SectionCard'
 import { formatPrice, relativeTime } from '../utils/format'
 import { STRENGTH_CONFIG } from '../constants/stock'
-import {
-  portfolioApi, kisApi, recommendApi, newsApi, diaryApi, settingsApi, calendarApi,
-  KISPortfolioAccount, RecommendItem, NewsItem, DiaryEntry, CalendarEventItem,
-} from '../api/client'
+import { settingsApi, RecommendItem, NewsItem } from '../api/client'
 import {
   GRID_COLS, GRID_ROW_H, GRID_GAP, DEFAULT_WIDGETS, WIDGET_STORAGE_KEY,
   fitCount, loadWidgets, persistWidgets, placeWidget, compactWidgets,
-  calcKisSummary, flattenRecommends,
+  calcKisSummary,
 } from './home/widgetGrid'
 import type { WidgetCfg, DragState, ResizeState } from './home/widgetGrid'
+import { useHomeData } from './home/useHomeData'
 
 // ── 홈 서브타이틀 풀 ─────────────────────────────────────────────────────────
 
@@ -390,15 +388,8 @@ class HomeErrorBoundary extends React.Component<
 function HomeContent() {
   const navigate = useNavigate()
 
-  // 데이터 상태
-  const [kisAccounts, setKisAccounts] = useState<KISPortfolioAccount[]>([])
-  const [itemCount,   setItemCount]   = useState(0)
-  const [top3,        setTop3]        = useState<RecommendItem[]>([])
-  const [news,        setNews]        = useState<NewsItem[]>([])
-  const [diary,       setDiary]       = useState<DiaryEntry | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [error,       setError]       = useState<string | null>(null)
-  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEventItem[]>([])
+  // 데이터 상태 (읽기 전용 페칭 → useHomeData)
+  const { kisAccounts, itemCount, top3, news, diary, loading, error, upcomingEvents } = useHomeData()
 
   // 위젯 상태
   const [widgets,    setWidgets]    = useState<WidgetCfg[]>(() => loadWidgets())
@@ -421,16 +412,7 @@ function HomeContent() {
   resizeRef.current  = resizeState
   widgetsRef.current = widgets
 
-  // ── 데이터 로딩 ──────────────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const fetchUpcoming = () =>
-      calendarApi.getUpcoming(20).then(setUpcomingEvents).catch(() => setUpcomingEvents([]))
-    fetchUpcoming()
-    window.addEventListener('calendarUpdated', fetchUpcoming)
-    const t = setInterval(fetchUpcoming, 60_000)
-    return () => { window.removeEventListener('calendarUpdated', fetchUpcoming); clearInterval(t) }
-  }, [])
+  // ── 서버 위젯 레이아웃 동기화 ────────────────────────────────────────────────
 
   useEffect(() => {
     if (serverSynced.current) return
@@ -445,36 +427,6 @@ function HomeContent() {
       }
       serverSynced.current = true
     }).catch(() => { serverSynced.current = true })
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    const load = async () => {
-      try {
-        const [kisRes, recommendRes, newsRes, diaryRes] = await Promise.all([
-          kisApi.getPortfolio().catch(() => [] as KISPortfolioAccount[]),
-          recommendApi.list(),
-          newsApi.list({ page: 1, page_size: 8 }),
-          diaryApi.latest().catch(() => null),
-        ])
-        if (cancelled) return
-        setKisAccounts(kisRes)
-        setItemCount(kisRes.reduce((s, b) => s + b.holdings.length, 0))
-        setTop3(flattenRecommends(recommendRes.data))
-        setNews(newsRes.data.items)
-        setDiary(diaryRes)
-      } catch {
-        try {
-          const portfolioRes = await portfolioApi.list()
-          if (!cancelled) setItemCount(portfolioRes.data.length)
-        } catch { /* ignore */ }
-        if (!cancelled) setError('데이터를 불러오지 못했습니다.')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
   }, [])
 
   // ── 드래그 & 리사이즈 이벤트 ─────────────────────────────────────────────────
