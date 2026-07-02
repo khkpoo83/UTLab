@@ -1,31 +1,17 @@
-import React, { useContext, useEffect, useRef, useState } from 'react'
+import React from 'react'
 import {
   Clock, CalendarDays, Sparkles, TrendingUp, Database, Palette, Shapes, Wallpaper,
   User, Check, X,
   RectangleHorizontal, Scroll, Layers, Plug, Plus,
 } from 'lucide-react'
-import { NavModeContext } from '../contexts'
-import { settingsApi, profileApi, UserProfile, AiUsageStats } from '../api/client'
 import { Card } from '../components/Card'
 import ProgressBar from '../components/ProgressBar'
-import {
-  LogoAnyStyle, getLogoIconStyle, setLogoIconStyle,
-} from '../components/Logo'
-import {
-  BgConfig, loadBgConfig, saveBgConfig, applyBackground, BG_DEFAULTS,
-} from '../utils/background'
-import {
-  WeatherIconStyle, getWeatherIconStyle, saveWeatherIconStyle,
-} from '../components/WeatherWidget'
 import { FormInput } from '../components/FormField'
 import PageTitle from '../components/PageTitle'
-import { OverlayStyle, loadOverlayStyle, applyOverlayStyle } from '../utils/overlay'
 import {
   getProfileIconNode,
   loadPnlColorConfig, applyPnlColors, PnlColorConfig,
   applyUiRadius, getUiRadius, UiRadius, getCardOpacity, applyCardOpacity,
-  applyDotColor, getDotColor,
-  applyColorTheme, getColorTheme, ColorTheme,
 } from '../utils/settings-utils'
 import { Button } from '../components/settings/Button'
 import { OptionTile, OptionGrid } from '../components/settings/OptionTile'
@@ -44,6 +30,7 @@ import {
 import type { Schedule } from '../components/settings/pickers'
 import { PasswordChangeCard } from '../components/settings/PasswordChangeCard'
 import { CalendarIntegrationCard } from '../components/settings/CalendarIntegrationCard'
+import { useSettingsState } from './settings/useSettingsState'
 
 // Re-export for backward compat (외부에서 Settings를 직접 import하는 경우 대비)
 export type { PnlColorConfig, UiRadius }
@@ -56,193 +43,22 @@ export {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 const Settings: React.FC = () => {
-  const [settings, setSettings] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [dirty, setDirty] = useState(false)
-  const [aiUsage, setAiUsage] = useState<AiUsageStats | null>(null)
-  const dragState = useRef<{ active: boolean; day: number; hour: number; setTo: boolean } | null>(null)
-  const aiPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const { navMode, setNavMode } = useContext(NavModeContext)
-
-  // 시각 설정 — 저장 전까지 pending 상태
-  const [pendingNavMode, setPendingNavMode] = useState<'top' | 'sidebar'>(navMode)
-  const [pendingLogoIcon, setPendingLogoIcon] = useState<LogoAnyStyle>(getLogoIconStyle)
-  const [bgEditMode, setBgEditMode] = useState<'light' | 'dark'>(() =>
-    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
-  )
-  const [pendingBgLight, setPendingBgLight] = useState<BgConfig>(() => loadBgConfig('light'))
-  const [pendingBgDark, setPendingBgDark] = useState<BgConfig>(() => loadBgConfig('dark'))
-  const pendingBg = bgEditMode === 'dark' ? pendingBgDark : pendingBgLight
-  const [pendingPnlColor, setPendingPnlColor] = useState<PnlColorConfig>(loadPnlColorConfig)
-  const [pendingRadius, setPendingRadius] = useState<UiRadius>(getUiRadius)
-  const [pendingOverlay, setPendingOverlay] = useState<OverlayStyle>(loadOverlayStyle)
-  const [pendingCardOpacity, setPendingCardOpacity] = useState<number>(getCardOpacity)
-  const [pendingDotColor, setPendingDotColor] = useState<string>(getDotColor)
-  const [pendingTheme, setPendingTheme] = useState<ColorTheme>(getColorTheme)
-  const [pendingWeatherIcon, setPendingWeatherIcon] = useState<WeatherIconStyle>(getWeatherIconStyle)
-  const [pendingMemoColorMode, setPendingMemoColorMode] = useState<'pastel' | 'theme'>('pastel')
-
-  // 마퀴 키워드 입력
-  const [newKw, setNewKw] = useState('')
-
-  // 프로필 상태
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [profileDirty, setProfileDirty] = useState(false)
-  const [profileSaving, setProfileSaving] = useState(false)
-  const [profileSaved, setProfileSaved] = useState(false)
-
-  // 서버 설정 반영 (초기 로드 + 되돌리기 공용)
-  const applyFromData = (data: Record<string, any>) => {
-    setSettings(data)
-    if (data.ui_radius) { setPendingRadius(data.ui_radius as UiRadius); applyUiRadius(data.ui_radius as UiRadius) }
-    if (data.ui_overlay_style) { setPendingOverlay(data.ui_overlay_style as OverlayStyle); applyOverlayStyle(data.ui_overlay_style as OverlayStyle) }
-    if (data.ui_card_opacity != null) { setPendingCardOpacity(data.ui_card_opacity as number); applyCardOpacity(data.ui_card_opacity as number) }
-    if (data.ui_dot_color) { setPendingDotColor(data.ui_dot_color as string); applyDotColor(data.ui_dot_color as string) }
-    if (data.ui_color_theme) { setPendingTheme(data.ui_color_theme as ColorTheme); applyColorTheme(data.ui_color_theme as ColorTheme) }
-    if (data.ui_weather_icon_style) { setPendingWeatherIcon(data.ui_weather_icon_style as WeatherIconStyle); saveWeatherIconStyle(data.ui_weather_icon_style as WeatherIconStyle) }
-    if (data.ui_nav_mode) setPendingNavMode(data.ui_nav_mode as 'top' | 'sidebar')
-    if (data.memo_color_mode) setPendingMemoColorMode(data.memo_color_mode as 'pastel' | 'theme')
-    // pending 전용(저장 시에만 적용)은 마지막 저장값(localStorage)에서 리셋
-    setPendingLogoIcon(getLogoIconStyle())
-    setPendingPnlColor(loadPnlColorConfig())
-    setPendingBgLight(loadBgConfig('light'))
-    setPendingBgDark(loadBgConfig('dark'))
-  }
-
-  useEffect(() => {
-    settingsApi.get().then(({ data }) => {
-      applyFromData(data)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-
-    profileApi.get().then(p => setProfile(p)).catch(() => {})
-
-    const fetchAiUsage = () => {
-      settingsApi.aiUsage().then(({ data }) => setAiUsage(data)).catch(() => {})
-    }
-    fetchAiUsage()
-    aiPollRef.current = setInterval(fetchAiUsage, 10000)
-    return () => { if (aiPollRef.current) clearInterval(aiPollRef.current) }
-  }, [])
-
-  const updateProfile = (patch: Partial<UserProfile>) => {
-    setProfile(prev => prev ? { ...prev, ...patch } : prev)
-    setProfileDirty(true)
-    setProfileSaved(false)
-  }
-
-  const handleProfileSave = async () => {
-    if (!profile) return
-    setProfileSaving(true)
-    try {
-      const updated = await profileApi.update({
-        display_name: profile.display_name,
-        birth_date: profile.birth_date,
-        profile_icon: profile.profile_icon,
-        job: profile.job,
-        retire_age: profile.retire_age,
-        monthly_income_만: profile.monthly_income_만,
-      })
-      setProfile(updated)
-      localStorage.setItem('profileIcon', updated.profile_icon)
-      window.dispatchEvent(new Event('profileIconChange'))
-      setProfileDirty(false)
-      setProfileSaved(true)
-      setTimeout(() => setProfileSaved(false), 3000)
-    } catch {
-      // ignore
-    } finally {
-      setProfileSaving(false)
-    }
-  }
-
-  const update = (key: string, value: any) => {
-    setSettings((prev) => ({ ...prev, [key]: value }))
-    setDirty(true)
-    setSaved(false)
-  }
-
-  const updateLogoIcon = (s: LogoAnyStyle) => { setPendingLogoIcon(s); setDirty(true); setSaved(false) }
-  const updateBg = (cfg: BgConfig) => {
-    if (bgEditMode === 'dark') setPendingBgDark(cfg)
-    else setPendingBgLight(cfg)
-    setDirty(true); setSaved(false)
-  }
-  const updatePnlColor = (cfg: PnlColorConfig) => { setPendingPnlColor(cfg); setDirty(true); setSaved(false) }
-  const updateRadius = (r: UiRadius) => { setPendingRadius(r); setDirty(true); setSaved(false) }
-  const updateOverlay = (s: OverlayStyle) => { applyOverlayStyle(s); setPendingOverlay(s); setDirty(true); setSaved(false) }
-  const updateCardOpacity = (v: number) => { applyCardOpacity(v); setPendingCardOpacity(v); setDirty(true); setSaved(false) }
-  const updateTheme = (t: ColorTheme) => {
-    applyColorTheme(t); setPendingTheme(t)
-    // 테마 선택 시 배경을 테마 추종(none = --c-bg)으로 리셋 — 이후 개별 변경 가능
-    const reset: BgConfig = { ...BG_DEFAULTS, type: 'none' }
-    setPendingBgLight(reset); setPendingBgDark(reset); applyBackground(reset)
-    setDirty(true); setSaved(false)
-  }
-
-  // 마퀴 키워드
-  const marqueeItems: string[] = settings.site_marquee_items ?? []
-  const addKeyword = () => {
-    const kw = newKw.trim().toUpperCase()
-    if (!kw || marqueeItems.includes(kw)) { setNewKw(''); return }
-    update('site_marquee_items', [...marqueeItems, kw])
-    setNewKw('')
-  }
-  const removeKeyword = (i: number) => update('site_marquee_items', marqueeItems.filter((_, idx) => idx !== i))
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const { data } = await settingsApi.update({
-        ...settings,
-        ui_nav_mode: pendingNavMode,
-        ui_logo_icon: pendingLogoIcon,
-        ui_pnl_color_config: pendingPnlColor,
-        ui_bg_config: pendingBgLight,
-        ui_bg_config_dark: pendingBgDark,
-        ui_radius: pendingRadius,
-        ui_overlay_style: pendingOverlay,
-        ui_card_opacity: pendingCardOpacity,
-        ui_dot_color: pendingDotColor,
-        ui_color_theme: pendingTheme,
-        ui_weather_icon_style: pendingWeatherIcon,
-        memo_color_mode: pendingMemoColorMode,
-      })
-      setSettings(data)
-      setNavMode(pendingNavMode)
-      window.dispatchEvent(new CustomEvent('navModeChange', { detail: { mode: pendingNavMode } }))
-      setLogoIconStyle(pendingLogoIcon)
-      saveBgConfig(pendingBgLight, 'light')
-      saveBgConfig(pendingBgDark, 'dark')
-      const isDark = document.documentElement.classList.contains('dark')
-      applyBackground(isDark ? pendingBgDark : pendingBgLight)
-      applyPnlColors(pendingPnlColor)
-      applyUiRadius(pendingRadius)
-      applyOverlayStyle(pendingOverlay)
-      applyCardOpacity(pendingCardOpacity)
-      applyDotColor(pendingDotColor)
-      applyColorTheme(pendingTheme)
-      saveWeatherIconStyle(pendingWeatherIcon)
-      setDirty(false)
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch {
-      // ignore
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleRevert = () => {
-    settingsApi.get().then(({ data }) => {
-      applyFromData(data)
-      setDirty(false)
-      setSaved(false)
-    }).catch(() => {})
-  }
+  const {
+    settings, loading, saving, saved, dirty, aiUsage, dragState,
+    update, handleSave, handleRevert,
+    pendingNavMode, updateNavMode,
+    pendingLogoIcon, updateLogoIcon,
+    bgEditMode, setBgEditMode, pendingBg, updateBg,
+    pendingPnlColor, updatePnlColor,
+    pendingRadius, updateRadius,
+    pendingOverlay, updateOverlay,
+    pendingCardOpacity, updateCardOpacity,
+    pendingTheme, updateTheme,
+    pendingWeatherIcon, updateWeatherIcon,
+    pendingMemoColorMode, updateMemoColorMode,
+    newKw, setNewKw, marqueeItems, addKeyword, removeKeyword,
+    profile, updateProfile, handleProfileSave, profileDirty, profileSaving, profileSaved,
+  } = useSettingsState()
 
   if (loading) return <div className="py-8 text-center text-sm text-ink-4">설정 로딩 중...</div>
 
@@ -333,7 +149,7 @@ const Settings: React.FC = () => {
       element: (
         <Card collapsible id="settings-layout" icon={<RectangleHorizontal size={16} />} title="레이아웃" defaultOpen>
           <div className="space-y-3">
-            <SettingRow title="메뉴 방식" control={<NavModePicker value={pendingNavMode} onChange={mode => { setPendingNavMode(mode); setDirty(true); setSaved(false) }} />} />
+            <SettingRow title="메뉴 방식" control={<NavModePicker value={pendingNavMode} onChange={updateNavMode} />} />
             <SettingRow title="모서리 둥글기" control={<RadiusPicker value={pendingRadius} onChange={updateRadius} />} />
             <RangeField label="카드 투명도" min={0.1} max={1} step={0.05} value={pendingCardOpacity} onChange={updateCardOpacity} display={`${Math.round(pendingCardOpacity * 100)}%`} labelWidth={80} />
           </div>
@@ -378,9 +194,9 @@ const Settings: React.FC = () => {
             </div>
             <div>
               <p className="text-xs text-ink-3 mb-1.5">날씨 아이콘</p>
-              <WeatherIconStylePicker value={pendingWeatherIcon} onChange={icon => { setPendingWeatherIcon(icon); setDirty(true); setSaved(false) }} />
+              <WeatherIconStylePicker value={pendingWeatherIcon} onChange={updateWeatherIcon} />
             </div>
-            <SettingRow title="메모 색상" control={<MemoColorPicker value={pendingMemoColorMode} onChange={m => { setPendingMemoColorMode(m); setDirty(true); setSaved(false) }} />} />
+            <SettingRow title="메모 색상" control={<MemoColorPicker value={pendingMemoColorMode} onChange={updateMemoColorMode} />} />
           </div>
         </Card>
       ),
