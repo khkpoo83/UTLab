@@ -7,7 +7,7 @@ import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
   // 무시 경로
-  { ignores: ['dist', 'node_modules', 'public', 'coverage'] },
+  { ignores: ['dist', 'node_modules', 'public', 'coverage', 'src/api/schema.d.ts', '_dc_smoke.cjs'] },
 
   // 기본 JS + TS 권장 규칙 (type-aware 미사용 — tsc가 이미 strict로 검사)
   js.configs.recommended,

@@ -5,3 +5,6 @@ public
 package-lock.json
 *.min.js
 *.min.css
+# auto-generated from the backend OpenAPI schema (npm run gen:api)
+src/api/schema.d.ts
+openapi.snapshot.json

@@ -1,12 +1,7 @@
-import React, { memo, useEffect, useState } from 'react'
+import React, { memo } from 'react'
 import { Globe } from 'lucide-react'
-import apiClient, { indicesApi, MarketIndex } from '../api/client'
 import { Card } from './Card'
-
-interface IntradayPoint {
-  time: number
-  close: number
-}
+import { useIndices, IntradayPoint } from '../api/hooks/useIndices'
 
 const KOREAN_SYMBOLS = new Set(['^KS11', '^KQ11'])
 
@@ -33,7 +28,9 @@ interface SparkGeo {
 // 인트라데이 데이터 → SVG path(240x60) + 거래시간(KST) + 장중여부
 function buildGeometry(data: IntradayPoint[], isKorean: boolean): SparkGeo | null {
   if (data.length < 2) return null
-  const W = 240, H = 60, PAD = 4
+  const W = 240,
+    H = 60,
+    PAD = 4
 
   let xMin: number, xMax: number, timeLabel: string
   let visible = data
@@ -42,12 +39,13 @@ function buildGeometry(data: IntradayPoint[], isKorean: boolean): SparkGeo | nul
     const p0 = kstParts(data[0].time)
     xMin = new Date(`${p0.ymd}T09:00:00+09:00`).getTime() / 1000
     xMax = new Date(`${p0.ymd}T15:30:00+09:00`).getTime() / 1000
-    visible = data.filter(d => d.time >= xMin && d.time <= xMax)
+    visible = data.filter((d) => d.time >= xMin && d.time <= xMax)
     timeLabel = `${p0.md} 09:00–15:30`
   } else {
     xMin = data[0].time
     xMax = data[data.length - 1].time
-    const a = kstParts(xMin), b = kstParts(xMax)
+    const a = kstParts(xMin),
+      b = kstParts(xMax)
     // 세션 시작 날짜(KST)를 붙여 미국 야간 세션도 언제 거래된 건지 명확히
     timeLabel = `${a.md} ${a.hm}–${b.hm}`
   }
@@ -56,29 +54,41 @@ function buildGeometry(data: IntradayPoint[], isKorean: boolean): SparkGeo | nul
   const xRange = xMax - xMin || 1
   const toX = (ts: number) => PAD + ((ts - xMin) / xRange) * (W - PAD * 2)
 
-  const closes = visible.map(d => d.close)
+  const closes = visible.map((d) => d.close)
   const vMin = Math.min(...closes)
   const vMax = Math.max(...closes)
   const vRange = vMax - vMin || 1
   const toY = (v: number) => PAD + (1 - (v - vMin) / vRange) * (H - PAD * 2)
 
-  const pts = visible.map(d => `${toX(d.time).toFixed(1)} ${toY(d.close).toFixed(1)}`)
+  const pts = visible.map((d) => `${toX(d.time).toFixed(1)} ${toY(d.close).toFixed(1)}`)
   const line = 'M' + pts.join(' L')
-  const first = visible[0], last = visible[visible.length - 1]
+  const first = visible[0],
+    last = visible[visible.length - 1]
   const area = `${line} L${toX(last.time).toFixed(1)} ${H} L${toX(first.time).toFixed(1)} ${H} Z`
 
-  const live = (Date.now() / 1000 - last.time) < 15 * 60
+  const live = Date.now() / 1000 - last.time < 15 * 60
 
   return { line, area, endX: toX(last.time), endY: toY(last.close), timeLabel, live }
 }
 
-const IndexSpark = memo(function IndexSpark({ data, isKorean }: { data: IntradayPoint[]; isKorean: boolean }) {
+const IndexSpark = memo(function IndexSpark({
+  data,
+  isKorean,
+}: {
+  data: IntradayPoint[]
+  isKorean: boolean
+}) {
   const geo = buildGeometry(data, isKorean)
   if (!geo) return null
   const gid = `gi-grad-${Math.round(geo.endX)}-${Math.round(geo.endY)}-${data.length}`
   return (
-    <svg viewBox="0 0 240 60" preserveAspectRatio="none" width="100%" height="44"
-      style={{ display: 'block', overflow: 'visible', color: 'var(--gi-c)' }}>
+    <svg
+      viewBox="0 0 240 60"
+      preserveAspectRatio="none"
+      width="100%"
+      height="44"
+      style={{ display: 'block', overflow: 'visible', color: 'var(--gi-c)' }}
+    >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="currentColor" stopOpacity="0.26" />
@@ -86,50 +96,26 @@ const IndexSpark = memo(function IndexSpark({ data, isKorean }: { data: Intraday
         </linearGradient>
       </defs>
       <path d={geo.area} fill={`url(#${gid})`} stroke="none" />
-      <path className="gi-glow" d={geo.line} fill="none" stroke="currentColor"
-        strokeWidth="1.7" vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+      <path
+        className="gi-glow"
+        d={geo.line}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        vectorEffect="non-scaling-stroke"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
       <circle cx={geo.endX} cy={geo.endY} r={3} fill="var(--dot)" />
     </svg>
   )
 })
 
 const IndexPanel: React.FC = () => {
-  const [indices, setIndices] = useState<MarketIndex[]>([])
-  const [intradays, setIntradays] = useState<Record<string, IntradayPoint[]>>({})
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { data } = await indicesApi.get()
-        setIndices(data)
-        // 가장 최근 갱신 시각(기준시각)
-        const ts = data
-          .map(d => (d.updated_at ? Date.parse(d.updated_at.endsWith('Z') ? d.updated_at : d.updated_at + 'Z') : 0))
-          .filter(n => n > 0)
-        if (ts.length) setUpdatedAt(new Date(Math.max(...ts)).toISOString())
-        // 병렬로 intraday 데이터 fetch
-        const results = await Promise.allSettled(
-          data.map(idx =>
-            apiClient.get<IntradayPoint[]>(`/api/indices/${encodeURIComponent(idx.symbol)}/intraday`)
-              .then(({ data: intraday }) => ({ symbol: idx.symbol, intraday }))
-          )
-        )
-        const merged: Record<string, IntradayPoint[]> = {}
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value.intraday && r.value.intraday.length > 1) {
-            merged[r.value.symbol] = r.value.intraday
-          }
-        }
-        if (Object.keys(merged).length > 0) setIntradays(merged)
-      } catch {
-        // ignore
-      }
-    }
-    load()
-    const interval = setInterval(load, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [])
+  const { data } = useIndices()
+  const indices = data?.indices ?? []
+  const intradays = data?.intradays ?? {}
+  const updatedAt = data?.updatedAt ?? null
 
   if (indices.length === 0) return null
 
@@ -146,11 +132,16 @@ const IndexPanel: React.FC = () => {
       id="index-panel"
       icon={<Globe size={15} />}
       title="Global Index"
-      right={refLabel ? (
-        <span className="ut-mono" style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 500 }}>
-          {refLabel} 기준
-        </span>
-      ) : undefined}
+      right={
+        refLabel ? (
+          <span
+            className="ut-mono"
+            style={{ fontSize: 11, color: 'var(--ink-4)', fontWeight: 500 }}
+          >
+            {refLabel} 기준
+          </span>
+        ) : undefined
+      }
       contentClassName="px-4 pb-4 pt-1"
     >
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -162,9 +153,13 @@ const IndexPanel: React.FC = () => {
           const isKorean = KOREAN_SYMBOLS.has(idx.symbol)
           const geo = intradayData.length > 1 ? buildGeometry(intradayData, isKorean) : null
           const absChange = idx.change !== null ? Math.abs(idx.change) : null
-          const changeFmt = absChange !== null
-            ? absChange.toLocaleString('ko-KR', { minimumFractionDigits: absChange >= 100 ? 0 : 2, maximumFractionDigits: absChange >= 100 ? 0 : 2 })
-            : null
+          const changeFmt =
+            absChange !== null
+              ? absChange.toLocaleString('ko-KR', {
+                  minimumFractionDigits: absChange >= 100 ? 0 : 2,
+                  maximumFractionDigits: absChange >= 100 ? 0 : 2,
+                })
+              : null
           return (
             <div
               key={idx.symbol}
@@ -173,11 +168,41 @@ const IndexPanel: React.FC = () => {
             >
               <div className="flex flex-col" style={{ padding: '13px 14px 0', gap: 6 }}>
                 {/* 지수명 + 장중표시 / pill 뱃지 */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6 }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-                    <span className="ut-eyebrow" style={{ fontSize: 10.5, letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{idx.name}</span>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 5, minWidth: 0 }}
+                  >
+                    <span
+                      className="ut-eyebrow"
+                      style={{
+                        fontSize: 10.5,
+                        letterSpacing: '0.04em',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {idx.name}
+                    </span>
                     {geo?.live && (
-                      <span title="장중" style={{ width: 6, height: 6, borderRadius: 9999, background: '#22c55e', flexShrink: 0, boxShadow: '0 0 5px #22c55e' }} />
+                      <span
+                        title="장중"
+                        style={{
+                          width: 6,
+                          height: 6,
+                          borderRadius: 9999,
+                          background: '#22c55e',
+                          flexShrink: 0,
+                          boxShadow: '0 0 5px #22c55e',
+                        }}
+                      />
                     )}
                   </span>
                   {idx.change_pct !== null && (
@@ -189,35 +214,63 @@ const IndexPanel: React.FC = () => {
 
                 {idx.price !== null ? (
                   /* 큰 숫자 */
-                  <div className="ut-mono" style={{ fontSize: 23, fontWeight: 700, color: 'var(--ink-0)', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  <div
+                    className="ut-mono"
+                    style={{
+                      fontSize: 23,
+                      fontWeight: 700,
+                      color: 'var(--ink-0)',
+                      letterSpacing: '-0.02em',
+                      lineHeight: 1,
+                    }}
+                  >
                     {idx.price >= 1000
                       ? Math.round(idx.price).toLocaleString('ko-KR')
                       : idx.price.toFixed(2)}
                   </div>
                 ) : (
-                  <p className="text-xs" style={{ color: 'var(--ink-4)' }}>-</p>
+                  <p className="text-xs" style={{ color: 'var(--ink-4)' }}>
+                    -
+                  </p>
                 )}
               </div>
 
               {/* 영역+라인 그래프 (글로우 + endpoint 점) */}
-              {idx.price !== null && (
-                geo ? (
+              {idx.price !== null &&
+                (geo ? (
                   <div style={{ marginTop: 9 }}>
                     <IndexSpark data={intradayData} isKorean={isKorean} />
                   </div>
                 ) : (
                   <div style={{ height: 44, marginTop: 9 }} />
-                )
-              )}
+                ))}
 
               {/* 하단 한 줄: 등락값 + 거래시간(KST, 날짜 포함) */}
               {idx.price !== null && (
-                <div className="ut-mono" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6, padding: '6px 14px 10px' }}>
+                <div
+                  className="ut-mono"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'baseline',
+                    gap: 6,
+                    padding: '6px 14px 10px',
+                  }}
+                >
                   <span style={{ fontSize: 11, fontWeight: 700, color: giColor, flexShrink: 0 }}>
-                    {isUp ? '+' : isDown ? '-' : ''}{changeFmt ?? '-'}
+                    {isUp ? '+' : isDown ? '-' : ''}
+                    {changeFmt ?? '-'}
                   </span>
                   {geo && (
-                    <span style={{ fontSize: 9.5, color: 'var(--ink-4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span
+                      style={{
+                        fontSize: 9.5,
+                        color: 'var(--ink-4)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
                       {geo.timeLabel}
                     </span>
                   )}
